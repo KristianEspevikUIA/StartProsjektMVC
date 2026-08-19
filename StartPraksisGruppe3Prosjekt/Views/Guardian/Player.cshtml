@@ -1,0 +1,16 @@
+@model PlayerDetailViewModel
+@{
+    ViewData["Title"] = $"Spiller {Model.Code}";
+}
+
+<h1>@Model.Code</h1>
+<p class="text-muted">@Model.TeamName</p>
+
+<p><strong>Samtykke:</strong> @ConsentViewModel.Describe(Model.Consent)</p>
+
+<a class="btn btn-outline-secondary" asp-action="Consent" asp-route-id="@Model.PlayerId">
+    Endre samtykke
+</a>
+
+@* TODO (Brage): vis barnets egne svar. Avklar med IK Start om foresatte skal se
+   trenerens gjetning — det er ikke gitt at det er riktig å vise. *@
