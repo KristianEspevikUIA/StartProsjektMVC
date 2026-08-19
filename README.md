@@ -1,4 +1,4 @@
-# Speilet — StartPraksisGruppe3Prosjekt
+# StartPraksisGruppe3Prosjekt
 
 Verktøy for IK Start. Spillere, trenere og foresatte svarer på de samme ti påstandene
 om rolleforståelse, trygghet og mestring. Systemet viser avviket mellom hva treneren
