@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Speilet (https)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/StartPraksisGruppe3Prosjekt/bin/Debug/net8.0/StartPraksisGruppe3Prosjekt.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/StartPraksisGruppe3Prosjekt",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:7030;http://localhost:5026"
+      }
+    },
+    {
+      "name": "Speilet (http)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/StartPraksisGruppe3Prosjekt/bin/Debug/net8.0/StartPraksisGruppe3Prosjekt.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/StartPraksisGruppe3Prosjekt",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5026"
+      }
+    }
+  ]
+}

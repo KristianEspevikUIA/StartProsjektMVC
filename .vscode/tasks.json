@@ -1,0 +1,48 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/StartPraksisGruppe3Prosjekt.sln",
+        "/property:GenerateFullPaths=true",
+        "/consoleloggerparameters:NoSummary"
+      ],
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "watch",
+      "detail": "Kjører appen og laster den på nytt når du lagrer en fil.",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "watch",
+        "run",
+        "--project",
+        "${workspaceFolder}/StartPraksisGruppe3Prosjekt"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "ef: database update",
+      "detail": "Kjører migrasjonene mot speilet.db uten å slette dataene.",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "ef",
+        "database",
+        "update",
+        "--project",
+        "${workspaceFolder}/StartPraksisGruppe3Prosjekt"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
