@@ -1,0 +1,22 @@
+@model TeamOverviewViewModel
+@{
+    ViewData["Title"] = $"Lagoversikt – {Model.TeamName}";
+}
+
+<h1>@Model.TeamName</h1>
+
+@if (Model.Aggregate is null)
+{
+    <div class="alert alert-secondary">
+        @(ViewData["AggregateMessage"] as string ?? "Lagsnitt er ikke tilgjengelig.")
+    </div>
+}
+else
+{
+    @* TODO (Taavi): vis snitt per område. *@
+}
+
+@* TODO (Taavi): tabell over spillerne.
+   Rader der CanView er false skal vise spillerkoden uten tall, med en tydelig
+   forklaring på hvorfor: "Ikke samtykke til individuell visning". *@
+<p><em>Spillertabellen er ikke bygget ennå.</em></p>

@@ -1,0 +1,22 @@
+@{
+    ViewData["Title"] = "Forside";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Speilet</h1>
+    <p class="lead">
+        Spillere, trenere og foresatte svarer på de samme ti påstandene.
+        Systemet viser hvor stort avviket er mellom det treneren tror og det spilleren
+        faktisk opplever.
+    </p>
+</div>
+
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <p class="text-center">
+        <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">Logg inn</a>
+    </p>
+}
+
+@* TODO (Taavi): forsiden skal peke brukeren videre til det hen faktisk skal gjøre —
+   åpne skjemaer først, resten under. *@

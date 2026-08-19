@@ -1,0 +1,16 @@
+@model PlayerDetailViewModel
+@{
+    ViewData["Title"] = $"Spiller {Model.Code}";
+}
+
+<h1>@Model.Code</h1>
+<p class="text-muted">@Model.TeamName @(Model.Position is null ? "" : $"· {Model.Position}")</p>
+
+<p>
+    <strong>Samtykke:</strong> @ConsentViewModel.Describe(Model.Consent)
+</p>
+
+@* TODO (Taavi): vis de ti påstandene med spillerens svar, trenerens gjetning og avviket.
+   Avviket kommer fra IScoringService og finnes ikke i databasen.
+   "Vet ikke" vises som "–", ikke som 0 eller 3. *@
+<p><em>Avviksvisningen er ikke bygget ennå.</em></p>
