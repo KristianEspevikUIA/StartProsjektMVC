@@ -1,11 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
+using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serverhodet forteller ellers hvilken webserver og hvilken versjon som kjører.
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // ---------------------------------------------------------------------------
 // Database. SQLite i utvikling; filen ligger i prosjektmappa og er git-ignorert.
@@ -36,6 +41,46 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>();
 
 // ---------------------------------------------------------------------------
+// Cookies. Sesjonscookien er nøkkelen til alt en bruker får se, og behandles deretter.
+//
+// Utenfor utvikling er kravet https, uten unntak. I utvikling følger cookiene
+// forespørselen: antiforgery-systemet kaster en exception hvis det er satt til
+// Always og forespørselen kommer over http, og launchSettings har fortsatt en
+// http-profil. Dev-databasen inneholder bare oppdiktede data.
+// ---------------------------------------------------------------------------
+var cookieSecurePolicy = builder.Environment.IsDevelopment()
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "Speilet.Auth";
+    options.Cookie.HttpOnly = true;                 // ikke lesbar fra JavaScript
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Strict;  // følger ikke med fra andre nettsteder
+
+    // Delte maskiner: en glemt fane skal ikke være innlogget i morgen.
+    options.ExpireTimeSpan = TimeSpan.FromHours(2);
+    options.SlidingExpiration = true;
+});
+
+// Antiforgery-cookien herdes på samme måte.
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.Name = "Speilet.Antiforgery";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.HeaderName = "RequestVerificationToken";
+});
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
+
+// ---------------------------------------------------------------------------
 // Ressursbasert autorisasjon.
 //
 // Rolle alene avgjør ingenting her. Begge policyene vurderer en konkret ressurs og
@@ -61,15 +106,31 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ---------------------------------------------------------------------------
+// Sikkerhetshoder (CSP med nonce) og rate limiting. Se Security/.
+// ---------------------------------------------------------------------------
+builder.Services.AddSecurityHeaders(builder.Configuration, builder.Environment);
+builder.Services.AddSpeiletRateLimiting();
+
+// ---------------------------------------------------------------------------
 // Tjenester.
 // ---------------------------------------------------------------------------
 builder.Services.AddScoped<IConsentService, ConsentService>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    // Antiforgery på alle POST/PUT/DELETE uten at noen må huske attributtet.
+    // Trenger du å slippe unna på én action, må det være et bevisst
+    // [IgnoreAntiforgeryToken] som synes i kodegjennomgang.
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
+
 builder.Services.AddRazorPages(); // Identity UI (innlogging, passord) ligger som Razor Pages
 
 var app = builder.Build();
+
+// Først i pipelinen: da følger hodene med på alt, også statiske filer og feilsvar.
+app.UseSecurityHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -85,6 +146,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+
+// Etter UseRouting, slik at [EnableRateLimiting] på en action blir sett.
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
