@@ -107,10 +107,12 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         });
     }
 
-    public override int SaveChanges()
+    // Overstyrer overloaden med parameter, ikke den parameterløse: SaveChanges() kaller
+    // videre hit. Overstyres bare SaveChanges(), går SaveChanges(false) utenom vakten.
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         GuardAppendOnlyConsentLog();
-        return base.SaveChanges();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
     public override Task<int> SaveChangesAsync(
