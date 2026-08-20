@@ -163,6 +163,11 @@ spiller eller ett konkret lag.
 | Trener | bare hvis `CoachTeam` dekker spillerens lag **og** nyeste `ConsentEvent` er `Full` |
 | Alle andre | nei |
 
+**`CanViewTeam`** (`AuthorizationHandler<CanViewTeamRequirement, Team>`) — admin, eller
+trener med `CoachTeam` på laget. Avgjør om lagsiden i det hele tatt skal vises, og er et
+annet spørsmål enn om snittet skal vises. Uten den kunne en hvilken som helst trener bla
+gjennom lag-ID-er og få bekreftet hvilke lag som finnes.
+
 **`CanViewTeamAggregate`** — trener med `CoachTeam` på laget, eller admin. I tillegg:
 snittet vises ikke hvis færre enn **3** besvarelser ligger bak det, ellers kan tallet
 regnes tilbake til enkeltpersoner. Grensen er `CanViewTeamAggregateRequirement.MinimumResponses`,
@@ -248,6 +253,28 @@ en controller krever token, uten at noen må huske attributtet. Bruk `<form asp-
 
 Avviste forespørsler får `429` med `Retry-After` og logges med IP, metode og sti.
 
+### Nekt som standard
+
+`FallbackPolicy` i `Program.cs` krever innlogging på alle endepunkter som ikke sier noe
+annet. En ny controller uten `[Authorize]` er altså ikke åpen — den krever innlogging.
+Det som faktisk skal være åpent, må merkes `[AllowAnonymous]`, og i dag er det bare
+`HomeController` (forside, personvern, feilside).
+
+Fallbacken erstatter ikke `[Authorize(Roles = ...)]` og slett ikke de ressursbaserte
+policyene. Den sier bare «innlogget», ikke «innlogget som riktig person».
+
+### Selvregistrering er stengt
+
+`/Identity/Account/Register` og de tilhørende sidene svarer `404`
+(`Security/ClosedRegistrationExtensions.cs`). Kontoer opprettes av klubben — en åpen
+registrering på et system med opplysninger om mindreårige er et hull uansett hvor god
+autorisasjonen bak er.
+
+Sidene stenges i middleware og ikke med en policy, fordi Identity UI-sidene har
+`[AllowAnonymous]` i selve pakken, og AllowAnonymous slår enhver policy vi legger på
+utenfra. Lenken «Register as a new user» står fortsatt på innloggingssiden og fører nå
+til 404; skal den bort, må siden scaffoldes.
+
 ### Cookies og hoder ellers
 
 Sesjons- og antiforgery-cookies er `HttpOnly`, `SameSite=Strict` og https-only utenfor
@@ -267,8 +294,14 @@ bare proxyens IP-adresse.
 
 - [ ] Melding til Sikt
 - [ ] Personvernerklæring (`Views/Home/Privacy.cshtml`)
-- [ ] Selvregistrering i Identity UI er åpen på `/Identity/Account/Register` og bør
-      stenges — kontoer skal opprettes av klubben
+- [x] Selvregistrering stengt — kontoer opprettes av klubben. Admin-siden som faktisk
+      oppretter dem er fortsatt TODO i `AdminController.Users`
+- [ ] `AllowedHosts` står på `*` i `appsettings.json`. Settes til det faktiske vertsnavnet
+      før produksjon
+- [ ] Identity UI lar en bruker slette sin egen konto på
+      `/Identity/Account/Manage/DeletePersonalData`. Det går utenom sletterutinen i
+      `AdminController.Delete` og etterlater `Player.UserId` uten bruker. Avklar om siden
+      skal stenges eller om sletting skal gå gjennom den
 - [ ] Revisjonslogg for admin-oppslag på enkeltspillere
 - [ ] Skal spilleren se trenerens gjetning og avviket? Ikke avgjort — se
       `PlayerController`

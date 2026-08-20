@@ -12,4 +12,7 @@ public static class Policies
 
     /// <summary>Krever <see cref="TeamAggregateResource"/> som ressurs.</summary>
     public const string CanViewTeamAggregate = "CanViewTeamAggregate";
+
+    /// <summary>Krever <see cref="Models.Team"/> som ressurs.</summary>
+    public const string CanViewTeam = "CanViewTeam";
 }

@@ -56,6 +56,15 @@ public class CoachController : Controller
             return NotFound();
         }
 
+        // Samme mønster som PlayerDetail: rollen slapp deg inn i controlleren, policyen
+        // avgjør om nettopp DETTE laget er ditt. Uten denne kunne en trener bla gjennom
+        // lag-ID-er og få bekreftet hvilke lag som finnes.
+        var teamAllowed = await _authz.AuthorizeAsync(User, team, Policies.CanViewTeam);
+        if (!teamAllowed.Succeeded)
+        {
+            return Forbid();
+        }
+
         // TODO (Taavi): tell faktiske besvarelser for laget i runden i stedet for 0.
         var responseCount = 0;
 

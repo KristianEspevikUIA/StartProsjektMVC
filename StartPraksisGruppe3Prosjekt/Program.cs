@@ -40,6 +40,13 @@ builder.Services
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>();
 
+// Rolleendringer ligger i cookien til den valideres på nytt. Standard er 30 minutter;
+// her skal en trener som mister et lag, eller en konto som låses, miste tilgangen fort.
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+{
+    options.ValidationInterval = TimeSpan.FromMinutes(5);
+});
+
 // ---------------------------------------------------------------------------
 // Cookies. Sesjonscookien er nøkkelen til alt en bruker får se, og behandles deretter.
 //
@@ -89,6 +96,7 @@ builder.Services.AddHsts(options =>
 // ---------------------------------------------------------------------------
 builder.Services.AddScoped<IAuthorizationHandler, CanViewPlayerHandler>();
 builder.Services.AddScoped<IAuthorizationHandler, CanViewTeamAggregateHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, CanViewTeamHandler>();
 
 builder.Services.AddAuthorization(options =>
 {
@@ -103,6 +111,20 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser();
         policy.Requirements.Add(new CanViewTeamAggregateRequirement());
     });
+
+    options.AddPolicy(Policies.CanViewTeam, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.Requirements.Add(new CanViewTeamRequirement());
+    });
+
+    // Nekt som standard: en ny controller eller action uten [Authorize] krever
+    // likevel innlogging. Glemt attributt skal gi en innloggingsside, ikke en åpen
+    // side med spillerdata. Det som faktisk skal være åpent, merkes [AllowAnonymous]
+    // — se HomeController.
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
 });
 
 // ---------------------------------------------------------------------------
@@ -131,6 +153,9 @@ var app = builder.Build();
 
 // Først i pipelinen: da følger hodene med på alt, også statiske filer og feilsvar.
 app.UseSecurityHeaders();
+
+// Selvregistrering er stengt — kontoer opprettes av klubben. Se Security/.
+app.UseClosedSelfRegistration();
 
 if (app.Environment.IsDevelopment())
 {
