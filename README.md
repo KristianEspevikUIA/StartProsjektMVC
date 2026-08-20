@@ -193,6 +193,76 @@ stubs.
 
 ---
 
+## Sikkerhet: rammene koden skrives innenfor
+
+Ligger i `Security/` og settes opp i `Program.cs`. Dette er på plass fra nå, så det
+er noe å skrive kode *innenfor* — ikke noe som skrus på til slutt.
+
+### CSP — skript og stil må ligge i egne filer
+
+Svarene har en Content-Security-Policy uten `unsafe-inline`. I praksis:
+
+- `<script>alert(1)</script>` rett i en view kjører **ikke**. Legg JavaScript i en fil
+  under `wwwroot/js/` og referer til den.
+- `<style>`-blokker og `style="..."`-attributter i markup blokkeres. Bruk `wwwroot/css/site.css`.
+  (JavaScript som setter `element.style.x` er fortsatt greit — det er Bootstrap avhengig av.)
+- Må du absolutt ha et inline-skript, gi det nonce-en for forespørselen:
+
+  ```cshtml
+  <script nonce="@Context.GetCspNonce()">…</script>
+  ```
+
+- Bilder fra `data:`-URI-er er tillatt, fordi Bootstrap legger ikoner i CSS-en. Alt annet
+  må komme fra vårt eget domene: ingen CDN-er, ingen Google Fonts.
+
+Ser du en tom side og en CSP-feil i konsollen, er det denne regelen. Skru den ikke av —
+`Security:Headers:ReportOnly: true` i `appsettings.Development.json` lar deg feilsøke
+med policyen i rapportmodus, men koden skal fungere med den håndhevet.
+
+Kjent begrensning: 2FA-siden i Identity UI (`EnableAuthenticator`) har et inline-skript
+i pakken som CSP-en blokkerer. Tofaktor er ikke i bruk her; skal det tas i bruk, må siden
+scaffoldes og skriptet få nonce.
+
+Razor koder fortsatt alt som skrives med `@`. CSP-en er nettet under — den erstatter ikke
+regelen om at `Html.Raw` ikke brukes på noe en bruker har skrevet.
+
+### Antiforgery er på overalt
+
+`AutoValidateAntiforgeryTokenAttribute` er registrert globalt. Alle POST/PUT/DELETE mot
+en controller krever token, uten at noen må huske attributtet. Bruk `<form asp-action="…">`
+— tag helperen legger inn tokenet selv. Trenger du unntak, må det være et bevisst
+`[IgnoreAntiforgeryToken]` som synes i en pull request.
+
+### Rate limiting
+
+- Alle forespørsler: 240 per minutt per IP-adresse.
+- POST mot `/Identity/Account/*`: 10 per fem minutter per IP. Kontolåsingen i Identity
+  beskytter én konto; denne hindrer at noen prøver ett passord mot hundre kontoer.
+- Egen policy for dyre eller endrende actions:
+
+  ```csharp
+  [EnableRateLimiting(RateLimitPolicies.Sensitive)]  // 30 per minutt per IP
+  ```
+
+  Verdt å sette på innsending av skjema, søk og eksport.
+
+Avviste forespørsler får `429` med `Retry-After` og logges med IP, metode og sti.
+
+### Cookies og hoder ellers
+
+Sesjons- og antiforgery-cookies er `HttpOnly`, `SameSite=Strict` og https-only utenfor
+utvikling. Sesjonen varer to timer med glidende utløp. HTML-svar til innloggede brukere
+sendes med `no-store` — sidene skal ikke ligge igjen i nettleseren på en delt PC.
+
+I tillegg: `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+`Permissions-Policy` uten kamera/mikrofon/posisjon, COOP/CORP `same-origin`, og HSTS i ett
+år utenfor utvikling. Serverhodet er fjernet.
+
+Kjøres appen bak en proxy må `ForwardedHeaders` settes opp, ellers ser rate limiteren
+bare proxyens IP-adresse.
+
+---
+
 ## Ting som må avklares før ekte data
 
 - [ ] Melding til Sikt
