@@ -1,14 +1,174 @@
+@model SurveyIndexViewModel
 @{
-    ViewData["Title"] = "Skjema";
+    ViewData["Title"] = "The form";
+    ViewData["FullWidth"] = true;
+
+    var message = TempData["SurveyMessage"] as string;
 }
 
-<h1>Skjema</h1>
+@*
+    One list, three meanings. A player sees one card about themselves, a guardian one per
+    child, a coach one per player on their teams. The view does not branch on role --
+    SurveyAssignmentService has already worked out what belongs in the list.
+*@
 
-<p class="text-muted">Åpne runder du kan svare i.</p>
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>The form</h1>
 
-@* TODO (Victor): list åpne SurveyRounds, og for hver runde hvilke spillere den
-   innloggede brukeren skal svare om:
-     Spiller  – seg selv
-     Trener   – spillerne på egne lag
-     Foresatt – egne barn *@
-<p><em>Ikke bygget ennå.</em></p>
+        @if (Model.OpenRound is { } round)
+        {
+            <p class="sc-hero__lead">
+                @round.Name is open until @round.ClosesAt.ToLocalTime().ToString("d MMMM yyyy").
+            </p>
+            <div class="sc-hero__meta">
+                <span>@Model.Assignments.Count form@(Model.Assignments.Count == 1 ? "" : "s") for you</span>
+                <span>@Model.AnsweredCount answered</span>
+                <span>@Model.RemainingCount remaining</span>
+            </div>
+        }
+        else
+        {
+            <p class="sc-hero__lead">
+                No round is open right now. You will get a link when the next one opens.
+            </p>
+        }
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <section class="sc-section">
+            <div class="sc-notice" role="status">
+                <p>@message</p>
+            </div>
+        </section>
+    }
+
+    @if (Model.OpenRound is not null)
+    {
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>To answer</h2>
+
+            @if (Model.Assignments.Count == 0)
+            {
+                @*
+                    A real state, not an error. An admin has nobody to answer about, and a
+                    coach who is not registered on a team lands here too.
+                *@
+                <div class="sc-card sc-card--left">
+                    <h3>Nothing to fill in</h3>
+                    <p class="sc-card__meta">
+                        There are no forms assigned to you in this round. If you think that is
+                        wrong, the club can check which team or player your account is linked to.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="sc-grid">
+                    @foreach (var assignment in Model.Assignments)
+                    {
+                        <article class="sc-card sc-card--top">
+                            <div class="sc-compare__head">
+                                <h3>@(assignment.IsAboutSelf ? "About yourself" : assignment.PlayerCode)</h3>
+                                @if (assignment.HasAnswered)
+                                {
+                                    <span class="sc-badge sc-badge--ok">Answered</span>
+                                }
+                                else
+                                {
+                                    <span class="sc-badge">Missing</span>
+                                }
+                            </div>
+
+                            <p class="sc-card__meta">
+                                @assignment.PlayerCode · @assignment.TeamName ·
+                                answering as @Roles.DisplayName(assignment.Role.ToString())
+                            </p>
+
+                            @if (assignment.SubmittedAt is { } submittedAt)
+                            {
+                                <p class="sc-card__meta">
+                                    Submitted @submittedAt.ToLocalTime().ToString("d MMMM")
+                                </p>
+                            }
+
+                            <div class="sc-actions">
+                                <a class="sc-btn"
+                                   asp-action="Fill"
+                                   asp-route-roundId="@Model.OpenRound!.Id"
+                                   asp-route-playerId="@assignment.PlayerId"
+                                   asp-route-role="@assignment.Role">
+                                    @(assignment.HasAnswered ? "View or change" : "Fill in")
+                                </a>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+
+    @if (Model.ClosedRounds.Count > 0)
+    {
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Earlier rounds</h2>
+            <p class="sc-lead">
+                Closed rounds cannot be answered or changed.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Round</th>
+                            <th scope="col">Closed</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var closed in Model.ClosedRounds)
+                        {
+                            var notYet = DateTimeOffset.UtcNow < closed.OpensAt;
+
+                            <tr>
+                                <td class="sc-code">@closed.Name</td>
+                                <td class="sc-muted sc-small">
+                                    @(notYet
+                                        ? $"Opens {closed.OpensAt.ToLocalTime():d MMMM yyyy}"
+                                        : closed.ClosesAt.ToLocalTime().ToString("d MMMM yyyy"))
+                                </td>
+                                <td>
+                                    <span class="sc-badge sc-badge--muted">@(notYet ? "Not open yet" : "Closed")</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (Model.StoreDescription is { } store)
+    {
+        @*
+            Admin only. "Did that actually save anywhere" should have an answer on the page
+            rather than in a log file.
+        *@
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <p class="sc-eyebrow">Administration</p>
+                <p class="sc-card__meta">Submitted answers are stored in: <strong>@store</strong>.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <div class="sc-section sc-section--last"></div>
+    }
+</div>

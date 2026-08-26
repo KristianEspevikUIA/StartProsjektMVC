@@ -1,0 +1,40 @@
+@model SurveyClosedViewModel
+@{
+    ViewData["Title"] = Model.RoundName;
+    ViewData["FullWidth"] = true;
+}
+
+@*
+    Replaces a bare 400 for a round that is not open. Someone clicking a link from an old
+    message has not done anything wrong, and a status code is not something to hand a
+    14-year-old. The date is the point: "closed" alone is a dead end, "closed on 12 May"
+    is an explanation.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>@Model.RoundName</h1>
+        <p class="sc-hero__lead">@Model.Headline</p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        <div class="sc-card sc-card--left">
+            <p class="sc-eyebrow">@(Model.NotOpenYet ? "Not open yet" : "Closed")</p>
+            <p>@Model.Explanation</p>
+
+            @if (Model.HasAnswered)
+            {
+                <p class="sc-card__meta">
+                    You answered for @Model.PlayerCode in this round. Your answers are kept.
+                </p>
+            }
+
+            <div class="sc-actions">
+                <a class="sc-btn" asp-action="Index">Back to the form</a>
+            </div>
+        </div>
+    </section>
+</div>

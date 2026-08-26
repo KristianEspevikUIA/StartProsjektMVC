@@ -20,12 +20,21 @@ public class ConsentViewModel
     /// <summary>Nyeste først.</summary>
     public List<ConsentEvent> History { get; set; } = new();
 
-    /// <summary>Norsk forklaring på hvert nivå — brukes i skjemaet.</summary>
+    /// <summary>Plain-language explanation of each level, shown in the consent form.</summary>
     public static string Describe(ConsentLevel level) => level switch
     {
-        ConsentLevel.None => "Ingen deling. Bare spilleren selv og foresatte ser svarene.",
-        ConsentLevel.Aggregated => "Svarene kan inngå i anonyme lagsnitt, men vises ikke som enkeltperson.",
-        ConsentLevel.Full => "Treneren kan se spillerens egne svar og avviket.",
+        ConsentLevel.None => "No sharing. Only the player and their guardians see the answers.",
+        ConsentLevel.Aggregated => "The answers may go into anonymous team averages, but are not shown for the individual.",
+        ConsentLevel.Full => "The coach can see the player's own answers and the gap.",
+        _ => level.ToString()
+    };
+
+    /// <summary>Short label for the same level, for a badge or a table cell.</summary>
+    public static string ShortName(ConsentLevel level) => level switch
+    {
+        ConsentLevel.None => "No sharing",
+        ConsentLevel.Aggregated => "Aggregated only",
+        ConsentLevel.Full => "Full sharing",
         _ => level.ToString()
     };
 }

@@ -1,0 +1,833 @@
+/*
+    StartCompass -- the club look, carried over from the StartCompass site.
+
+    Loaded after bootstrap.min.css and site.css, so it overrides the Bootstrap defaults
+    the existing views still lean on rather than replacing them.
+
+    Two constraints shape everything here:
+
+      1. The CSP has no unsafe-inline. There is no style="" anywhere in the markup and no
+         <style> block in a view. Anything that varies per row is either a class from a
+         fixed set, or an SVG geometry attribute -- which is markup, not CSS.
+
+      2. No CDN and no Google Fonts. The site uses Barlow and Barlow Condensed; those are
+         not available here, so the stacks below name them first and fall back to whatever
+         the device has. On Windows that is Segoe UI and Segoe UI Semibold; the shape is
+         the same even when the typeface is not.
+*/
+
+:root {
+    /* The Start palette. Same values as app/globals.css on the StartCompass site. */
+    --sc-yellow: #f5ce00;
+    --sc-blue: #24479b;
+    --sc-ink: #111111;
+
+    --sc-background: #faf9f5;
+    --sc-foreground: #16244a;
+    --sc-card: #ffffff;
+    --sc-muted: #f1efe6;
+    --sc-muted-foreground: #5a5f6b;
+    --sc-border: #e6e3d8;
+
+    /* One colour per respondent, so the same role reads the same across every chart. */
+    --sc-player: #24479b;
+    --sc-guardian: #3f7a54;
+    --sc-coach: #a06c14;
+
+    --sc-alert: #b23a2e;
+    --sc-alert-wash: #fbeeec;
+    --sc-ok: #3f7a54;
+
+    --sc-sans: "Barlow", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    --sc-display: "Barlow Condensed", "Segoe UI Semibold", "Arial Narrow", var(--sc-sans);
+}
+
+/* ---------------------------------------------------------------- base ---- */
+
+body {
+    background: var(--sc-background);
+    color: var(--sc-foreground);
+    font-family: var(--sc-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+.sc-page {
+    margin: 0 auto;
+    max-width: 1180px;
+    padding: 0 20px;
+}
+
+/* --------------------------------------------------------------- header ---- */
+
+.sc-header {
+    background: var(--sc-yellow);
+    border-bottom: 4px solid var(--sc-ink);
+}
+
+.sc-header .navbar {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 0 !important;
+    min-height: 68px;
+}
+
+.sc-header .navbar-brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+    text-decoration: none;
+}
+
+.sc-brand__name {
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 23px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sc-brand__sub {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.sc-header .nav-link {
+    color: rgba(0, 0, 0, 0.6) !important;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 9px 13px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sc-header .nav-link:hover,
+.sc-header .nav-link:focus {
+    color: var(--sc-ink) !important;
+}
+
+.sc-header .nav-link.active {
+    background: var(--sc-ink);
+    color: var(--sc-yellow) !important;
+}
+
+/* ----------------------------------------------------------------- hero ---- */
+
+.sc-hero {
+    background: var(--sc-yellow);
+    overflow: hidden;
+    padding: 48px 0 52px;
+    position: relative;
+}
+
+/* The diagonal hatch from the StartCompass hero. Decorative, so it is hidden from
+   assistive technology by being a background rather than an element. */
+.sc-hero::before {
+    background-image: repeating-linear-gradient(115deg,
+            rgba(0, 0, 0, 0.05) 0 2px,
+            transparent 2px 46px);
+    content: "";
+    inset: 0;
+    position: absolute;
+}
+
+.sc-hero > * {
+    position: relative;
+}
+
+.sc-rule {
+    background: var(--sc-blue);
+    height: 5px;
+    margin-bottom: 18px;
+    width: 46px;
+}
+
+.sc-hero h1 {
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: clamp(34px, 5.5vw, 62px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 0.98;
+    margin: 0 0 14px;
+    text-transform: uppercase;
+}
+
+.sc-hero__lead {
+    color: rgba(0, 0, 0, 0.72);
+    font-size: 17px;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 660px;
+}
+
+.sc-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.sc-hero__meta span {
+    background: rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    color: rgba(0, 0, 0, 0.75);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 5px 11px;
+    white-space: nowrap;
+}
+
+/* -------------------------------------------------------------- sections ---- */
+
+.sc-section {
+    padding: 48px 0 0;
+}
+
+.sc-section--last {
+    padding-bottom: 72px;
+}
+
+.sc-section h2 {
+    color: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: clamp(26px, 3.6vw, 38px);
+    font-weight: 800;
+    line-height: 1;
+    margin: 0 0 12px;
+    text-transform: uppercase;
+}
+
+.sc-section h3 {
+    color: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.05;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+}
+
+.sc-lead {
+    color: var(--sc-muted-foreground);
+    font-size: 16px;
+    line-height: 1.7;
+    margin: 0 0 24px;
+    max-width: 680px;
+}
+
+.sc-eyebrow {
+    color: var(--sc-blue);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- cards ---- */
+
+.sc-card {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    padding: 24px 26px;
+}
+
+.sc-card + .sc-card {
+    margin-top: 16px;
+}
+
+.sc-card--top {
+    border-top: 5px solid var(--sc-blue);
+}
+
+.sc-card--left {
+    border-left: 6px solid var(--sc-ink);
+}
+
+.sc-card--alert {
+    border-left: 6px solid var(--sc-alert);
+}
+
+.sc-card--dark {
+    background: var(--sc-ink);
+    border-color: var(--sc-ink);
+    color: #ffffff;
+}
+
+.sc-card--dark h2,
+.sc-card--dark h3 {
+    color: var(--sc-yellow);
+}
+
+.sc-card--dark p {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.sc-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.sc-card__meta {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    margin: 0;
+}
+
+/* --------------------------------------------------------------- notices ---- */
+
+.sc-notice {
+    border-left: 6px solid var(--sc-ok);
+    background: var(--sc-card);
+    margin-bottom: 24px;
+    padding: 16px 20px;
+}
+
+.sc-notice--info {
+    border-left-color: var(--sc-blue);
+}
+
+.sc-notice--warn {
+    border-left-color: var(--sc-alert);
+    background: var(--sc-alert-wash);
+}
+
+.sc-notice p {
+    margin: 0;
+}
+
+/* --------------------------------------------------------------- badges ---- */
+
+.sc-badge {
+    background: var(--sc-muted);
+    color: var(--sc-muted-foreground);
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 4px 9px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sc-badge--alert {
+    background: var(--sc-alert);
+    color: #ffffff;
+}
+
+.sc-badge--ok {
+    background: var(--sc-ok);
+    color: #ffffff;
+}
+
+.sc-badge--player {
+    background: var(--sc-player);
+    color: #ffffff;
+}
+
+.sc-badge--guardian {
+    background: var(--sc-guardian);
+    color: #ffffff;
+}
+
+.sc-badge--coach {
+    background: var(--sc-coach);
+    color: #ffffff;
+}
+
+.sc-badge--muted {
+    background: transparent;
+    border: 1px solid var(--sc-border);
+}
+
+/* --------------------------------------------------------------- buttons ---- */
+
+.sc-btn {
+    background: var(--sc-ink);
+    border: 2px solid var(--sc-ink);
+    color: var(--sc-yellow);
+    cursor: pointer;
+    display: inline-block;
+    font-family: var(--sc-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    min-height: 46px;
+    padding: 11px 24px;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.sc-btn:hover,
+.sc-btn:focus {
+    background: var(--sc-blue);
+    border-color: var(--sc-blue);
+    color: #ffffff;
+}
+
+.sc-btn--secondary {
+    background: transparent;
+    color: var(--sc-ink);
+}
+
+.sc-btn--secondary:hover,
+.sc-btn--secondary:focus {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+.sc-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 28px;
+}
+
+/* ------------------------------------------------------------- the form ---- */
+
+.sc-form__header {
+    border-bottom: 1px solid var(--sc-border);
+    margin-bottom: 8px;
+    padding-bottom: 20px;
+}
+
+/* Sticky, because on a phone the counter scrolls away exactly when it is useful. */
+.sc-progress {
+    background: var(--sc-background);
+    border-bottom: 1px solid var(--sc-border);
+    padding: 10px 0;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.sc-progress__text {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.sc-progress__track {
+    background: var(--sc-muted);
+    height: 6px;
+    width: 100%;
+}
+
+.sc-progress__bar {
+    background: var(--sc-blue);
+    height: 6px;
+    /* The width is set from wwwroot/js/survey.js. Assigning element.style from
+       JavaScript is allowed by the CSP; a style="" attribute in the markup is not. */
+    width: 0;
+}
+
+.sc-question {
+    border-top: 1px solid var(--sc-border);
+    padding: 22px 0 6px;
+}
+
+.sc-question:first-of-type {
+    border-top: 0;
+}
+
+.sc-question__text {
+    color: var(--sc-foreground);
+    display: flex;
+    font-size: 17px;
+    gap: 12px;
+    line-height: 1.5;
+    margin: 0 0 14px;
+}
+
+.sc-question__number {
+    color: var(--sc-muted-foreground);
+    font-family: var(--sc-display);
+    font-size: 17px;
+    font-weight: 700;
+    min-width: 26px;
+}
+
+/* The scale. Radio inputs with real labels, not bare numbers, and hit areas that
+   survive a thumb on a phone. */
+.sc-scale__ends {
+    color: var(--sc-muted-foreground);
+    display: flex;
+    font-size: 12px;
+    justify-content: space-between;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.sc-scale__options {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.sc-scale__option {
+    position: relative;
+}
+
+/* Visually hidden, still focusable and still announced by a screen reader. */
+.sc-scale__option input {
+    height: 1px;
+    opacity: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.sc-scale__option label {
+    align-items: center;
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    justify-content: center;
+    min-height: 62px;
+    padding: 8px 4px;
+    text-align: center;
+    width: 100%;
+}
+
+.sc-scale__option label:hover {
+    border-color: var(--sc-ink);
+}
+
+.sc-scale__num {
+    font-family: var(--sc-display);
+    font-size: 21px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.sc-scale__label {
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.sc-scale__option input:checked + label {
+    background: var(--sc-ink);
+    border-color: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+.sc-scale__option input:checked + label .sc-scale__label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.sc-scale__option input:focus-visible + label {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+}
+
+/* "Don't know" sits outside the 1-5 row on purpose: it is not the middle of the
+   scale, and it must not look like it is. Only rendered when the question set
+   turns it on. */
+.sc-scale__dontknow {
+    margin-top: 8px;
+    position: relative;
+}
+
+.sc-scale__dontknow input {
+    height: 1px;
+    opacity: 0;
+    position: absolute;
+    width: 1px;
+}
+
+.sc-scale__dontknow label {
+    border: 1px dashed var(--sc-border);
+    cursor: pointer;
+    display: inline-block;
+    font-size: 13px;
+    min-height: 40px;
+    padding: 10px 16px;
+}
+
+.sc-scale__dontknow input:checked + label {
+    background: var(--sc-muted);
+    border-color: var(--sc-muted-foreground);
+    border-style: solid;
+}
+
+.sc-scale__dontknow input:focus-visible + label {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+}
+
+.sc-field-error {
+    color: var(--sc-alert);
+    display: block;
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+/* --------------------------------------------------------------- tables ---- */
+
+.sc-table-wrap {
+    overflow-x: auto;
+}
+
+.sc-table {
+    background: var(--sc-card);
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.sc-table th {
+    background: var(--sc-muted);
+    border-bottom: 2px solid var(--sc-border);
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 10px 12px;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sc-table td {
+    border-bottom: 1px solid var(--sc-border);
+    padding: 12px;
+    vertical-align: middle;
+}
+
+.sc-table tbody tr.sc-row--alert {
+    background: var(--sc-alert-wash);
+}
+
+.sc-table tbody tr.sc-row--hidden td {
+    color: var(--sc-muted-foreground);
+}
+
+.sc-code {
+    font-family: var(--sc-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.sc-num {
+    font-family: var(--sc-display);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.sc-muted {
+    color: var(--sc-muted-foreground);
+}
+
+.sc-small {
+    font-size: 13px;
+}
+
+/* ------------------------------------------------------- comparison chart ---- */
+
+.sc-compare {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.sc-compare__card {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-blue);
+    padding: 18px 20px 16px;
+}
+
+.sc-compare__card--alert {
+    border-top-color: var(--sc-alert);
+}
+
+.sc-compare__head {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.sc-compare__desc {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 12px;
+}
+
+/* Label and number are HTML; only the bar is SVG. Geometry lives in width/x attributes,
+   which are markup and unaffected by the CSP -- only the fills are set here. */
+.sc-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sc-bar-row {
+    align-items: center;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 68px 1fr 34px;
+}
+
+.sc-bar-row__label {
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sc-bar-row__value {
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    text-align: right;
+}
+
+.sc-chart {
+    display: block;
+    height: 12px;
+    width: 100%;
+}
+
+.sc-chart__track {
+    fill: var(--sc-muted);
+}
+
+.sc-chart__bar--player {
+    fill: var(--sc-player);
+}
+
+.sc-chart__bar--guardian {
+    fill: var(--sc-guardian);
+}
+
+.sc-chart__bar--coach {
+    fill: var(--sc-coach);
+}
+
+.sc-chart__bar--alert {
+    fill: var(--sc-alert);
+}
+
+.sc-chart__label {
+    fill: var(--sc-muted-foreground);
+    font-family: var(--sc-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sc-chart__value {
+    fill: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.sc-chart__gridline {
+    stroke: var(--sc-border);
+    stroke-width: 1;
+}
+
+.sc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.sc-legend__item {
+    align-items: center;
+    color: var(--sc-muted-foreground);
+    display: flex;
+    font-size: 12px;
+    gap: 6px;
+}
+
+.sc-legend__swatch {
+    display: inline-block;
+    height: 12px;
+    width: 12px;
+}
+
+.sc-legend__swatch--player {
+    background: var(--sc-player);
+}
+
+.sc-legend__swatch--guardian {
+    background: var(--sc-guardian);
+}
+
+.sc-legend__swatch--coach {
+    background: var(--sc-coach);
+}
+
+/* --------------------------------------------------------------- footer ---- */
+
+.sc-footer {
+    background: var(--sc-ink);
+    border-top: 4px solid var(--sc-yellow);
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+    margin-top: 64px;
+    padding: 32px 0;
+    position: static;
+    white-space: normal;
+}
+
+.sc-footer a {
+    color: rgba(255, 255, 255, 0.75);
+    text-decoration: none;
+}
+
+.sc-footer a:hover,
+.sc-footer a:focus {
+    color: var(--sc-yellow);
+}
+
+/* The default template pins the footer to the bottom with a fixed line-height.
+   That does not survive a page as long as the form. */
+body {
+    margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------- mobile ---- */
+
+@media (max-width: 640px) {
+    .sc-scale__options {
+        gap: 6px;
+    }
+
+    .sc-scale__label {
+        display: none; /* The endpoint labels above the row carry the meaning. */
+    }
+
+    .sc-scale__option label {
+        min-height: 52px;
+    }
+
+    .sc-hero {
+        padding: 32px 0 36px;
+    }
+}

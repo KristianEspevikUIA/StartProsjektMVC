@@ -1,22 +1,53 @@
+@inject IQuestionCatalog Catalog
 @{
-    ViewData["Title"] = "Forside";
+    ViewData["Title"] = "Home";
+    ViewData["FullWidth"] = true;
 }
 
-<div class="text-center">
-    <h1 class="display-4">Speilet</h1>
-    <p class="lead">
-        Spillere, trenere og foresatte svarer på de samme ti påstandene.
-        Systemet viser hvor stort avviket er mellom det treneren tror og det spilleren
-        faktisk opplever.
-    </p>
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>StartCompass</h1>
+        <p class="sc-hero__lead">
+            Players, coaches and guardians answer the same statements about the five C's.
+            The system shows where their pictures of the same player differ — and that is
+            usually where the development work starts.
+        </p>
+
+        <div class="sc-actions">
+            @if (User.Identity?.IsAuthenticated != true)
+            {
+                <a class="sc-btn" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+            }
+            else
+            {
+                <a class="sc-btn" asp-controller="Survey" asp-action="Index">Go to the form</a>
+            }
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>The five C's</h2>
+        <p class="sc-lead">
+            The framework the club tracks development against. Every statement is answered
+            on a scale from 1 to 5.
+        </p>
+
+        @*
+            Read from the question catalog rather than written out again here, so the front
+            page cannot drift away from the form. Editing five-c-questions.json changes both.
+        *@
+        <div class="sc-grid">
+            @foreach (var category in Catalog.Questions.Categories)
+            {
+                <article class="sc-card sc-card--top">
+                    <h3>@category.Name</h3>
+                    <p class="sc-card__meta">@category.Description</p>
+                </article>
+            }
+        </div>
+    </section>
 </div>
-
-@if (User.Identity?.IsAuthenticated != true)
-{
-    <p class="text-center">
-        <a class="btn btn-primary" asp-area="Identity" asp-page="/Account/Login">Logg inn</a>
-    </p>
-}
-
-@* TODO (Taavi): forsiden skal peke brukeren videre til det hen faktisk skal gjøre —
-   åpne skjemaer først, resten under. *@
