@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Security;
@@ -217,11 +218,56 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
+// ---------------------------------------------------------------------------
+// Databasen: feil tidlig og forståelig.
+//
+// Tilkoblingsstrengen i appsettings.json peker på Supabase, men uten passord —
+// passordet er en hemmelighet og skal ikke ligge i repoet. Uten det kaster Npgsql
+// en stacktrace som ikke sier hva man skal gjøre. Denne sjekken gjør det.
+//
+// Sjekken ligger etter builder.Build() med vilje: `dotnet ef` stopper appen der,
+// så migrasjoner kan fortsatt genereres på en maskin uten passordet.
+// ---------------------------------------------------------------------------
+if (string.IsNullOrEmpty(new NpgsqlConnectionStringBuilder(connectionString).Password))
+{
+    app.Logger.LogCritical(
+        "Databasepassordet mangler. Tilkoblingsstrengen har ingen Password, og Postgres " +
+        "krever et. Hent «Database password» i Supabase (Project Settings -> Database) og " +
+        "legg det i user-secrets — ikke i appsettings.json:\n\n" +
+        "    dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" " +
+        "\"<hele strengen fra appsettings.json med ;Password=...>\" " +
+        "--project StartPraksisGruppe3Prosjekt\n\n" +
+        "Merk at «publishable key» / anon-nøkkelen IKKE er databasepassordet — den gjelder " +
+        "REST-API-et, ikke en direkte Postgres-tilkobling.");
+
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection mangler Password. Se meldingen over.");
+}
+
 // Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
-    await SeedData.InitializeAsync(scope.ServiceProvider);
+
+    try
+    {
+        await SeedData.InitializeAsync(scope.ServiceProvider);
+    }
+    catch (NpgsqlException ex)
+    {
+        // Passordet finnes, men databasen svarer ikke som forventet. De to vanlige
+        // årsakene er verdt å nevne ved navn, ellers blir feilsøkingen gjetting.
+        app.Logger.LogCritical(
+            ex,
+            "Kom ikke gjennom migrering/seeding mot Postgres. Vanlige årsaker:\n" +
+            "  * Feil passord, eller feil port. Bruk session-pooleren (5432); " +
+            "transaction-pooleren (6543) fungerer ikke med EF-migrasjoner.\n" +
+            "  * Databasen har allerede tabeller fra et tidligere forsøk. Migrasjonen ble " +
+            "generert på nytt for Postgres 2026-08-26, så et skjema laget før det stemmer " +
+            "ikke med __EFMigrationsHistory. Tøm public-skjemaet i Supabase og kjør igjen.");
+
+        throw;
+    }
 }
 
 // Si tydelig hvor 5C-svarene havner. «Lagret det seg egentlig?» skal ikke være noe

@@ -89,6 +89,26 @@ hashed, scoped to one player and one round, and revocable. It is not a query par
 
 ## Storing answers
 
+> **This section is now half out of date, on purpose.** It was written when the app ran on
+> local SQLite and Supabase was a separate thing to reach over HTTP. Since 26 August the app
+> connects to the Supabase Postgres database directly, through EF Core and Npgsql — see the
+> "Kom i gang" section in the README.
+>
+> That makes `SupabaseSurveySubmissionStore` redundant: it goes out over PostgREST to a
+> database the process is already connected to, with a second credential, no shared
+> transaction and no foreign keys to `Players` or `SurveyRounds`. The straightforward thing
+> now is two EF entities and one migration, like everything else in the model. The store
+> abstraction can stay — it is what keeps the in-memory fallback possible — but the live
+> implementation should be an EF one.
+>
+> Not changed yet, because the 5C tables are Victor's to define and this is his call. The
+> contract in `Contracts/FiveC/` is unaffected either way: it describes what the form hands
+> over, not how it is written.
+>
+> **Do not use the anon/publishable key (`sb_publishable_…`) for this.** It is designed to be
+> public and it is subject to row level security. Answers about minors behind a key that
+> ships to browsers is the wrong shape regardless of what the policies say.
+
 `ISurveySubmissionStore` has two implementations, and configuration picks one:
 
 - **`SupabaseSurveySubmissionStore`** — used when `FiveC:Supabase:Url` and `:ApiKey` are both

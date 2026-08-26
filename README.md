@@ -24,19 +24,47 @@ Selve funksjonaliteten er **ikke** implementert — den skal fordeles.
 
 ## Kom i gang
 
+Databasen er **Postgres i Supabase** (byttet fra SQLite 26.08.2026). Tilkoblingsstrengen står
+i `appsettings.json`, men **uten passord** — passordet er en hemmelighet og skal ikke i repoet.
+
+**Steg 1: legg inn databasepassordet.** Hent «Database password» i Supabase under
+*Project Settings → Database* (finner du det ikke, kan det resettes samme sted — men si fra
+til de andre først, en reset gjelder alle). Deretter, med hele strengen fra `appsettings.json`
+pluss `;Password=…` på slutten:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=Require;Trust Server Certificate=true;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
+```
+
+Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper
+appen med en melding som forklarer akkurat dette — det er ikke en bug.
+
+Merk: **anon-/publishable-nøkkelen (`sb_publishable_…`) er ikke databasepassordet.** Den
+gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgres`-rollen.
+
+Bruk port **5432** (session-pooleren). Port 6543 er transaction-pooleren, og den fungerer
+ikke med EF-migrasjoner.
+
+**Steg 2: kjør.**
+
 ```bash
 dotnet run --project StartPraksisGruppe3Prosjekt
 ```
 
-Første kjøring kjører migrasjonene og legger inn oppdiktede demodata. Databasen er en
-SQLite-fil (`speilet.db`) i prosjektmappa, og den er git-ignorert.
+Første kjøring kjører migrasjonene og legger inn oppdiktede demodata.
 
-Demokontoer opprettes bare i `Development`. Standard passord er `Dev!passord1` og kan
-overstyres:
+### Demokontoer
+
+Opprettes bare i `Development`, og først når seedingen har fått kjørt mot databasen.
+**Standard passord er `Dev!passord1`** for alle kontoene under. Det kan overstyres:
 
 ```bash
 dotnet user-secrets set "Seed:DevPassword" "ditt-passord" --project StartPraksisGruppe3Prosjekt
 ```
+
+Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.EnsureUserAsync`
+oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
+først bestemmer passordet for alle.
 
 | Konto | Rolle |
 | --- | --- |
@@ -46,14 +74,15 @@ dotnet user-secrets set "Seed:DevPassword" "ditt-passord" --project StartPraksis
 | `spiller.ts0816@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
 
-Vil du begynne på nytt: slett `speilet.db` og kjør igjen.
+Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
+og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
 
 ---
 
 ## Stack
 
 - ASP.NET Core MVC, **.NET 8 (LTS)**
-- EF Core 8, code-first, SQLite i utvikling
+- EF Core 8, code-first, **Postgres i Supabase** (Npgsql)
 - ASP.NET Core Identity med roller
 
 Om rammeverkversjonen: maskinen som satte opp prosjektet har SDK 9.0.308 installert,
@@ -141,7 +170,9 @@ Trenger du en modellendring: si ifra, så lages migrasjonen én gang. Resten kj�
 dotnet ef database update --project StartPraksisGruppe3Prosjekt
 ```
 
-(eller sletter `speilet.db` og starter appen på nytt).
+Migrasjonene ble generert på nytt for Postgres 26.08.2026. Den gamle
+`InitialCreate` var laget for SQLite og ville ikke ha gitt et brukbart skjema på
+Postgres — identity-kolonnene mangler, og `DateTimeOffset` ville havnet i `text`.
 
 ---
 

@@ -32,7 +32,7 @@
     },
     {
       "label": "ef: database update",
-      "detail": "Kjører migrasjonene mot speilet.db uten å slette dataene.",
+      "detail": "Kjører migrasjonene mot Supabase-basen uten å slette dataene. Krever at ConnectionStrings:DefaultConnection med passord ligger i user-secrets — se README.",
       "command": "dotnet",
       "type": "process",
       "args": [
