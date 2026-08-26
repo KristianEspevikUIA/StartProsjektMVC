@@ -48,11 +48,14 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
         }
 
         // Children, for a guardian. The role alone grants nothing -- the Guardianship rows do.
-        var childPlayers = await _db.Guardianships
+        //
+        // Queried from Players rather than from Guardianships, because Include has to come
+        // before any Select that projects to a different entity: going through Guardianships
+        // and selecting g.Player leaves EF with no queryable root to hang Include on.
+        var childPlayers = await _db.Players
             .AsNoTracking()
-            .Where(g => g.GuardianUserId == userId)
-            .Select(g => g.Player!)
             .Include(p => p.Team)
+            .Where(p => p.Guardianships.Any(g => g.GuardianUserId == userId))
             .ToListAsync(cancellationToken);
 
         foreach (var child in childPlayers)
