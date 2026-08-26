@@ -5,6 +5,7 @@ using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Services;
 
+
 namespace StartPraksisGruppe3Prosjekt.Authorization;
 
 /// <summary>
@@ -15,8 +16,9 @@ namespace StartPraksisGruppe3Prosjekt.Authorization;
 ///   Spilleren  — tilgang til seg selv (player.UserId == innlogget bruker).
 ///   Foresatt   — tilgang bare hvis det finnes en Guardianship mellom brukeren og
 ///                DENNE spilleren. Rollen "Guardian" gir ingen tilgang i seg selv.
-///   Trener     — tilgang bare hvis (a) treneren har CoachTeam på spillerens lag OG
-///                (b) nyeste ConsentEvent for spilleren er Full.
+///   Trener     — tilgang hvis nyeste ConsentEvent for spilleren er Full. Trenerrollen
+///                er ikke knyttet til lag: en trener er trener, og CoachTeam avgjør
+///                ingenting her.
 ///   Alle andre — ingen tilgang.
 ///
 /// Handleren kaller aldri context.Fail(): den lar bare være å lykkes. Fail() ville
@@ -71,20 +73,17 @@ public class CanViewPlayerHandler : AuthorizationHandler<CanViewPlayerRequiremen
             }
         }
 
-        // Trener: riktig lag OG fullt samtykke. Begge må være oppfylt.
+        // Trener: fullt samtykke er det eneste kravet. Rollen er ikke lagavgrenset --
+        // enhver trener er trener for enhver spiller. Samtykket er dermed den ENESTE
+        // grensen som står igjen mot at en trener ser en enkeltspillers svar, så det er
+        // også den eneste som må holde. Se docs/five-c.md.
         if (context.User.IsInRole(Roles.Coach))
         {
-            var coachesTeam = await _db.CoachTeams
-                .AnyAsync(ct => ct.TeamId == resource.TeamId && ct.CoachUserId == userId);
-
-            if (coachesTeam)
+            var level = await _consent.GetCurrentLevelAsync(resource.Id);
+            if (level == ConsentLevel.Full)
             {
-                var level = await _consent.GetCurrentLevelAsync(resource.Id);
-                if (level == ConsentLevel.Full)
-                {
-                    context.Succeed(requirement);
-                    return;
-                }
+                context.Succeed(requirement);
+                return;
             }
         }
 

@@ -45,6 +45,35 @@ public class FiveCPlayerViewModel
     /// </summary>
     public string QuestionSetVersion { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The three difference scores at the top of the page: coach against player, guardian
+    /// against player, and one between everyone who answered.
+    ///
+    /// A pair that cannot be measured still gets a card, saying which of the two has not
+    /// answered. Dropping the card would make "they agree" and "nobody filled it in" look
+    /// like the same page.
+    /// </summary>
+    public IReadOnlyList<FiveCScoreCardViewModel> ScoreCards => new[]
+    {
+        FiveCScoreCardViewModel.ForGap(
+            Comparison.CoachVsPlayer,
+            Code,
+            Comparison.CoachHasAnswered
+                ? $"A coach has answered, but {Code} has not, so there is nothing to compare against."
+                : $"No coach has answered about {Code} in this round.",
+            "coach"),
+
+        FiveCScoreCardViewModel.ForGap(
+            Comparison.GuardianVsPlayer,
+            Code,
+            Comparison.GuardianHasAnswered
+                ? $"A guardian has answered, but {Code} has not, so there is nothing to compare against."
+                : $"No guardian has answered about {Code} in this round.",
+            "guardian"),
+
+        FiveCScoreCardViewModel.ForOverall(Comparison.Differences, Code)
+    };
+
     /// <summary>Links the coach can pass on so somebody else can fill the form in.</summary>
     public IReadOnlyList<ShareLink> ShareLinks { get; set; } = Array.Empty<ShareLink>();
 

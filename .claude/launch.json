@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "speilet",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "StartPraksisGruppe3Prosjekt", "--launch-profile", "http"],
+      "port": 5026
+    }
+  ]
+}

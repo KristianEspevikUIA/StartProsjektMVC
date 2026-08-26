@@ -7,7 +7,7 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// Answers "which forms is this user supposed to fill in, and in which role".
 ///
 /// One list, three meanings: a player answers about themselves, a guardian about their own
-/// children, a coach about the players on their teams. Keeping that in one service means
+/// children, a coach about any player in the club. Keeping that in one service means
 /// the list on /Survey and the check on /Survey/Fill cannot drift apart -- a link that is
 /// not in the list is also a link that will not open.
 ///
@@ -30,8 +30,8 @@ public interface ISurveyAssignmentService
     /// The roles this user may answer in about this player, in the order they should be
     /// preferred when a link does not name one. Empty means the user may not answer at all.
     ///
-    /// A user can legitimately have more than one: a coach whose own child is on the team
-    /// answers as a coach about the team and as a guardian about their child.
+    /// A user can legitimately have more than one: a coach whose own child plays in the club
+    /// answers as a coach about the squad and as a guardian about their child.
     /// </summary>
     Task<IReadOnlyList<RespondentType>> GetAllowedRolesAsync(
         ClaimsPrincipal user,

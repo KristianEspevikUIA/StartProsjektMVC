@@ -177,12 +177,18 @@ public sealed class InMemorySurveySubmissionStore : ISurveySubmissionStore
                 Add(round.Id, player, RespondentType.Guardian, guardianship.GuardianUserId);
             }
 
-            // A coach for the team, so there is something to compare against.
+            // A coach, so there is something to compare against. The coach role is not tied
+            // to a team any more, so a team without a CoachTeam row is perfectly normal --
+            // fall back to any coach rather than leaving the comparison half empty.
             var coachUserId = await db.CoachTeams
                 .AsNoTracking()
                 .Where(ct => ct.TeamId == player.TeamId)
                 .Select(ct => ct.CoachUserId)
-                .FirstOrDefaultAsync(cancellationToken);
+                .FirstOrDefaultAsync(cancellationToken)
+                ?? await db.CoachTeams
+                    .AsNoTracking()
+                    .Select(ct => ct.CoachUserId)
+                    .FirstOrDefaultAsync(cancellationToken);
 
             if (coachUserId is not null)
             {

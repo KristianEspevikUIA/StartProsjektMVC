@@ -4,8 +4,9 @@ namespace StartPraksisGruppe3Prosjekt.ViewModels.FiveC;
 /// The coach's landing page: the teams they are registered on, and how far each one has
 /// got in the current round.
 ///
-/// The teams come from CoachTeam for the signed-in user, not from the role. Two coaches on
-/// the same team see the same card; a coach with no CoachTeam row sees none.
+/// Every team in the club, for every coach. The coach role is not tied to a team, so two
+/// coaches see the same cards -- what differs between them is only what CanViewPlayer says
+/// about each individual player, which is where consent is enforced.
 /// </summary>
 public class CoachTeamsViewModel
 {

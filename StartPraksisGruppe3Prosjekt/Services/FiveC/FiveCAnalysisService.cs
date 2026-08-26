@@ -89,7 +89,11 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
                     GuardianMean: guardianMean,
                     GuardianAnswered: guardianCount,
                     CoachMean: coachMean,
-                    CoachAnswered: coachCount);
+                    CoachAnswered: coachCount,
+                    Differences: DifferencesBetween(
+                        InCategory(playerScores, category.Key),
+                        InCategory(guardianScores, category.Key),
+                        InCategory(coachScores, category.Key)));
             })
             .ToList();
 
@@ -100,11 +104,73 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
             Categories: categories,
             PlayerSubmittedAt: player?.SubmittedAt,
             GuardianSubmittedAt: guardian?.SubmittedAt,
-            CoachSubmittedAt: coach?.SubmittedAt);
+            CoachSubmittedAt: coach?.SubmittedAt,
+            // Measured across all twenty-five statements at once. Averaging the five
+            // category scores instead would give a category with two answered statements
+            // the same weight as one with five.
+            Differences: DifferencesBetween(
+                Flatten(playerScores),
+                Flatten(guardianScores),
+                Flatten(coachScores)));
     }
 
     /// <summary>
-    /// Every answered value in a submission, turned into a score and grouped per category.
+    /// The three difference scores for one set of answers: coach against player, guardian
+    /// against player, and coach against guardian, which together make the "between all"
+    /// score. Used for a single category and again for the questionnaire as a whole.
+    /// </summary>
+    private static DifferenceScores DifferencesBetween(
+        IReadOnlyDictionary<string, int> playerScores,
+        IReadOnlyDictionary<string, int> guardianScores,
+        IReadOnlyDictionary<string, int> coachScores) => new(
+            CoachVsPlayer: RespondentGap.Between(
+                RespondentType.Coach, coachScores, RespondentType.Player, playerScores),
+            GuardianVsPlayer: RespondentGap.Between(
+                RespondentType.Guardian, guardianScores, RespondentType.Player, playerScores),
+            CoachVsGuardian: RespondentGap.Between(
+                RespondentType.Coach, coachScores, RespondentType.Guardian, guardianScores));
+
+    /// <summary>One category's scores, or an empty set when that category was not answered.</summary>
+    private static IReadOnlyDictionary<string, int> InCategory(
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores,
+        string categoryKey) =>
+        scores.TryGetValue(categoryKey, out var inCategory)
+            ? inCategory
+            : EmptyScores;
+
+    /// <summary>
+    /// Every category's scores in one dictionary, for measuring across the whole
+    /// questionnaire. Question keys are unique across the catalog, which the catalog
+    /// enforces at startup; the indexer is used anyway so a duplicate would be the last
+    /// answer winning rather than an exception on a coach's page.
+    /// </summary>
+    private static IReadOnlyDictionary<string, int> Flatten(
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores)
+    {
+        var flat = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var category in scores.Values)
+        {
+            foreach (var (questionKey, score) in category)
+            {
+                flat[questionKey] = score;
+            }
+        }
+
+        return flat;
+    }
+
+    private static readonly Dictionary<string, int> EmptyScores =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Every answered value in a submission, turned into a score, grouped per category and
+    /// keyed by question.
+    ///
+    /// The question key is kept rather than dropped into a flat list because the difference
+    /// scores pair the three respondents STATEMENT BY STATEMENT. A 5 and a 1 average to the
+    /// same 3 as two 3s do, and a difference built from category averages would read that
+    /// as agreement.
     ///
     /// Two things happen here and nowhere else:
     ///   * Unanswered questions (null) are dropped, not counted as 3. An unanswered question
@@ -113,9 +179,9 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
     ///     Whether a statement is reversed is read from the question set at display time,
     ///     which is why the stored answers stay raw.
     /// </summary>
-    private Dictionary<string, List<int>> ScoresByCategory(SurveySubmission? submission)
+    private Dictionary<string, Dictionary<string, int>> ScoresByCategory(SurveySubmission? submission)
     {
-        var scores = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+        var scores = new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase);
 
         if (submission is null)
         {
@@ -147,28 +213,28 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
             var categoryKey = _catalog.FindCategoryForQuestion(answer.QuestionKey)?.Key
                               ?? answer.CategoryKey;
 
-            if (!scores.TryGetValue(categoryKey, out var list))
+            if (!scores.TryGetValue(categoryKey, out var inCategory))
             {
-                list = new List<int>();
-                scores[categoryKey] = list;
+                inCategory = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                scores[categoryKey] = inCategory;
             }
 
-            list.Add(FiveCRules.Score(raw, question.Reversed));
+            inCategory[answer.QuestionKey] = FiveCRules.Score(raw, question.Reversed);
         }
 
         return scores;
     }
 
     private static (double? Mean, int Count) MeanOf(
-        IReadOnlyDictionary<string, List<int>> scores,
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores,
         string categoryKey)
     {
-        if (!scores.TryGetValue(categoryKey, out var values) || values.Count == 0)
+        if (!scores.TryGetValue(categoryKey, out var inCategory) || inCategory.Count == 0)
         {
             return (null, 0);
         }
 
-        return (values.Average(), values.Count);
+        return (inCategory.Values.Average(), inCategory.Count);
     }
 
     /// <summary>
