@@ -62,7 +62,32 @@ men .NET 9 er STS. Nyeste LTS som faktisk kan bygges og kjøres her er .NET 8 (r
 LTS senere, er det `<TargetFramework>` i csproj-filen pluss pakkeversjonene — men gjør
 det som en egen, samlet endring, ikke midt i en feature.
 
-**Kode og identifikatorer på engelsk. All tekst brukeren ser, på norsk.**
+**Kode og identifikatorer på engelsk. Brukergrensesnittet er også på engelsk**, i tråd med
+StartCompass-nettstedet og wireframene. (Dette er en endring: tidligere sto det at all
+brukertekst skulle være på norsk. Views som ennå ikke er rørt, kan fortsatt være norske.)
+
+---
+
+## 5C-spørreskjemaet
+
+25 påstander i fem kategorier, 1–5-skala, besvart av spiller, foresatt og trener om samme
+spiller — pluss en treneroversikt som viser hvor de tre er uenige.
+
+**Spørsmålene ligger i `Data/Questions/five-c-questions.json` og ingen andre steder.** Ingen
+`.cshtml`-fil inneholder et kategorinavn eller en påstand, så treneteamet kan bytte hele
+settet uten at UI-koden røres. Fila valideres ved oppstart, og en feil i den stopper appen
+med en melding som sier hva som er galt.
+
+Svarene lagres i Supabase når `FiveC:Supabase` er satt opp i konfigurasjonen; ellers brukes
+et minnelager slik at skjemaet og oversikten kan kjøres lokalt. Kontrakten frontend sender
+ligger i `Contracts/FiveC/` — i C# og speilet i TypeScript.
+
+Deling skjer med query-param: `/Survey/Fill?roundId=2&playerId=14&role=Coach`. Lenken gir
+ingen tilgang i seg selv; den forhåndsvelger spiller og rolle, og begge sjekkene kjøres på
+nytt på serveren.
+
+**Alt om dette: [`docs/five-c.md`](docs/five-c.md)** — inkludert hvorfor det ikke ble token i
+URL-en, hva Victor trenger å vite om skjemaet, og hva som gjenstår.
 
 ---
 

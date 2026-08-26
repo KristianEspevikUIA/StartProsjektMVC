@@ -1,0 +1,210 @@
+@model FiveCPlayerViewModel
+@{
+    ViewData["Title"] = $"5C – {Model.Code}";
+    ViewData["FullWidth"] = true;
+
+    var comparison = Model.Comparison;
+}
+
+@*
+    The 5C detail for one player: what the player, the guardian and the coach each said,
+    category by category.
+
+    None of these numbers are stored. They are recalculated from the raw answers on every
+    request, the same rule the ten-statement gap follows.
+
+    No free-text field, and no notes. A coach's written note about a minor is a new category
+    of personal data and is not in the data model.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>@Model.Code</h1>
+        <p class="sc-hero__lead">
+            @Model.TeamName@(Model.Position is null ? "" : $" · {Model.Position}") ·
+            @ConsentViewModel.ShortName(Model.Consent)
+        </p>
+
+        <div class="sc-hero__meta">
+            <span>@Model.RoundName</span>
+            <span>@(Model.RoundIsOpen ? "Open" : "Closed")</span>
+            @if (comparison.PlayerSubmittedAt is { } playerAt)
+            {
+                <span>Player answered @playerAt.ToLocalTime().ToString("d MMM")</span>
+            }
+            @if (comparison.GuardianSubmittedAt is { } guardianAt)
+            {
+                <span>Guardian answered @guardianAt.ToLocalTime().ToString("d MMM")</span>
+            }
+            @if (comparison.CoachSubmittedAt is { } coachAt)
+            {
+                <span>Coach answered @coachAt.ToLocalTime().ToString("d MMM")</span>
+            }
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!comparison.HasAnyAnswers)
+    {
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>Nobody has answered yet</h3>
+                <p class="sc-card__meta">
+                    No form has been submitted about @Model.Code in @Model.RoundName.
+                </p>
+            </div>
+        </section>
+    }
+    else
+    {
+        @if (comparison.NeedsFollowUp)
+        {
+            <section class="sc-section">
+                <div class="sc-notice sc-notice--warn" role="status">
+                    <p>
+                        <strong>Needs follow-up.</strong>
+                        @Model.Code scored an average below
+                        @FiveCRules.FollowUpThreshold.ToString("0") on
+                        @string.Join(", ", comparison.FollowUp.Select(c => c.CategoryName)).
+                        That is the player disagreeing with the positive statements across the
+                        whole category, not a single low answer — the flag needs at least
+                        @FiveCRules.MinimumAnswersForFollowUp answers behind it.
+                    </p>
+                </div>
+            </section>
+        }
+
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>The five C's</h2>
+            <p class="sc-lead">
+                Each bar is an average on the 1–5 scale, after negatively worded statements
+                have been turned round so that a higher bar always means better. A statement
+                nobody answered is left out of the average rather than counted as 3.
+            </p>
+
+            <div class="sc-legend">
+                <span class="sc-legend__item">
+                    <span class="sc-legend__swatch sc-legend__swatch--player"></span> Player
+                </span>
+                <span class="sc-legend__item">
+                    <span class="sc-legend__swatch sc-legend__swatch--guardian"></span> Guardian
+                </span>
+                <span class="sc-legend__item">
+                    <span class="sc-legend__swatch sc-legend__swatch--coach"></span> Coach
+                </span>
+            </div>
+
+            <div class="sc-compare">
+                @foreach (var category in comparison.Categories)
+                {
+                    <article class="sc-compare__card @(category.NeedsFollowUp ? "sc-compare__card--alert" : "")">
+                        <div class="sc-compare__head">
+                            <h3>@category.CategoryName</h3>
+                            @if (category.NeedsFollowUp)
+                            {
+                                <span class="sc-badge sc-badge--alert">Follow up</span>
+                            }
+                        </div>
+
+                        <p class="sc-compare__desc">
+                            @if (category.Spread is { } spread)
+                            {
+                                <text>Spread @spread.ToString("0.0") between the highest and lowest average.</text>
+                            }
+                            else if (category.HasAnyAnswers)
+                            {
+                                <text>Only one of the three has answered, so there is nothing to compare yet.</text>
+                            }
+                            else
+                            {
+                                <text>Nobody has answered this category.</text>
+                            }
+                        </p>
+
+                        <partial name="_FiveCCategoryChart" model="category" />
+
+                        @if (category.CoachMinusPlayer is { } gap)
+                        {
+                            @* The sign is the point. "Gap 2" without a direction says
+                               nothing about who over- or underestimated. *@
+                            <p class="sc-compare__desc">
+                                @if (Math.Abs(gap) < 0.05)
+                                {
+                                    <text>You and @Model.Code agree on this one.</text>
+                                }
+                                else if (gap > 0)
+                                {
+                                    <text>You rated @Model.Code @gap.ToString("0.0") higher than they rated themselves.</text>
+                                }
+                                else
+                                {
+                                    <text>You rated @Model.Code @Math.Abs(gap).ToString("0.0") lower than they rated themselves.</text>
+                                }
+                            </p>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>Share the form</h2>
+        <p class="sc-lead">
+            The link opens the form with this player and role already chosen. It grants no
+            access on its own: whoever follows it signs in as themselves, and the same checks
+            run again on the server.
+        </p>
+
+        <div class="sc-table-wrap">
+            <table class="sc-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Role</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Link</th>
+                        <th scope="col"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var link in Model.ShareLinks)
+                    {
+                        <tr>
+                            <td>
+                                <span class="sc-badge sc-badge--@link.Role.ToString().ToLowerInvariant()">
+                                    @link.RoleName
+                                </span>
+                            </td>
+                            <td class="sc-small">@(link.HasAnswered ? "Answered" : "Not answered")</td>
+                            <td class="sc-small sc-muted">@link.Url</td>
+                            <td>
+                                <button type="button" class="sc-btn sc-btn--secondary"
+                                        data-copy-link="@link.Url">Copy link</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-card sc-card--left">
+            <p class="sc-eyebrow">About these numbers</p>
+            <p class="sc-card__meta">
+                Question set: <strong>@Model.QuestionSetVersion</strong>. Two rounds answered
+                against different question sets are not directly comparable.
+            </p>
+            <div class="sc-actions">
+                <a class="sc-btn sc-btn--secondary"
+                   asp-action="FiveCTeam"
+                   asp-route-id="@Model.TeamId"
+                   asp-route-roundId="@Model.RoundId">Back to @Model.TeamName</a>
+            </div>
+        </div>
+    </section>
+</div>

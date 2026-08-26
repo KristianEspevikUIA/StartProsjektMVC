@@ -1,0 +1,170 @@
+@model FiveCTeamViewModel
+@{
+    ViewData["Title"] = $"5C – {Model.TeamName}";
+    ViewData["FullWidth"] = true;
+}
+
+@*
+    The 5C team overview.
+
+    Two states that easily collapse into the same grey row are kept apart here: "not
+    allowed to see" and "has not answered". The cell says which one it is, in words.
+
+    Sorting is by player code. Sorting by the largest disagreement is more useful, but it
+    also turns the table into a ranking of minors, so it is a deliberate click rather than
+    the default.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>@Model.TeamName</h1>
+        <p class="sc-hero__lead">
+            The five C's, as answered by the player, their guardian and you.
+        </p>
+
+        <div class="sc-hero__meta">
+            <span>@Model.Players.Count player@(Model.Players.Count == 1 ? "" : "s")</span>
+            @if (!string.IsNullOrEmpty(Model.RoundName))
+            {
+                <span>@Model.RoundName</span>
+                <span>@(Model.RoundIsOpen ? $"Open until {Model.RoundClosesAt.ToLocalTime():d MMMM yyyy}" : "Closed")</span>
+            }
+            <span>@Model.PlayerAnsweredCount of @Model.Players.Count players answered</span>
+            <span>You have answered for @Model.CoachAnsweredCount</span>
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (Model.RoundId == 0)
+    {
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>No round</h3>
+                <p class="sc-card__meta">There is no survey round to show for this team yet.</p>
+            </div>
+        </section>
+    }
+    else
+    {
+        @if (Model.Rounds.Count > 1)
+        {
+            <section class="sc-section">
+                <p class="sc-eyebrow">Round</p>
+                <div class="sc-actions">
+                    @foreach (var round in Model.Rounds)
+                    {
+                        var isCurrent = round.Id == Model.RoundId;
+
+                        <a class="@(isCurrent ? "sc-btn" : "sc-btn sc-btn--secondary")"
+                           asp-action="FiveCTeam"
+                           asp-route-id="@Model.TeamId"
+                           asp-route-roundId="@round.Id">
+                            @round.Name@(round.IsOpen ? "" : " (closed)")
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (Model.FollowUpCount > 0)
+        {
+            <section class="sc-section">
+                <div class="sc-notice sc-notice--warn" role="status">
+                    <p>
+                        <strong>@Model.FollowUpCount
+                            player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
+                        scored consistently below @FiveCRules.FollowUpThreshold.ToString("0")
+                        on at least one of the five C's. The rows are marked below.
+                    </p>
+                </div>
+            </section>
+        }
+
+        <section class="sc-section sc-section--last">
+            <div class="sc-rule"></div>
+            <h2>Players</h2>
+            <p class="sc-lead">
+                A tick means that role has answered in this round. The spread is the distance
+                between the highest and the lowest average across the three of you, on the
+                category where you disagree most.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Position</th>
+                            <th scope="col">Player</th>
+                            <th scope="col">Guardian</th>
+                            <th scope="col">You</th>
+                            <th scope="col">Largest spread</th>
+                            <th scope="col">Follow-up</th>
+                            <th scope="col">Consent</th>
+                            <th scope="col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Players)
+                        {
+                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")">
+                                <td class="sc-code">@row.Code</td>
+                                <td class="sc-muted sc-small">@(row.Position ?? "–")</td>
+
+                                @* Progress is neutral and shown for every row: it says who
+                                   answered, not what they answered. *@
+                                <td>@(row.PlayerHasAnswered ? "✓" : "–")</td>
+                                <td>@(row.GuardianHasAnswered ? "✓" : "–")</td>
+                                <td>@(row.CoachHasAnswered ? "✓" : "–")</td>
+
+                                @if (row.WithheldReason is { } reason)
+                                {
+                                    <td colspan="2" class="sc-muted sc-small">@reason</td>
+                                }
+                                else
+                                {
+                                    <td class="sc-num">
+                                        @(row.LargestSpread is { } spread ? spread.ToString("0.0") : "–")
+                                    </td>
+                                    <td>
+                                        @if (row.NeedsFollowUp)
+                                        {
+                                            <span class="sc-badge sc-badge--alert">
+                                                @string.Join(", ", row.FollowUp.Select(c => c.CategoryName))
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted sc-small">–</span>
+                                        }
+                                    </td>
+                                }
+
+                                <td class="sc-small">@ConsentViewModel.ShortName(row.Consent)</td>
+                                <td>
+                                    @if (row.CanView)
+                                    {
+                                        <a asp-action="FiveCPlayer"
+                                           asp-route-id="@row.PlayerId"
+                                           asp-route-roundId="@Model.RoundId">Open</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.HiddenCount > 0)
+            {
+                <p class="sc-lead sc-small">
+                    @Model.HiddenCount row@(Model.HiddenCount == 1 ? " is" : "s are") listed without
+                    numbers. The player is on the team, but you are not allowed to see their
+                    individual answers — so the follow-up count above does not include them.
+                </p>
+            }
+        </section>
+    }
+</div>

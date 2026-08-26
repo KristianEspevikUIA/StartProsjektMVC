@@ -1,0 +1,73 @@
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.CategoryComparison
+@{
+    // One bar per respondent for a single C.
+    //
+    // The labels and the numbers are ordinary HTML -- they select, wrap and scale with the
+    // page. Only the bar itself is SVG, because that is the one part whose length varies:
+    // the CSP has no unsafe-inline, so a bar cannot get its width from style="", but width
+    // on an SVG rect is markup and is unaffected.
+    //
+    // The viewBox is 0-100 with preserveAspectRatio="none", so the bar stretches to
+    // whatever width the column has and the width attribute can be read as a percentage.
+    //
+    // Colours come from classes in startcompass.css, so a role is the same colour wherever
+    // it appears.
+
+    var rows = new[]
+    {
+        (Label: "Player", Mean: Model.PlayerMean, Css: "player"),
+        (Label: "Guardian", Mean: Model.GuardianMean, Css: "guardian"),
+        (Label: "Coach", Mean: Model.CoachMean, Css: "coach")
+    };
+
+    // The bar is the mean as a share of the full scale, so a low score is a short bar
+    // rather than an empty one. (mean - 1) / 4 would exaggerate the bottom of the scale
+    // and make an average of 1 look like a missing answer.
+    int BarWidth(double mean) => (int)Math.Round(mean / 5.0 * 100);
+}
+
+<div class="sc-bars">
+    @foreach (var row in rows)
+    {
+        <div class="sc-bar-row">
+            <span class="sc-bar-row__label">@row.Label</span>
+
+            <svg class="sc-chart" viewBox="0 0 100 12" preserveAspectRatio="none"
+                 role="img"
+                 aria-label="@row.Label: @(row.Mean is { } m ? m.ToString("0.0") + " out of 5" : "not answered") for @Model.CategoryName">
+                <rect class="sc-chart__track" x="0" y="0" width="100" height="12" />
+
+                @if (row.Mean is { } mean)
+                {
+                    // The player's own bar turns red when the category is flagged, so the
+                    // follow-up signal is in the chart and not only in the badge above it.
+                    var barClass = row.Css == "player" && Model.NeedsFollowUp
+                        ? "sc-chart__bar--alert"
+                        : $"sc-chart__bar--{row.Css}";
+
+                    <rect class="@barClass" x="0" y="0" width="@BarWidth(mean)" height="12" />
+                }
+
+                @* Gridlines at every whole point on the scale. non-scaling-stroke keeps them
+                   one pixel wide even though the viewBox is stretched horizontally. *@
+                @for (var i = 1; i < 5; i++)
+                {
+                    var x = i * 20;
+                    <line class="sc-chart__gridline" vector-effect="non-scaling-stroke"
+                          x1="@x" y1="0" x2="@x" y2="12" />
+                }
+            </svg>
+
+            <span class="sc-bar-row__value">
+                @if (row.Mean is { } value)
+                {
+                    @value.ToString("0.0")
+                }
+                else
+                {
+                    <span class="sc-muted">–</span>
+                }
+            </span>
+        </div>
+    }
+</div>

@@ -1,39 +1,176 @@
 @model SurveyFormViewModel
 @{
-    ViewData["Title"] = $"Skjema – {Model.RoundName}";
+    ViewData["Title"] = $"The form – {Model.RoundName}";
+    ViewData["FullWidth"] = true;
+
+    var scale = Model.Scale;
 }
 
-<h1>@Model.RoundName</h1>
+@*
+    The 5C form. Twenty-five statements in five categories, one 1-5 scale.
 
-<p class="text-muted">
-    @switch (Model.Respondent)
-    {
-        case RespondentType.Player:
-            <text>Svar på hvordan du selv har det. Det finnes ingen riktige svar.</text>
-            break;
-        case RespondentType.Coach:
-            <text>Svar på hva du tror spilleren har svart – ikke hva du mener er riktig.</text>
-            break;
-        case RespondentType.Guardian:
-            <text>Svar på hva du tror barnet ditt har svart.</text>
-            break;
-    }
-</p>
+    Nothing on this page names a category or a statement. Everything comes from the
+    question catalog through the view model, which is what makes it possible to replace
+    the whole question set by editing Data/Questions/five-c-questions.json.
 
-<form asp-action="Fill" method="post">
-    @Html.AntiForgeryToken()
+    All three respondent types get this same page. Only the header says who is answering
+    and about whom.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>@Model.RoundName</h1>
+        <p class="sc-hero__lead">@Model.Instruction</p>
+
+        <div class="sc-hero__meta">
+            <span>Player @Model.PlayerCode</span>
+            @if (!string.IsNullOrEmpty(Model.TeamName))
+            {
+                <span>@Model.TeamName</span>
+            }
+            <span>Answering as @Roles.DisplayName(Model.Respondent.ToString())</span>
+            <span>Open until @Model.RoundClosesAt.ToLocalTime().ToString("d MMMM yyyy")</span>
+        </div>
+    </div>
+</section>
+
+<form asp-action="Fill" method="post" data-survey-form data-question-count="@Model.QuestionCount">
     <input type="hidden" asp-for="RoundId" />
     <input type="hidden" asp-for="PlayerId" />
     <input type="hidden" asp-for="Respondent" />
 
-    @* TODO (Victor): de ti påstandene med skala 1-5 og et eget valg for "Vet ikke".
-       "Vet ikke" sendes som tom verdi og lagres som null.
-       Bruk radioknapper med tydelige etiketter, ikke bare tall — dette skal kunne
-       fylles ut på mobil av en 14-åring. *@
+    <div class="sc-progress">
+        <div class="sc-page">
+            <p class="sc-progress__text" data-survey-counter>
+                @Model.AnsweredCount of @Model.QuestionCount answered
+            </p>
+            <div class="sc-progress__track">
+                <div class="sc-progress__bar" data-survey-bar></div>
+            </div>
+        </div>
+    </div>
 
-    <button type="submit" class="btn btn-primary" disabled>Lagre</button>
+    <div class="sc-page">
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="sc-notice sc-notice--warn" role="alert">
+                <p>
+                    Some statements are still unanswered. They are marked below —
+                    your other answers have been kept.
+                </p>
+            </div>
+        }
+
+        @if (Model.IsCorrection)
+        {
+            <div class="sc-notice sc-notice--info">
+                <p>
+                    You have answered this form before. Your previous answers are filled in;
+                    saving replaces them.
+                </p>
+            </div>
+        }
+
+        @foreach (var categoryBlock in Model.Sections)
+        {
+            <section class="sc-section">
+                <div class="sc-rule"></div>
+                <h2>@categoryBlock.Name</h2>
+                <p class="sc-lead">@categoryBlock.Description</p>
+
+                <div class="sc-card">
+                    @foreach (var question in categoryBlock.Questions)
+                    {
+                        var input = Model.Answers[question.Index];
+                        var fieldName = $"Answers[{question.Index}].Value";
+                        var groupId = $"q{question.Index}";
+                        var hasError = ViewData.ModelState[fieldName]?.Errors.Count > 0;
+
+                        <div class="sc-question">
+                            <input type="hidden"
+                                   name="Answers[@question.Index].QuestionKey"
+                                   value="@input.QuestionKey" />
+
+                            @*
+                                Reversed statements are shown exactly as written. The
+                                reversal is a scoring rule in FiveCRules.Score and is not
+                                something the respondent should notice; flipping the scale
+                                here would reverse it twice.
+                            *@
+                            <p class="sc-question__text" id="@(groupId)-label">
+                                <span class="sc-question__number">@question.Number</span>
+                                <span>@question.Text</span>
+                            </p>
+
+                            <div role="radiogroup" aria-labelledby="@(groupId)-label">
+                                <div class="sc-scale__ends">
+                                    <span>@scale.LowLabel</span>
+                                    <span>@scale.HighLabel</span>
+                                </div>
+
+                                <div class="sc-scale__options">
+                                    @foreach (var option in scale.Options)
+                                    {
+                                        var optionId = $"{groupId}-{option.Value}";
+
+                                        <div class="sc-scale__option">
+                                            <input type="radio"
+                                                   id="@optionId"
+                                                   name="@fieldName"
+                                                   value="@option.Value"
+                                                   checked="@(input.Value == option.Value)" />
+                                            <label for="@optionId">
+                                                <span class="sc-scale__num">@option.Value</span>
+                                                <span class="sc-scale__label">@option.Label</span>
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (scale.AllowDontKnow)
+                                {
+                                    @*
+                                        Outside the 1-5 row on purpose. "Don't know" is not
+                                        the middle of the scale: it is submitted empty and
+                                        stored as null, never as 3.
+
+                                        Only pre-selected when there is a stored submission
+                                        to pre-select from. On a blank form a null value
+                                        means "not answered yet", and pre-ticking every
+                                        statement with "Don't know" would answer the whole
+                                        form on the respondent's behalf.
+                                    *@
+                                    <div class="sc-scale__dontknow">
+                                        <input type="radio"
+                                               id="@(groupId)-none"
+                                               name="@fieldName"
+                                               value=""
+                                               checked="@(Model.IsCorrection && input.Value is null)" />
+                                        <label for="@(groupId)-none">@scale.DontKnowLabel</label>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (hasError)
+                            {
+                                <span class="sc-field-error">@Html.ValidationMessage(fieldName)</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        <div class="sc-section sc-section--last">
+            <p class="sc-lead">
+                You can change your answers for as long as the round is open.
+            </p>
+
+            <div class="sc-actions">
+                <button type="submit" class="sc-btn">Save answers</button>
+                <a class="sc-btn sc-btn--secondary" asp-action="Index">Cancel</a>
+            </div>
+        </div>
+    </div>
 </form>
-
-@section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-}

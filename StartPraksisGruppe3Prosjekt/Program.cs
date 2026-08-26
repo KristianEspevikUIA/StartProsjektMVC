@@ -6,6 +6,7 @@ using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
+using StartPraksisGruppe3Prosjekt.Services.FiveC;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -139,6 +140,38 @@ builder.Services.AddSpeiletRateLimiting();
 builder.Services.AddScoped<IConsentService, ConsentService>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 
+// ---------------------------------------------------------------------------
+// 5C-spørreskjemaet.
+//
+// Spørsmålene er innhold, ikke tilstand: de leses én gang fra
+// Data/Questions/five-c-questions.json og ligger i minnet. En feil i fila stopper
+// oppstarten med en melding som sier hva som er galt — den skal ikke dukke opp som
+// et halvtomt skjema midt i en runde.
+// ---------------------------------------------------------------------------
+builder.Services.AddSingleton<IQuestionCatalog, QuestionCatalog>();
+builder.Services.AddScoped<ISurveyAssignmentService, SurveyAssignmentService>();
+builder.Services.AddScoped<IFiveCAnalysisService, FiveCAnalysisService>();
+
+builder.Services.Configure<SupabaseOptions>(
+    builder.Configuration.GetSection(SupabaseOptions.SectionName));
+
+// Hvor svarene lagres avgjøres av konfigurasjonen, ikke av et flagg i koden. Er
+// Supabase satt opp, går svarene dit. Er det ikke det, brukes et minnelager slik at
+// skjemaet og treneroversikten kan bygges før Victors tabeller finnes — og da sier
+// loggen tydelig at ingenting lagres.
+var supabaseOptions = builder.Configuration
+    .GetSection(SupabaseOptions.SectionName)
+    .Get<SupabaseOptions>() ?? new SupabaseOptions();
+
+if (supabaseOptions.IsConfigured)
+{
+    builder.Services.AddHttpClient<ISurveySubmissionStore, SupabaseSurveySubmissionStore>();
+}
+else
+{
+    builder.Services.AddSingleton<ISurveySubmissionStore, InMemorySurveySubmissionStore>();
+}
+
 builder.Services.AddControllersWithViews(options =>
 {
     // Antiforgery på alle POST/PUT/DELETE uten at noen må huske attributtet.
@@ -189,6 +222,23 @@ if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     await SeedData.InitializeAsync(scope.ServiceProvider);
+}
+
+// Si tydelig hvor 5C-svarene havner. «Lagret det seg egentlig?» skal ikke være noe
+// man må gjette på.
+using (var scope = app.Services.CreateScope())
+{
+    var store = scope.ServiceProvider.GetRequiredService<ISurveySubmissionStore>();
+
+    app.Logger.LogInformation("5C submissions are stored in: {Store}.", store.Description);
+
+    if (store is InMemorySurveySubmissionStore && !app.Environment.IsDevelopment())
+    {
+        app.Logger.LogWarning(
+            "Supabase is not configured ({Section}:Url / :ApiKey). Submitted 5C answers " +
+            "are kept in memory only and are lost when the application stops.",
+            SupabaseOptions.SectionName);
+    }
 }
 
 app.Run();

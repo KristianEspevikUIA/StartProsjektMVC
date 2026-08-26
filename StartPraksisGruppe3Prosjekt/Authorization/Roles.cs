@@ -10,12 +10,16 @@ public static class Roles
 
     public static readonly IReadOnlyList<string> All = new[] { Player, Coach, Guardian, Admin };
 
-    /// <summary>Norsk visningsnavn for en rolle. Kode er engelsk, UI er norsk.</summary>
+    /// <summary>
+    /// Display name for a role. The interface is in English, matching the StartCompass
+    /// site and the wireframes, so this is a pass-through for now -- it stays because it
+    /// is the one place to change if the club wants Norwegian labels back.
+    /// </summary>
     public static string DisplayName(string role) => role switch
     {
-        Player => "Spiller",
-        Coach => "Trener",
-        Guardian => "Foresatt",
+        Player => "Player",
+        Coach => "Coach",
+        Guardian => "Guardian",
         Admin => "Administrator",
         _ => role
     };

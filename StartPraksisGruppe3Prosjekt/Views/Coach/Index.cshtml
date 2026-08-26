@@ -1,13 +1,107 @@
+@model CoachTeamsViewModel
 @{
-    ViewData["Title"] = "Mine lag";
+    ViewData["Title"] = "My teams";
+    ViewData["FullWidth"] = true;
 }
 
-<h1>Mine lag</h1>
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>My teams</h1>
 
-<p class="text-muted">
-    Lagene du er registrert som trener for. Du ser bare spillere på egne lag,
-    og bare de som har gitt fullt samtykke.
-</p>
+        @if (Model.RoundName is { } roundName)
+        {
+            <p class="sc-hero__lead">
+                @roundName@(Model.RoundIsOpen && Model.RoundClosesAt is { } closes
+                    ? $" is open until {closes.ToLocalTime():d MMMM yyyy}."
+                    : " is closed.")
+            </p>
+        }
+        else
+        {
+            <p class="sc-hero__lead">No rounds have been set up yet.</p>
+        }
 
-@* TODO (Taavi): list lagene fra CoachTeam med lenke til Team-visningen. *@
-<p><em>Ikke bygget ennå.</em></p>
+        <div class="sc-hero__meta">
+            <span>You see only players on your own teams</span>
+            <span>Individual answers require full consent</span>
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        @if (Model.Teams.Count == 0)
+        {
+            <div class="sc-card sc-card--left">
+                <h3>No teams yet</h3>
+                <p class="sc-card__meta">
+                    You are not registered on a team. The club links coaches to teams —
+                    the role on its own does not give access to anyone.
+                </p>
+            </div>
+        }
+        else
+        {
+            @if (Model.OwnBacklog > 0 && Model.RoundIsOpen)
+            {
+                @*
+                    The coach's own backlog is an action, not decoration: the most common
+                    reason a comparison is missing is that the coach has not answered.
+                *@
+                <div class="sc-notice sc-notice--info">
+                    <p>
+                        You still have @Model.OwnBacklog player@(Model.OwnBacklog == 1 ? "" : "s")
+                        to answer for in @Model.RoundName.
+                        <a asp-controller="Survey" asp-action="Index">Go to the form</a>
+                    </p>
+                </div>
+            }
+
+            <div class="sc-grid">
+                @foreach (var team in Model.Teams)
+                {
+                    <article class="sc-card sc-card--top">
+                        <div class="sc-compare__head">
+                            <h3>@team.TeamName</h3>
+                            @if (team.FollowUpCount > 0)
+                            {
+                                <span class="sc-badge sc-badge--alert">
+                                    @team.FollowUpCount need follow-up
+                                </span>
+                            }
+                        </div>
+
+                        <p class="sc-card__meta">
+                            @team.PlayerCount player@(team.PlayerCount == 1 ? "" : "s")
+                        </p>
+
+                        <div class="sc-table-wrap">
+                            <table class="sc-table">
+                                <tbody>
+                                    <tr>
+                                        <td class="sc-muted sc-small">Players answered</td>
+                                        <td class="sc-num">@team.PlayersAnswered / @team.PlayerCount</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="sc-muted sc-small">You have answered</td>
+                                        <td class="sc-num">@team.CoachAnswered / @team.PlayerCount</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="sc-actions">
+                            <a class="sc-btn"
+                               asp-action="FiveCTeam"
+                               asp-route-id="@team.TeamId"
+                               asp-route-roundId="@Model.RoundId">
+                                Open 5C overview
+                            </a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>
