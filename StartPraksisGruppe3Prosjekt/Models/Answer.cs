@@ -18,6 +18,6 @@ public class Answer
     /// verdien skal holdes utenfor snitt og avvik, ikke settes til midtpunktet.
     /// </summary>
     [Range(1, 5)]
-    [Display(Name = "Svar")]
+    [Display(Name = "Answer")]
     public int? Value { get; set; }
 }

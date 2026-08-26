@@ -9,6 +9,7 @@ using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Models.FiveC;
 using StartPraksisGruppe3Prosjekt.Security;
+using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using StartPraksisGruppe3Prosjekt.ViewModels;
 
@@ -43,6 +44,7 @@ public class SurveyController : Controller
     private readonly ISurveySubmissionStore _store;
     private readonly ISurveyAssignmentService _assignments;
     private readonly ILogger<SurveyController> _logger;
+    private readonly IPeriodSelection _selection;
 
     public SurveyController(
         AppDbContext db,
@@ -50,7 +52,8 @@ public class SurveyController : Controller
         IQuestionCatalog catalog,
         ISurveySubmissionStore store,
         ISurveyAssignmentService assignments,
-        ILogger<SurveyController> logger)
+        ILogger<SurveyController> logger,
+        IPeriodSelection selection)
     {
         _db = db;
         _authz = authz;
@@ -58,12 +61,15 @@ public class SurveyController : Controller
         _store = store;
         _assignments = assignments;
         _logger = logger;
+        _selection = selection;
     }
 
     /// <summary>
     /// The open round and the forms this user is expected to fill in.
     /// </summary>
-    public async Task<IActionResult> Index(CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        SurveyIndexViewModel.FilterInput filter,
+        CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -72,28 +78,96 @@ public class SurveyController : Controller
             .OrderByDescending(r => r.ClosesAt)
             .ToListAsync(cancellationToken);
 
-        var open = rounds.FirstOrDefault(r => r.IsOpenAt(now));
+        // The period asked for, otherwise the one remembered from last time, otherwise the
+        // current one. Picking a period here and then opening the team overview keeps the
+        // choice -- see IPeriodSelection.
+        var selected = await _selection.ResolveAsync(filter.RoundId, cancellationToken);
 
         var model = new SurveyIndexViewModel
         {
-            OpenRound = open is null
-                ? null
-                : new SurveyIndexViewModel.RoundSummary(open.Id, open.Name, open.OpensAt, open.ClosesAt),
-
-            ClosedRounds = rounds
-                .Where(r => !r.IsOpenAt(now))
-                .Select(r => new SurveyIndexViewModel.RoundSummary(r.Id, r.Name, r.OpensAt, r.ClosesAt))
+            Filter = filter,
+            Rounds = rounds
+                .Select(r => new SurveyIndexViewModel.RoundSummary(
+                    r.Id, r.Name, r.OpensAt, r.ClosesAt, r.IsOpenAt(now)))
                 .ToList(),
-
             StoreDescription = User.IsInRole(Roles.Admin) ? _store.Description : null
         };
 
-        if (open is not null)
+        if (selected is null)
         {
-            model.Assignments = await _assignments.GetAssignmentsAsync(User, open.Id, cancellationToken);
+            return View(model);
         }
 
+        model.SelectedRound = new SurveyIndexViewModel.RoundSummary(
+            selected.Id, selected.Name, selected.OpensAt, selected.ClosesAt, selected.IsOpenAt(now));
+
+        model.SelectedRoundIsOpen = selected.IsOpenAt(now);
+        model.Filter.RoundId = selected.Id;
+
+        var all = await _assignments.GetAssignmentsAsync(User, selected.Id, cancellationToken);
+
+        // Totals are counted before filtering. A progress figure that moves when you narrow
+        // the list is telling you about the filter, not about the work left.
+        model.TotalCount = all.Count;
+        model.TotalAnswered = all.Count(a => a.HasAnswered);
+
+        model.Teams = all
+            .Select(a => a.TeamName)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(t => t, StringComparer.Ordinal)
+            .ToList();
+
+        model.Roles = all
+            .Select(a => a.Role)
+            .Distinct()
+            .OrderBy(r => r)
+            .ToList();
+
+        model.Assignments = Filtered(all, filter).ToList();
+
         return View(model);
+    }
+
+    /// <summary>
+    /// Applies the filters in memory. The list is already loaded -- it is one round's worth
+    /// of forms for one user -- so a second trip to the database would buy nothing.
+    /// </summary>
+    private static IEnumerable<SurveyAssignment> Filtered(
+        IReadOnlyList<SurveyAssignment> assignments,
+        SurveyIndexViewModel.FilterInput filter)
+    {
+        IEnumerable<SurveyAssignment> result = assignments;
+
+        if (!string.IsNullOrWhiteSpace(filter.Team))
+        {
+            result = result.Where(a =>
+                string.Equals(a.TeamName, filter.Team, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (filter.Role is { } role)
+        {
+            result = result.Where(a => a.Role == role);
+        }
+
+        result = filter.Status switch
+        {
+            FormStatus.Pending => result.Where(a => !a.HasAnswered),
+            FormStatus.Completed => result.Where(a => a.HasAnswered),
+            _ => result
+        };
+
+        if (!string.IsNullOrWhiteSpace(filter.Query))
+        {
+            var query = filter.Query.Trim();
+
+            // Player code only. Names are not in this system, and searching one would be a
+            // different feature with a different privacy question attached.
+            result = result.Where(a =>
+                a.PlayerCode.Contains(query, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return result;
     }
 
     /// <summary>

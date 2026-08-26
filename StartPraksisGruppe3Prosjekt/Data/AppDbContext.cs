@@ -26,6 +26,17 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<Answer> Answers => Set<Answer>();
     public DbSet<ConsentEvent> ConsentEvents => Set<ConsentEvent>();
 
+    /// <summary>Append-only. Hvem som har sett hvilken spiller. Se PlayerAccessEvent.</summary>
+    public DbSet<PlayerAccessEvent> PlayerAccessEvents => Set<PlayerAccessEvent>();
+
+    /// <summary>Append-only. Trenerens frigivelse av egne svar til spilleren.</summary>
+    public DbSet<FeedbackRelease> FeedbackReleases => Set<FeedbackRelease>();
+
+    /// <summary>Innsendte 5C-skjemaer. Se EfSurveySubmissionStore.</summary>
+    public DbSet<FiveCSubmission> FiveCSubmissions => Set<FiveCSubmission>();
+
+    public DbSet<FiveCAnswer> FiveCAnswers => Set<FiveCAnswer>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -105,6 +116,68 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .HasForeignKey(c => c.PlayerId)
              .OnDelete(DeleteBehavior.Cascade);
         });
+
+        builder.Entity<PlayerAccessEvent>(e =>
+        {
+            // De to oppslagene loggen faktisk brukes til: "hvem har sett denne spilleren"
+            // og "hva har denne brukeren sett".
+            e.HasIndex(a => new { a.PlayerId, a.OccurredAt });
+            e.HasIndex(a => new { a.ViewedByUserId, a.OccurredAt });
+
+            e.HasOne(a => a.Player)
+             .WithMany()
+             .HasForeignKey(a => a.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller (GDPR) tar loggen med
+
+            e.HasOne(a => a.Round)
+             .WithMany()
+             .HasForeignKey(a => a.RoundId)
+             .OnDelete(DeleteBehavior.SetNull); // en slettet runde skal ikke slette loggen
+        });
+
+        builder.Entity<FiveCSubmission>(e =>
+        {
+            // Én besvarelse per person, per spiller, per runde. Retting = oppdater raden.
+            // Regelen håndheves her og ikke i en tjeneste, slik at den holder uansett hvem
+            // som skriver.
+            e.HasIndex(s => new { s.RoundId, s.PlayerId, s.RespondentUserId }).IsUnique();
+
+            e.HasOne(s => s.Round)
+             .WithMany()
+             .HasForeignKey(s => s.RoundId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(s => s.Player)
+             .WithMany()
+             .HasForeignKey(s => s.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller fjerner svarene (GDPR)
+        });
+
+        builder.Entity<FiveCAnswer>(e =>
+        {
+            e.HasIndex(a => new { a.SubmissionId, a.QuestionKey }).IsUnique();
+
+            e.HasOne(a => a.Submission)
+             .WithMany(s => s.Answers)
+             .HasForeignKey(a => a.SubmissionId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<FeedbackRelease>(e =>
+        {
+            // Gjeldende tilstand er nyeste rad for (runde, spiller).
+            e.HasIndex(f => new { f.RoundId, f.PlayerId, f.OccurredAt });
+
+            e.HasOne(f => f.Player)
+             .WithMany()
+             .HasForeignKey(f => f.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(f => f.Round)
+             .WithMany()
+             .HasForeignKey(f => f.RoundId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 
     // Overstyrer overloaden med parameter, ikke den parameterløse: SaveChanges() kaller
@@ -131,12 +204,24 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     /// </summary>
     private void GuardAppendOnlyConsentLog()
     {
-        foreach (EntityEntry<ConsentEvent> entry in ChangeTracker.Entries<ConsentEvent>())
+        GuardAppendOnly<ConsentEvent>("ConsentEvent");
+        GuardAppendOnly<PlayerAccessEvent>("PlayerAccessEvent");
+        GuardAppendOnly<FeedbackRelease>("FeedbackRelease");
+    }
+
+    /// <summary>
+    /// Felles vakt for de append-only loggene. En logg som kan endres dokumenterer
+    /// ingenting, så endring og sletting stoppes her og ikke i hver enkelt tjeneste.
+    /// Unntaket er full sletting av spilleren (GDPR), der cascade tar radene med seg.
+    /// </summary>
+    private void GuardAppendOnly<TEntity>(string name) where TEntity : class
+    {
+        foreach (EntityEntry<TEntity> entry in ChangeTracker.Entries<TEntity>())
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
                 throw new InvalidOperationException(
-                    "ConsentEvent er en append-only logg. Legg til en ny hendelse i stedet for " +
+                    $"{name} er en append-only logg. Legg til en ny hendelse i stedet for " +
                     "å endre eller slette en eksisterende.");
             }
         }

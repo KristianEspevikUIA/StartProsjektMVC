@@ -2,7 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
+using Microsoft.AspNetCore.RateLimiting;
+using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
+using StartPraksisGruppe3Prosjekt.ViewModels;
 
 namespace StartPraksisGruppe3Prosjekt.Controllers;
 
@@ -18,16 +21,104 @@ public class AdminController : Controller
 {
     private readonly AppDbContext _db;
     private readonly IConsentService _consent;
+    private readonly IPeriodService _periods;
 
-    public AdminController(AppDbContext db, IConsentService consent)
+    public AdminController(AppDbContext db, IConsentService consent, IPeriodService periods)
     {
         _db = db;
         _consent = consent;
+        _periods = periods;
     }
 
     public IActionResult Index()
     {
         return View();
+    }
+
+    /// <summary>
+    /// Measurement periods: what exists, how full each one is, and a form for adding another.
+    ///
+    /// This is the supported way to create a period. It goes through the same
+    /// <see cref="IPeriodService"/> the seeding uses, so a period added here behaves exactly
+    /// like one that shipped with the app -- no separate path, no one-off insert.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Periods(CancellationToken cancellationToken)
+    {
+        return View(await BuildPeriodsViewAsync(cancellationToken));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> CreatePeriod(
+        AdminPeriodsViewModel model,
+        CancellationToken cancellationToken)
+    {
+        var input = model.NewPeriod;
+
+        if (ModelState.IsValid)
+        {
+            // The form gives dates; a period runs to the end of its closing day rather than
+            // to midnight at the start of it, which would close it a day early.
+            var result = await _periods.CreateAsync(
+                input.Name,
+                new DateTimeOffset(input.OpensAt.Date, TimeSpan.Zero),
+                new DateTimeOffset(input.ClosesAt.Date.AddDays(1).AddSeconds(-1), TimeSpan.Zero),
+                cancellationToken);
+
+            if (result.Succeeded)
+            {
+                TempData["AdminMessage"] =
+                    $"Period \"{result.Round!.Name}\" created. It has no submissions yet.";
+
+                return RedirectToAction(nameof(Periods));
+            }
+
+            foreach (var problem in result.Problems)
+            {
+                ModelState.AddModelError(string.Empty, problem);
+            }
+        }
+
+        var view = await BuildPeriodsViewAsync(cancellationToken);
+        view.NewPeriod = input;
+
+        return View(nameof(Periods), view);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> ClosePeriod(int id, CancellationToken cancellationToken)
+    {
+        var result = await _periods.CloseNowAsync(id, cancellationToken);
+
+        TempData["AdminMessage"] = result.Succeeded
+            ? $"Period \"{result.Round!.Name}\" is now closed. Existing answers are kept."
+            : string.Join(" ", result.Problems);
+
+        return RedirectToAction(nameof(Periods));
+    }
+
+    private async Task<AdminPeriodsViewModel> BuildPeriodsViewAsync(CancellationToken cancellationToken)
+    {
+        var rounds = await _periods.GetAllAsync(cancellationToken);
+        var counts = await _periods.GetSubmissionCountsAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+
+        return new AdminPeriodsViewModel
+        {
+            Periods = rounds
+                .Select(r => new AdminPeriodsViewModel.PeriodRow(
+                    r.Id,
+                    r.Name,
+                    r.OpensAt,
+                    r.ClosesAt,
+                    r.IsOpenAt(now),
+                    counts.TryGetValue(r.Id, out var count) ? count : 0))
+                .ToList()
+        };
     }
 
     /// <summary>

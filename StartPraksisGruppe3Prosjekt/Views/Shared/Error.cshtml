@@ -1,18 +1,17 @@
 @model ErrorViewModel
 @{
-    ViewData["Title"] = "Noe gikk galt";
+    ViewData["Title"] = "Something went wrong";
 }
 
-<h1 class="text-danger">Noe gikk galt</h1>
+<h1 class="text-danger">Something went wrong</h1>
 <p>
-    Vi klarte ikke å behandle forespørselen. Prøv igjen, og si ifra til klubben hvis
-    det fortsetter.
+    We could not process that request. Try again, and tell the club if it keeps happening.
 </p>
 
 @if (Model.ShowRequestId)
 {
     <p>
-        <strong>Referanse:</strong> <code>@Model.RequestId</code>
-        <span class="text-muted">— oppgi denne hvis du melder fra om feilen.</span>
+        <strong>Reference:</strong> <code>@Model.RequestId</code>
+        <span class="text-muted">— quote this if you report the problem.</span>
     </p>
 }

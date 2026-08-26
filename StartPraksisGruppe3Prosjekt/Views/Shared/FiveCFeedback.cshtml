@@ -1,0 +1,183 @@
+@model FiveCFeedbackViewModel
+@{
+    ViewData["Title"] = Model.ViewerIsGuardian ? "My child" : "My answers";
+    ViewData["FullWidth"] = true;
+
+    var who = Model.ViewerIsGuardian ? "your child" : "you";
+    var comparison = Model.Comparison;
+}
+
+@*
+    The player's half of the 5C conversation, shared by the player page and the guardian page.
+
+    The coach's numbers are not in the model at all unless the coach has released them --
+    FiveCFeedbackBuilder redacts before this view ever sees it. Nothing here is load-bearing
+    for that; it is a second layer, not the only one.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>@(Model.ViewerIsGuardian ? Model.PlayerCode : "My answers")</h1>
+
+        <p class="sc-hero__lead">
+            @switch (Model.Stage)
+            {
+                case FeedbackStage.NotAnswered:
+                    <text>@Model.RoundName is open. @(Model.ViewerIsGuardian ? "You have not answered about your child yet." : "You have not answered yet.")</text>
+                    break;
+                case FeedbackStage.WaitingForCoach:
+                    <text>Your answers are saved. The coach has not answered yet.</text>
+                    break;
+                case FeedbackStage.CoachAnswered:
+                    <text>The coach has answered. They will go through it with @who before sharing the numbers.</text>
+                    break;
+                case FeedbackStage.Released:
+                    <text>The coach has shared their answers. Here is how they compare.</text>
+                    break;
+            }
+        </p>
+
+        <div class="sc-hero__meta">
+            <span>@Model.RoundName</span>
+            @if (!string.IsNullOrEmpty(Model.TeamName))
+            {
+                <span>@Model.TeamName</span>
+            }
+            <span>@(Model.RoundIsOpen ? $"Open until {Model.RoundClosesAt.ToLocalTime():d MMMM yyyy}" : "Closed")</span>
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    @* ---- The big action. Item 3: getting to the form must not be a scavenger hunt. ---- *@
+    @if (Model.CanFillIn)
+    {
+        <section class="sc-section">
+            <div class="sc-cta">
+                <div>
+                    <h2 class="sc-cta__title">
+                        @(Model.ViewerHasAnswered ? "Change your answers" : "Fill out the form")
+                    </h2>
+                    <p class="sc-cta__text">
+                        25 statements about the five C's, on a scale from 1 to 5.
+                        @(Model.ViewerHasAnswered
+                            ? "You can change your answers for as long as the period is open."
+                            : "It takes a few minutes.")
+                    </p>
+                </div>
+
+                <a class="sc-btn sc-cta__button"
+                   asp-controller="Survey"
+                   asp-action="Fill"
+                   asp-route-roundId="@Model.RoundId"
+                   asp-route-playerId="@Model.PlayerId"
+                   asp-route-role="@Model.FillRole">
+                    @(Model.ViewerHasAnswered ? "Open the form" : "Fill out form")
+                </a>
+            </div>
+        </section>
+    }
+
+    @* ---- Where the conversation is. ---- *@
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>Status</h2>
+
+        <ol class="sc-steps">
+            <li class="sc-step @(Model.ViewerHasAnswered ? "sc-step--done" : "sc-step--now")">
+                <span class="sc-step__label">1. You answer</span>
+                <span class="sc-step__note">
+                    @(Model.ViewerHasAnswered ? "Done" : "Not answered yet")
+                </span>
+            </li>
+            <li class="sc-step @(Model.CoachHasAnswered ? "sc-step--done" : "")">
+                <span class="sc-step__label">2. The coach answers</span>
+                <span class="sc-step__note">
+                    @(Model.CoachHasAnswered ? "Done" : "Waiting")
+                </span>
+            </li>
+            <li class="sc-step @(Model.CoachAnswersReleased ? "sc-step--done" : "")">
+                <span class="sc-step__label">3. The coach shares</span>
+                <span class="sc-step__note">
+                    @(Model.CoachAnswersReleased ? "Shared with you" : "Not shared yet")
+                </span>
+            </li>
+        </ol>
+
+        @if (Model.Stage == FeedbackStage.CoachAnswered)
+        {
+            <div class="sc-notice sc-notice--info">
+                <p>
+                    Your coach has answered, but has not shared their answers yet. That is on
+                    purpose: the numbers are meant to be something you talk about together,
+                    not something that turns up on your phone on its own.
+                </p>
+            </div>
+        }
+    </section>
+
+    @* ---- The scores. ---- *@
+    @if (comparison is not null && comparison.PlayerHasAnswered)
+    {
+        <section class="sc-section sc-section--last">
+            <div class="sc-rule"></div>
+            <h2>@(Model.Stage == FeedbackStage.Released ? "Your answers and the coach's" : "Your answers")</h2>
+
+            <p class="sc-lead">
+                Each number is an average on the 1–5 scale, after negatively worded
+                statements have been turned round so higher always means better.
+            </p>
+
+            @if (Model.Stage == FeedbackStage.Released)
+            {
+                <div class="sc-legend">
+                    <span class="sc-legend__item">
+                        <span class="sc-legend__swatch sc-legend__swatch--player"></span> @(Model.ViewerIsGuardian ? "Player" : "You")
+                    </span>
+                    <span class="sc-legend__item">
+                        <span class="sc-legend__swatch sc-legend__swatch--guardian"></span> Guardian
+                    </span>
+                    <span class="sc-legend__item">
+                        <span class="sc-legend__swatch sc-legend__swatch--coach"></span> Coach
+                    </span>
+                </div>
+
+                <div class="sc-compare">
+                    @foreach (var category in comparison.Categories)
+                    {
+                        <article class="sc-compare__card">
+                            <div class="sc-compare__head">
+                                <h3>@category.CategoryName</h3>
+                            </div>
+                            <partial name="_FiveCCategoryChart" model="category" />
+                        </article>
+                    }
+                </div>
+            }
+            else
+            {
+                @* Before the coach shares, only the player's own numbers. No empty coach
+                   row: an empty bar would read as "the coach answered nothing", which is
+                   the opposite of what is true at this stage. *@
+                <div class="sc-grid">
+                    @foreach (var category in comparison.Categories)
+                    {
+                        <article class="sc-card sc-card--top">
+                            <div class="sc-compare__head">
+                                <h3>@category.CategoryName</h3>
+                                <span class="sc-num">
+                                    @(category.PlayerMean is { } mean ? mean.ToString("0.0") : "–")
+                                </span>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <div class="sc-section sc-section--last"></div>
+    }
+</div>

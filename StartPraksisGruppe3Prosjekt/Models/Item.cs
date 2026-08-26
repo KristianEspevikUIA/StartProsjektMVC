@@ -11,21 +11,21 @@ public class Item
     public int Id { get; set; }
 
     [Range(1, 10)]
-    [Display(Name = "Nummer")]
+    [Display(Name = "Number")]
     public int Number { get; set; }
 
     [Required]
     [StringLength(300)]
-    [Display(Name = "Påstand")]
+    [Display(Name = "Statement")]
     public string Text { get; set; } = string.Empty;
 
     /// <summary>Området påstanden måler: Rolleforståelse, Trygghet eller Mestring.</summary>
     [Required]
     [StringLength(50)]
-    [Display(Name = "Område")]
+    [Display(Name = "Area")]
     public string Construct { get; set; } = string.Empty;
 
-    [Display(Name = "Reversert")]
+    [Display(Name = "Reversed")]
     public bool IsReversed { get; set; }
 
     public ICollection<Answer> Answers { get; set; } = new List<Answer>();

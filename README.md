@@ -14,11 +14,15 @@ valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på t
 
 ## Status
 
-Fase 0 er ferdig: struktur, datamodell, Identity med fire roller, ressursbasert
-autorisasjon og tomme kontrollere/views med TODO-markører.
-Selve funksjonaliteten er **ikke** implementert — den skal fordeles.
+**Bygget og i bruk:** 5C-spørreskjemaet (25 påstander, fem kategorier), skjemalisten med
+filtre, treneroversikten med sammenligning og oppfølgingsvarsel, samtaleflyten mellom
+spiller og trener, spiller- og foresattsiden, revisjonsloggen, og admin-siden for perioder.
 
-`dotnet build` kjører rent, og `dotnet run` oppretter databasen og legger inn seed-data.
+**Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
+`Search` og `ScoringService`), samtykkeskjemaet for foresatte, brukeradministrasjon og
+GDPR-innsyn/sletting i `AdminController`.
+
+`dotnet build` kjører rent, og `dotnet run` migrerer databasen og legger inn seed-data.
 
 ---
 
@@ -66,11 +70,17 @@ Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.Ens
 oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
 først bestemmer passordet for alle.
 
+**Det er én trenerkonto.** Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
+den gjenværende: lagene ble flyttet over, og kontoen fjernet. Sammenslåingen ligger i
+`SeedData.ConsolidateCoachAsync` og kjører ved hver oppstart, ikke bare på en tom base —
+den delte basen hadde begge kontoene lenge før steget fantes. Dukker kontoen opp i en
+append-only logg, blir den låst i stedet for slettet, slik at loggen fortsatt kan si hvem
+som gjorde hva.
+
 | Konto | Rolle |
 | --- | --- |
 | `admin@ikstart.example` | Admin |
-| `trener.senior@ikstart.example` | Trener (A-laget, G19) |
-| `trener.ungdom@ikstart.example` | Trener (G16) |
+| `trener.senior@ikstart.example` | Trener (alle lag) |
 | `spiller.ts0816@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
 
@@ -107,9 +117,20 @@ spiller — pluss en treneroversikt som viser hvor de tre er uenige.
 settet uten at UI-koden røres. Fila valideres ved oppstart, og en feil i den stopper appen
 med en melding som sier hva som er galt.
 
-Svarene lagres i Supabase når `FiveC:Supabase` er satt opp i konfigurasjonen; ellers brukes
-et minnelager slik at skjemaet og oversikten kan kjøres lokalt. Kontrakten frontend sender
-ligger i `Contracts/FiveC/` — i C# og speilet i TypeScript.
+Svarene lagres i **appens egen database**, som etter overgangen til Npgsql *er* Supabase:
+tabellene `FiveCSubmissions` og `FiveCAnswers`, med unik indeks på
+(runde, spiller, respondent) slik at et nytt svar er en retting og ikke en ny mening.
+Tidligere lå de i minnet og forsvant ved omstart.
+
+To unntak finnes, og de er unntak — ikke alternativer:
+
+| Konfigurasjon | Lagring |
+| --- | --- |
+| *(ingenting)* | appens database. **Standard.** |
+| `FiveC:Supabase:Url` + `:ApiKey` | et *genuint separat* Supabase-prosjekt, over PostgREST |
+| `FiveC:Store = "InMemory"` | ingenting lagres — for en demo uten å skrive |
+
+Kontrakten frontend sender ligger i `Contracts/FiveC/` — i C# og speilet i TypeScript.
 
 Deling skjer med query-param: `/Survey/Fill?roundId=2&playerId=14&role=Coach`. Lenken gir
 ingen tilgang i seg selv; den forhåndsvelger spiller og rolle, og begge sjekkene kjøres på
@@ -117,6 +138,93 @@ nytt på serveren.
 
 **Alt om dette: [`docs/five-c.md`](docs/five-c.md)** — inkludert hvorfor det ikke ble token i
 URL-en, hva Victor trenger å vite om skjemaet, og hva som gjenstår.
+
+### Perioder
+
+En **periode** (`SurveyRound` i modellen) er ett målevindu. Spiller, foresatt og trener
+svarer på det samme skjemaet innenfor den, og svarene tilhører den perioden alene.
+
+Flere perioder kan være åpne samtidig — det er normalt når en ny starter før den forrige er
+stengt. Skjemaet lander på den som stenger sist.
+
+Perioder opprettes på to måter, og begge går gjennom `IPeriodService`, så reglene for hva
+som er en brukbar periode bor ett sted:
+
+- **Admin-siden** `Admin/Periods`: navn, åpner, stenger. Ny periode starter tom.
+- **Seeding** i `SeedData.SeedRoundsAsync`, som er idempotent *per periode* — ellers kunne
+  en ny periode aldri legges til i en base som allerede var seedet.
+
+Seedingen ligger nå på **én** periode: `Autumn <år>`, åpen. Det er en plassholder til
+klubben har bestemt hva de virkelige periodene er. Spring og Winter ble seedet tidligere og
+fjernes ved oppstart — men **bare hvis de er tomme**. En periode med svar blir stående, for
+sletting tar svarene med seg, og det er ikke en avveining et seed-steg skal gjøre alene.
+
+### Valgt periode huskes
+
+Å velge en periode på skjemasiden og så åpne lagoversikten kastet tidligere valget og hoppet
+tilbake til gjeldende periode. Nå ligger valget i en cookie (`StartCompass.Period`), og
+`IPeriodSelection` er den ene veien inn: URL-en vinner hvis den navngir en periode — en delt
+lenke må bety det den sier — ellers det som ble husket, ellers gjeldende. En husket periode
+som siden er slettet ignoreres i stedet for å bli en 404 på en side ingen ba om.
+
+En periode kan stenges fra admin-siden. Svar som allerede er gitt beholdes; perioden slutter
+bare å ta imot nye.
+
+### Hvem ser hva
+
+| | Egne svar | At de andre har svart | Trenerens svar og avvik | Hele laget |
+| --- | --- | --- | --- | --- |
+| Spiller | ja | ja | først når treneren frigir | nei |
+| Foresatt (eget barn) | ja | ja | først når treneren frigir | nei |
+| Trener | ja | ja | alltid, for alle spillere | ja |
+| Admin | ja | ja | alltid | ja |
+
+Trener- og admin-oppslag på en enkeltspiller havner i revisjonsloggen. Spillerens egne
+besøk på sin egen side gjør det ikke — det ville vært støy som skjuler radene som betyr noe.
+
+### Skjemalisten
+
+`/Survey` er én liste med tre betydninger: for en spiller ett kort om seg selv, for en
+foresatt ett per barn, for en trener ett per spiller i klubben. Visningen forgrener seg ikke
+på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører hjemme i lista.
+
+Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og spillerkode.
+Filtrene ligger i query-strengen, så en filtrert liste er en URL som kan deles og som
+tilbakeknappen forstår. Totalene telles **før** filtrering — et fremdriftstall som flytter
+seg når du filtrerer, forteller om filteret og ikke om arbeidet som gjenstår.
+
+### Mobil
+
+Utfyllingen er den flyten som må fungere på en telefon, og den er bygget for det: skalaen
+1–5 tar full bredde, knapper er trykkflater i full bredde, inputfelt er 16px (mindre, og
+iOS Safari zoomer inn ved fokus), og etikettene under tallene vikes til fordel for
+endepunktene «Strongly disagree» / «Strongly agree». Trenerens tabeller scroller i stedet
+sidelengs inne i `.sc-table-wrap` — en trener som sammenligner en tropp sitter uansett på
+en laptop.
+
+### Samtaleflyten
+
+5C-runden er en samtale, ikke en dom. Rekkefølgen:
+
+1. Spilleren svarer om seg selv.
+2. Treneren svarer om spilleren. Ingen av dem ser den andre ennå.
+3. Spilleren får vite at treneren **har** svart — ikke hva.
+4. Treneren frigir svarene sine. Først da ser spilleren trenerens score og avviket.
+
+Treneren ser alt hele veien. Foresatt ser nøyaktig det samme som spilleren.
+
+Asymmetrien er med vilje: at en trener leser sin egen uenighet med en fjortenåring er en
+treneravgjørelse, og det samme tallet som dukker opp uanmeldt på spillerens telefon er det
+ikke.
+
+Frigivelsen er en append-only logg (`FeedbackRelease`), som samtykkeloggen — en frigivelse
+som senere trekkes tilbake er fortsatt noe som skjedde. Trekker treneren tilbake, legges det
+til en ny hendelse; den gamle raden blir stående.
+
+Viktig for den som bygger videre: **redigeringen skjer i modellen, ikke i visningen.**
+`FiveCFeedbackBuilder` fjerner trenerens tall fra modellen når det ikke er frigitt, slik at
+en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelsen inn i en
+`.cshtml`-fil.
 
 ---
 
@@ -137,7 +245,11 @@ StartPraksisGruppe3Prosjekt/
 │  └─ SeedData.cs
 ├─ Services/
 │  ├─ IScoringService.cs + ScoringService.cs
-│  └─ IConsentService.cs + ConsentService.cs
+│  ├─ IConsentService.cs + ConsentService.cs
+│  ├─ IPeriodService.cs + PeriodService.cs          perioder, én vei inn
+│  ├─ IFeedbackReleaseService.cs + …                trenerens frigivelse
+│  ├─ IPlayerAccessLog.cs + PlayerAccessLog.cs      revisjonsloggen
+│  └─ FiveC/                                        spørsmålskatalog, lagring, analyse
 ├─ Authorization/               policyer, krav og handlere
 ├─ ViewModels/
 ├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Shared/
@@ -156,6 +268,11 @@ StartPraksisGruppe3Prosjekt/
 | **Brage** | `GuardianController`, `PlayerController`, `ConsentService`, `SeedData` |
 
 Views-mappene følger controlleren: eier du `CoachController`, eier du `Views/Coach/`.
+
+**Rørt på tvers av eierskapet** under 5C-arbeidet, så ingen blir overrasket i en merge:
+`ConsentService.GetCurrentLevelsAsync` (Brage), `CoachController` og `Views/Coach/` (Taavi),
+`PlayerController` og `GuardianController` (Brage), `SurveyController` (Victor),
+`Views/Shared/_Layout.cshtml` (Taavi). De eldre ti-påstands-TODO-ene er urørt.
 
 ### Migrations: bare én person genererer dem
 
@@ -205,9 +322,8 @@ Regelen bor i `ScoringService.ScoreOf` — bruk den, ikke skriv `6 -` andre sted
 
 ## Autorisasjon
 
-Roller alene er ikke nok. En trener er ikke trener *for alle*, og en foresatt er ikke
-foresatt *for alle*. Derfor er tilgangen ressursbasert: policyene vurderer én konkret
-spiller eller ett konkret lag.
+Rolle alene avgjør ikke alt. En foresatt er ikke foresatt *for alle*, så tilgangen er
+ressursbasert: policyene vurderer én konkret spiller eller ett konkret lag.
 
 **`CanViewPlayer`** (`AuthorizationHandler<CanViewPlayerRequirement, Player>`)
 
@@ -216,13 +332,28 @@ spiller eller ett konkret lag.
 | Admin | alltid |
 | Spilleren selv | `player.UserId` er innlogget bruker |
 | Foresatt | bare hvis en `Guardianship` knytter brukeren til *denne* spilleren |
-| Trener | bare hvis `CoachTeam` dekker spillerens lag **og** nyeste `ConsentEvent` er `Full` |
+| Trener | alltid — ikke lagavgrenset, og ikke lenger samtykkeavgrenset |
 | Alle andre | nei |
 
-**`CanViewTeam`** (`AuthorizationHandler<CanViewTeamRequirement, Team>`) — admin, eller
-trener med `CoachTeam` på laget. Avgjør om lagsiden i det hele tatt skal vises, og er et
-annet spørsmål enn om snittet skal vises. Uten den kunne en hvilken som helst trener bla
-gjennom lag-ID-er og få bekreftet hvilke lag som finnes.
+### Samtykke stanser ikke lenger en trener
+
+Dette er den største endringen i modellen, og den er verdt å lese to ganger.
+
+Tidligere måtte en trener ha `ConsentEvent = Full` for å se en enkeltspiller i det hele
+tatt. Klubben ba om at trenere alltid skal kunne åpne en spillerside, og det er det som nå
+gjelder. Samtykket styrer fortsatt hva opplysningene kan brukes til utenfor appen, og det
+må fortsatt stemme i Sikt-meldingen — men det er ikke lenger det som hindrer en trener i å
+åpne en side.
+
+**Det som erstatter den, er etterprøvbarhet i stedet for hindring.** Hvert oppslag på en
+enkeltspillers svar skriver en rad i `PlayerAccessEvent`: hvem, hvilken spiller, hvilken
+side, når. Loggen er append-only som samtykkeloggen. Slutter den å skrives, står regelen i
+`CanViewPlayerHandler` uten motvekt — så en ny side som viser én spillers svar **skal**
+kalle `IPlayerAccessLog.RecordAsync`.
+
+**`CanViewTeam`** (`AuthorizationHandler<CanViewTeamRequirement, Team>`) — admin eller
+trener. Et lag er i seg selv bare et navn og en liste med spillerkoder; enkeltsvarene er
+vernet av `CanViewPlayer` og loggen over.
 
 **`CanViewTeamAggregate`** — trener med `CoachTeam` på laget, eller admin. I tillegg:
 snittet vises ikke hvis færre enn **3** besvarelser ligger bak det, ellers kan tallet
@@ -250,7 +381,8 @@ skal bo ett sted, i `Authorization/`.
 
 To småting som er ferdig implementert med vilje, fordi autorisasjonen faller uten dem:
 `ConsentService.GetCurrentLevelAsync` og `ScoringService.ScoreOf`. Ikke gjør dem om til
-stubs.
+stubs. `ConsentService.GetCurrentLevelsAsync` (flertall) er også implementert — lagoversikten
+lister en hel tropp og ville ellers gjort ett oppslag per spiller.
 
 ---
 
@@ -319,6 +451,23 @@ Det som faktisk skal være åpent, må merkes `[AllowAnonymous]`, og i dag er de
 Fallbacken erstatter ikke `[Authorize(Roles = ...)]` og slett ikke de ressursbaserte
 policyene. Den sier bare «innlogget», ikke «innlogget som riktig person».
 
+### Innloggingssiden er vår egen
+
+`Areas/Identity/Pages/Account/Login.cshtml` overstyrer siden fra Identity UI-pakken. To
+grunner, og ingen av dem lot seg løse utenfra:
+
+- Pakkesiden er et bart Bootstrap-skjema som ikke ligner resten av appen, og markupen lar
+  seg ikke restyle langt nok med CSS alene.
+- Den tilbyr «Register as a new user», som her er en lenke til 404 — selvregistrering er
+  stengt i middleware. En død lenke på innloggingssiden er det første nye brukere møter.
+
+`Areas/Identity/Pages/_ViewStart.cshtml` peker resten av Identity-sidene på vårt eget
+layout, så de arver header, footer og palett selv om de fortsatt er pakkens versjoner.
+Noen få Bootstrap-overstyringer i `startcompass.css` tar resten.
+
+Eksterne innloggingsleverandører er utelatt med vilje: ingen er satt opp, og pakkesidens
+«det er ingen eksterne tjenester konfigurert»-blokk er ikke noe å vise en trener.
+
 ### Selvregistrering er stengt
 
 `/Identity/Account/Register` og de tilhørende sidene svarer `404`
@@ -358,8 +507,14 @@ bare proxyens IP-adresse.
       `/Identity/Account/Manage/DeletePersonalData`. Det går utenom sletterutinen i
       `AdminController.Delete` og etterlater `Player.UserId` uten bruker. Avklar om siden
       skal stenges eller om sletting skal gå gjennom den
-- [ ] Revisjonslogg for admin-oppslag på enkeltspillere
-- [ ] Skal spilleren se trenerens gjetning og avviket? Ikke avgjort — se
-      `PlayerController`
+- [x] Revisjonslogg for oppslag på enkeltspillere — `PlayerAccessEvent` og
+      `IPlayerAccessLog`. Admin-visningen av loggen er fortsatt TODO
+- [x] Skal spilleren se trenerens svar og avviket? Avgjort: ja, men først når treneren
+      frigir dem. Se «Samtaleflyten» over
+- [ ] **Samtykke stanser ikke lenger en trener.** Dette må inn i Sikt-meldingen og i
+      personvernerklæringen: trenere ser alle spillere, og det som dokumenterer bruken er
+      revisjonsloggen. Klubben bør bekrefte at det er slik de vil ha det
+- [ ] Foresatt ser det samme som spilleren, også for myndige spillere over 19. Vurder om
+      det burde følge `PlayerRules.GuardianRequiredBelowAge`
 - [ ] Regelen om foresatt for spillere under 19 håndheves i seed-data, men ikke ennå
       ved registrering i `AdminController`

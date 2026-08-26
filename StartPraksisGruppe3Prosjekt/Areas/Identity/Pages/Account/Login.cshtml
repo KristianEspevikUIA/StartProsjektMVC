@@ -1,0 +1,61 @@
+@page
+@model LoginModel
+@{
+    ViewData["Title"] = "Log in";
+    ViewData["FullWidth"] = true;
+}
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>Log in</h1>
+        <p class="sc-hero__lead">
+            StartCompass accounts are created by the club. If you do not have one, or cannot
+            get in, ask your coach.
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        <div class="sc-auth">
+            <form id="account" method="post">
+                <div asp-validation-summary="ModelOnly" class="sc-field-error" role="alert"></div>
+
+                <div class="sc-form-field sc-mb">
+                    <label asp-for="Input.Email" class="sc-label"></label>
+                    <input asp-for="Input.Email" class="sc-input" autocomplete="username"
+                           inputmode="email" aria-required="true" placeholder="name@ikstart.example" />
+                    <span asp-validation-for="Input.Email" class="sc-field-error"></span>
+                </div>
+
+                <div class="sc-form-field sc-mb">
+                    <label asp-for="Input.Password" class="sc-label"></label>
+                    <input asp-for="Input.Password" class="sc-input" type="password"
+                           autocomplete="current-password" aria-required="true" />
+                    <span asp-validation-for="Input.Password" class="sc-field-error"></span>
+                </div>
+
+                <label class="sc-check">
+                    <input class="sc-check__box" asp-for="Input.RememberMe" />
+                    <span>@Html.DisplayNameFor(m => m.Input.RememberMe)</span>
+                </label>
+
+                <div class="sc-actions">
+                    <button id="login-submit" type="submit" class="sc-btn">Log in</button>
+                </div>
+
+                @* No "register as a new user" link: self-registration is closed, and the
+                   packaged page's version of this link leads to a 404. Accounts are created
+                   by the club. *@
+                <p class="sc-card__meta sc-mt">
+                    <a asp-page="./ForgotPassword">Forgotten your password?</a>
+                </p>
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

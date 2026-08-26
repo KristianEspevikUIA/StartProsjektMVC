@@ -74,6 +74,17 @@ public class FiveCPlayerViewModel
         FiveCScoreCardViewModel.ForOverall(Comparison.Differences, Code)
     };
 
+    /// <summary>
+    /// Whether the coach has shared their own answers with the player and guardian.
+    ///
+    /// The coach always sees everything on this page. Releasing decides whether the PLAYER
+    /// sees it, and it is a separate act on purpose: reading your own disagreement with a
+    /// fourteen-year-old is a coaching decision, and the same number landing unannounced on
+    /// that player's phone is not. Stored as an append-only log, so a release that was later
+    /// withdrawn is still a thing that happened.
+    /// </summary>
+    public bool AnswersReleasedToPlayer { get; set; }
+
     /// <summary>Links the coach can pass on so somebody else can fill the form in.</summary>
     public IReadOnlyList<ShareLink> ShareLinks { get; set; } = Array.Empty<ShareLink>();
 

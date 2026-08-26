@@ -302,6 +302,119 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.ToTable("ConsentEvents");
                 });
 
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FeedbackRelease", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CoachUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<bool>("IsReleased")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RoundId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("RoundId", "PlayerId", "OccurredAt");
+
+                    b.ToTable("FeedbackReleases");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategoryKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("QuestionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SubmissionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Value")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubmissionId", "QuestionKey")
+                        .IsUnique();
+
+                    b.ToTable("FiveCAnswers");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("PlayerCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("QuestionSetVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RespondentRole")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RespondentUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<int>("RoundId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId");
+
+                    b.HasIndex("RoundId", "PlayerId", "RespondentUserId")
+                        .IsUnique();
+
+                    b.ToTable("FiveCSubmissions");
+                });
+
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Guardianship", b =>
                 {
                     b.Property<int>("Id")
@@ -393,6 +506,49 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Players");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.PlayerAccessEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Context")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RoundId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ViewedByRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ViewedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoundId");
+
+                    b.HasIndex("PlayerId", "OccurredAt");
+
+                    b.HasIndex("ViewedByUserId", "OccurredAt");
+
+                    b.ToTable("PlayerAccessEvents");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Response", b =>
@@ -566,6 +722,55 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Player");
                 });
 
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FeedbackRelease", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.SurveyRound", "Round")
+                        .WithMany()
+                        .HasForeignKey("RoundId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Round");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCAnswer", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", "Submission")
+                        .WithMany("Answers")
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Submission");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.SurveyRound", "Round")
+                        .WithMany()
+                        .HasForeignKey("RoundId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Round");
+                });
+
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Guardianship", b =>
                 {
                     b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
@@ -588,6 +793,24 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Team");
                 });
 
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.PlayerAccessEvent", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.SurveyRound", "Round")
+                        .WithMany()
+                        .HasForeignKey("RoundId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Player");
+
+                    b.Navigation("Round");
+                });
+
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Response", b =>
                 {
                     b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
@@ -605,6 +828,11 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Player");
 
                     b.Navigation("Round");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
+                {
+                    b.Navigation("Answers");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Item", b =>

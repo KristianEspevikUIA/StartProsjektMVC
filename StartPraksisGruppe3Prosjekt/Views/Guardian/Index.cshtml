@@ -1,14 +1,45 @@
+@model IReadOnlyList<Player>
 @{
-    ViewData["Title"] = "Mitt barn";
+    ViewData["Title"] = "My children";
+    ViewData["FullWidth"] = true;
 }
 
-<h1>Mitt barn</h1>
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>My children</h1>
+        <p class="sc-hero__lead">
+            The players you are registered as a guardian for. Being a guardian in general
+            gives no access to anyone — the link has to exist for each child.
+        </p>
+    </div>
+</section>
 
-<p class="text-muted">
-    Her ser du barna du er registrert som foresatt for, og hva klubben har lov
-    til å bruke svarene til.
-</p>
-
-@* TODO (Brage): list spillerne fra Guardianship for innlogget bruker,
-   med lenke til Player og Consent. *@
-<p><em>Ikke bygget ennå.</em></p>
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        @if (Model.Count == 0)
+        {
+            <div class="sc-card sc-card--left">
+                <h3>No children registered</h3>
+                <p class="sc-card__meta">
+                    Your account is not linked to a player. The club sets that link up.
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="sc-grid">
+                @foreach (var child in Model)
+                {
+                    <article class="sc-card sc-card--top">
+                        <h3>@child.Code</h3>
+                        <p class="sc-card__meta">@(child.Team?.Name ?? "")</p>
+                        <div class="sc-actions">
+                            <a class="sc-btn" asp-action="Player" asp-route-id="@child.Id">Open</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>

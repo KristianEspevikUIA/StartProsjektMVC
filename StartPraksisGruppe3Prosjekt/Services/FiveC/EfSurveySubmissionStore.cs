@@ -1,0 +1,156 @@
+using Microsoft.EntityFrameworkCore;
+using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
+using StartPraksisGruppe3Prosjekt.Data;
+using StartPraksisGruppe3Prosjekt.Models;
+
+namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
+
+/// <summary>
+/// Stores 5C submissions in the application's own database -- which, since the switch to
+/// Npgsql, is the Supabase Postgres database.
+///
+/// This is the default store. It replaced the in-memory one, where answers vanished on
+/// every restart, and it is preferred over the PostgREST store because the process is
+/// already connected to this database: one credential, one connection, real foreign keys to
+/// Players and SurveyRounds, and a save that either lands completely or not at all.
+/// </summary>
+public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
+{
+    private readonly AppDbContext _db;
+
+    public EfSurveySubmissionStore(AppDbContext db)
+    {
+        _db = db;
+    }
+
+    /// <inheritdoc />
+    public string Description => "The application database (Supabase Postgres)";
+
+    /// <inheritdoc />
+    public async Task SaveAsync(
+        SurveySubmission submission,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await _db.FiveCSubmissions
+            .Include(s => s.Answers)
+            .FirstOrDefaultAsync(
+                s => s.RoundId == submission.RoundId
+                     && s.PlayerId == submission.PlayerId
+                     && s.RespondentUserId == submission.RespondentUserId,
+                cancellationToken);
+
+        if (existing is null)
+        {
+            existing = new FiveCSubmission
+            {
+                RoundId = submission.RoundId,
+                PlayerId = submission.PlayerId,
+                RespondentUserId = submission.RespondentUserId
+            };
+
+            _db.FiveCSubmissions.Add(existing);
+        }
+        else
+        {
+            // Replace the answers wholesale. Diffing 25 rows to save a delete is not worth
+            // the branch, and a wholesale replace cannot leave behind an answer the
+            // respondent has since cleared.
+            _db.FiveCAnswers.RemoveRange(existing.Answers);
+            existing.Answers.Clear();
+        }
+
+        existing.PlayerCode = submission.PlayerCode;
+        existing.RespondentRole = submission.RespondentRole;
+        existing.QuestionSetVersion = submission.QuestionSetVersion;
+        existing.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
+
+        foreach (var answer in submission.Answers)
+        {
+            existing.Answers.Add(new FiveCAnswer
+            {
+                QuestionKey = answer.QuestionKey,
+                CategoryKey = answer.CategoryKey,
+                Value = answer.Value
+            });
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<SurveySubmission?> FindAsync(
+        int roundId,
+        int playerId,
+        string respondentUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await _db.FiveCSubmissions
+            .AsNoTracking()
+            .Include(s => s.Answers)
+            .FirstOrDefaultAsync(
+                s => s.RoundId == roundId
+                     && s.PlayerId == playerId
+                     && s.RespondentUserId == respondentUserId,
+                cancellationToken);
+
+        return row is null ? null : ToContract(row);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SurveySubmission>> GetForPlayerAsync(
+        int roundId,
+        int playerId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await _db.FiveCSubmissions
+            .AsNoTracking()
+            .Include(s => s.Answers)
+            .Where(s => s.RoundId == roundId && s.PlayerId == playerId)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(ToContract).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<SurveySubmission>> GetForPlayersAsync(
+        int roundId,
+        IEnumerable<int> playerIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = playerIds.Distinct().ToList();
+
+        if (ids.Count == 0)
+        {
+            return Array.Empty<SurveySubmission>();
+        }
+
+        // One query for the whole squad. One per player would be N+1 round trips to a
+        // database that is not on this machine.
+        var rows = await _db.FiveCSubmissions
+            .AsNoTracking()
+            .Include(s => s.Answers)
+            .Where(s => s.RoundId == roundId && ids.Contains(s.PlayerId))
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(ToContract).ToList();
+    }
+
+    private static SurveySubmission ToContract(FiveCSubmission row) => new()
+    {
+        RoundId = row.RoundId,
+        PlayerId = row.PlayerId,
+        PlayerCode = row.PlayerCode,
+        RespondentRole = row.RespondentRole,
+        RespondentUserId = row.RespondentUserId,
+        QuestionSetVersion = row.QuestionSetVersion,
+        SubmittedAt = row.SubmittedAt,
+        Answers = row.Answers
+            .Select(a => new SurveyAnswer
+            {
+                QuestionKey = a.QuestionKey,
+                CategoryKey = a.CategoryKey,
+                Value = a.Value
+            })
+            .ToList()
+    };
+}

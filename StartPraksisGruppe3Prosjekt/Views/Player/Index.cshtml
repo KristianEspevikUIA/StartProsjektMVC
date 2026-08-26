@@ -1,13 +1,14 @@
 @{
-    ViewData["Title"] = "Mine svar";
+    ViewData["Title"] = "My answers";
 }
 
-<h1>Mine svar</h1>
+@*
+    Superseded. PlayerController.Index now renders Views/Shared/FiveCFeedback.cshtml, which
+    is the 5C page shared with the guardian view. This file is left as a signpost rather
+    than a second, competing version of the same page.
+*@
 
+<h1>My answers</h1>
 <p class="text-muted">
-    Her ser du hva du selv har svart. Ingen andre ser svarene dine uten at det er
-    gitt samtykke til det.
+    This page has moved. <a asp-action="Index">Reload</a> to get the 5C view.
 </p>
-
-@* TODO (Brage): finn spilleren via Player.UserId == innlogget bruker og list rundene. *@
-<p><em>Ikke bygget ennå.</em></p>

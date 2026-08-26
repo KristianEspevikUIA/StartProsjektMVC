@@ -1,15 +1,15 @@
 @{
-    ViewData["Title"] = "Samtykke";
+    ViewData["Title"] = "Consent";
 }
 
-<h1>Samtykke</h1>
+<h1>Consent</h1>
 
 <p class="text-muted">
-    Du kan når som helst endre eller trekke tilbake samtykket. Tidligere valg blir
-    stående i historikken, slik at det er mulig å se hva som gjaldt når.
+    Consent is an append-only log: withdrawing it adds a new event at a lower level rather
+    than editing the old one, so the club can always document what was allowed when.
 </p>
 
-@* TODO (Brage): skjema med de tre nivåene (ConsentViewModel.Describe gir teksten),
-   og historikken under, nyeste først.
-   POST-en kaller IConsentService.RecordAsync, som legger til en NY hendelse. *@
-<p><em>Ikke bygget ennå.</em></p>
+@* TODO (Brage): build ConsentViewModel from GetCurrentLevelAsync + GetHistoryAsync, and
+   post changes through IConsentService.RecordAsync. Never edit or delete a row —
+   AppDbContext throws if you try. *@
+<p><em>Not built yet.</em></p>
