@@ -343,6 +343,11 @@ body {
     color: #ffffff;
 }
 
+.sc-badge--warn {
+    background: var(--sc-coach);
+    color: #ffffff;
+}
+
 .sc-badge--muted {
     background: transparent;
     border: 1px solid var(--sc-border);
@@ -810,6 +815,140 @@ body {
    That does not survive a page as long as the form. */
 body {
     margin-bottom: 0;
+}
+
+/* ----------------------------------------------------- difference scores ---- */
+
+/* The score is 0 to 4: the widest two answers on a 1-5 scale can be apart. The meter is
+   SVG for the same reason the comparison bars are -- the width varies per card, and the
+   CSP has no unsafe-inline. */
+.sc-scores {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.sc-score {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-border);
+    padding: 18px 20px 16px;
+}
+
+/* The stripe names the pair, using the same colour the role has in every chart. The
+   between-all card is club blue: it belongs to no single role. */
+.sc-score--coach {
+    border-top-color: var(--sc-coach);
+}
+
+.sc-score--guardian {
+    border-top-color: var(--sc-guardian);
+}
+
+.sc-score--all {
+    border-top-color: var(--sc-blue);
+}
+
+.sc-score__title {
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.sc-score__value {
+    color: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: 46px;
+    font-weight: 800;
+    line-height: 1;
+    margin: 0 0 10px;
+}
+
+.sc-score__value--none {
+    color: var(--sc-muted-foreground);
+}
+
+.sc-score__scale {
+    color: var(--sc-muted-foreground);
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.sc-score__meter {
+    display: block;
+    height: 8px;
+    margin: 0 0 12px;
+    width: 100%;
+}
+
+.sc-score__track {
+    fill: var(--sc-muted);
+}
+
+.sc-score__bar--agree {
+    fill: var(--sc-ok);
+}
+
+.sc-score__bar--some {
+    fill: var(--sc-coach);
+}
+
+.sc-score__bar--large {
+    fill: var(--sc-alert);
+}
+
+.sc-score__gridline {
+    stroke: var(--sc-border);
+    stroke-width: 1;
+}
+
+.sc-score__band {
+    margin: 0 0 10px;
+}
+
+.sc-score__note {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* The per-category breakdown inside a comparison card: one row per pair. */
+.sc-gaps {
+    border-top: 1px solid var(--sc-border);
+    margin: 12px 0 0;
+    padding-top: 10px;
+}
+
+.sc-gaps__row {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.sc-gaps__row--total {
+    border-top: 1px solid var(--sc-border);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.sc-gaps__row dt {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sc-gaps__row dd {
+    align-items: baseline;
+    display: flex;
+    gap: 8px;
+    margin: 0;
 }
 
 /* --------------------------------------------------------------- mobile ---- */

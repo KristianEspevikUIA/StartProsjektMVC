@@ -78,6 +78,34 @@
 
         <section class="sc-section">
             <div class="sc-rule"></div>
+            <h2>Difference scores</h2>
+            <p class="sc-lead">
+                How far apart the answers are, on the same 1–5 scale the statements use. The
+                answers are paired statement by statement, so 0 means the two of them gave the
+                same answer every time and 4 would be opposite ends of the scale throughout.
+                A statement only one of them answered is left out — there is no distance
+                between an answer and a blank.
+            </p>
+
+            <div class="sc-scores">
+                @foreach (var card in Model.ScoreCards)
+                {
+                    <partial name="_FiveCScoreCard" model="card" />
+                }
+            </div>
+
+            @if (comparison.MostDifferentCategory is { } worst && worst.Differences.Overall is { } worstScore)
+            {
+                <p class="sc-lead sc-small">
+                    The difference is widest in <strong>@worst.CategoryName</strong>, at
+                    @worstScore.ToString("0.0"). That is where a conversation with @Model.Code
+                    has the most to work with — the per-category numbers are below.
+                </p>
+            }
+        </section>
+
+        <section class="sc-section">
+            <div class="sc-rule"></div>
             <h2>The five C's</h2>
             <p class="sc-lead">
                 Each bar is an average on the 1–5 scale, after negatively worded statements
@@ -110,9 +138,9 @@
                         </div>
 
                         <p class="sc-compare__desc">
-                            @if (category.Spread is { } spread)
+                            @if (category.Differences.Overall is { } categoryDifference)
                             {
-                                <text>Spread @spread.ToString("0.0") between the highest and lowest average.</text>
+                                <text>Difference @categoryDifference.ToString("0.0") across everyone who answered.</text>
                             }
                             else if (category.HasAnyAnswers)
                             {
@@ -126,24 +154,51 @@
 
                         <partial name="_FiveCCategoryChart" model="category" />
 
-                        @if (category.CoachMinusPlayer is { } gap)
+                        @if (category.Differences.HasAny)
                         {
-                            @* The sign is the point. "Gap 2" without a direction says
-                               nothing about who over- or underestimated. *@
-                            <p class="sc-compare__desc">
-                                @if (Math.Abs(gap) < 0.05)
+                            @* The same three scores as the top of the page, for this C alone.
+                               The sign is kept as well as the size: "1.2 apart" says nothing
+                               about who rated the player higher, and that is usually the
+                               first thing a coach wants to know. *@
+                            <dl class="sc-gaps">
+                                @foreach (var gap in category.Differences.Pairs)
                                 {
-                                    <text>You and @Model.Code agree on this one.</text>
+                                    <div class="sc-gaps__row">
+                                        <dt>@gap.Label</dt>
+                                        <dd>
+                                            <span class="@AgreementLevels.BadgeClass(gap.Level)">
+                                                @gap.Difference.ToString("0.0")
+                                            </span>
+                                            <span class="sc-muted sc-small">
+                                                @if (Math.Abs(gap.SignedDifference) < 0.05)
+                                                {
+                                                    <text>same on average</text>
+                                                }
+                                                else if (gap.SignedDifference > 0)
+                                                {
+                                                    <text>@RespondentGap.DisplayName(gap.Left).ToLowerInvariant() @gap.SignedDifference.ToString("0.0") higher</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>@RespondentGap.DisplayName(gap.Left).ToLowerInvariant() @Math.Abs(gap.SignedDifference).ToString("0.0") lower</text>
+                                                }
+                                            </span>
+                                        </dd>
+                                    </div>
                                 }
-                                else if (gap > 0)
+
+                                @if (category.Differences.Overall is { } categoryOverall && category.Differences.Pairs.Count > 1)
                                 {
-                                    <text>You rated @Model.Code @gap.ToString("0.0") higher than they rated themselves.</text>
+                                    <div class="sc-gaps__row sc-gaps__row--total">
+                                        <dt>Between all</dt>
+                                        <dd>
+                                            <span class="@AgreementLevels.BadgeClass(FiveCRules.LevelOf(categoryOverall))">
+                                                @categoryOverall.ToString("0.0")
+                                            </span>
+                                        </dd>
+                                    </div>
                                 }
-                                else
-                                {
-                                    <text>You rated @Model.Code @Math.Abs(gap).ToString("0.0") lower than they rated themselves.</text>
-                                }
-                            </p>
+                            </dl>
                         }
                     </article>
                 }

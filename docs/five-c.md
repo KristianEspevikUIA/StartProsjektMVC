@@ -17,8 +17,9 @@ All interface text is English, matching the StartCompass site and the wireframes
 | What is sent when a form is submitted | `Contracts/FiveC/SurveySubmission.cs` (+ `.ts` mirror) |
 | Storage | `Services/FiveC/ISurveySubmissionStore.cs` and its two implementations |
 | Player vs guardian vs coach | `Services/FiveC/FiveCAnalysisService.cs` |
+| The difference scores | `Services/FiveC/FiveCDifference.cs` |
 | Coach views | `CoachController.FiveCTeam` / `.FiveCPlayer`, `Views/Coach/` |
-| Scale bounds and the follow-up rule | `Models/FiveC/FiveCRules.cs` |
+| Scale bounds, the follow-up rule and the difference bands | `Models/FiveC/FiveCRules.cs` |
 | Styling | `wwwroot/css/startcompass.css` |
 
 ---
@@ -187,6 +188,46 @@ by side as bars. The bars are inline SVG because the CSP has no `unsafe-inline`:
 take its width from a `style=""` attribute, but `width` on an SVG `rect` is markup and is
 unaffected. A chart library would need a CDN, which the CSP also blocks.
 
+### The difference scores
+
+Three numbers at the top of `/Coach/FiveCPlayer/{id}`, and the same three per category
+further down:
+
+| Score | What it compares |
+| --- | --- |
+| **Coach vs player** | The coach's answers against the player's own. |
+| **Guardian vs player** | The guardian's answers against the player's own. |
+| **Between all three** | The mean of the three pairwise scores — coach/player, guardian/player and coach/guardian. |
+
+Each score is a **mean absolute difference per statement**, on the same 1–5 scale the answers
+use. It runs 0 to 4: 0 is the same answer every time, 4 would be opposite ends of the scale
+on all twenty-five.
+
+Three rules make the number mean what it says:
+
+- **Paired on the question key, not on the category average.** A 5 and a 1 average to the
+  same 3 as two 3s do. A difference built from averages would call that agreement, so
+  `RespondentGap.Between` pairs the two respondents statement by statement.
+- **Only statements both of them answered.** There is no distance between an answer and a
+  blank, so an unanswered statement is dropped rather than counted as anything.
+- **Reversed statements are scored first.** The difference is measured on scores, not raw
+  answers, so a negatively worded statement cannot flip the sign of a gap.
+
+Alongside the unsigned score, `RespondentGap.SignedDifference` keeps the **direction** —
+positive means the left respondent rated the player higher. The two say different things and
+the page shows both: a small direction on top of a real distance is disagreement that cancels
+out, not agreement, and the card says so in words.
+
+`Between all three` degrades honestly. With only two respondents it is that single pair, and
+the heading changes to "Between all who answered" so a two-way number never passes for a
+three-way one. With one respondent there is no score at all — the card says which form is
+missing rather than showing a zero.
+
+The three bands are `FiveCRules.AgreementThreshold` (0.5) and
+`FiveCRules.LargeDifferenceThreshold` (1.0), and `FiveCRules.LevelOf` rounds to one decimal
+before banding — the band sits next to the number on screen, and that number is printed to
+one decimal.
+
 **The follow-up flag** (`FiveCRules.NeedsFollowUp`) fires when a player's own average for a
 category is **below 2.0**, backed by **at least 3 answered statements** in it. Both numbers
 are constants in `FiveCRules` — one place to change them.
@@ -209,7 +250,8 @@ round it belonged to.
 - A player the coach may not see is **listed anyway** — code and position, no numbers, no
   link, and the reason written out. Hiding the row would hide that the player exists.
 - "Not allowed to see" and "has not answered" are kept apart in words. They are entirely
-  different states that otherwise become the same grey row.
+  different states that otherwise become the same grey row. Since the coach role stopped
+  being team-scoped, the only reason a row is withheld from a coach is consent.
 - Counts of *who answered* are shown for every row. They say nothing about any individual and
   do not depend on consent. What was answered does.
 - No free-text field and no notes. A coach's written note about a minor is a new category of
@@ -219,6 +261,21 @@ round it belonged to.
 
 ## Known limits
 
+- **The coach role is not tied to a team.** A coach is a coach: every coach sees every team,
+  gets a form for every player in the club, and `CanViewTeam` / `CanViewTeamAggregate` no
+  longer look at `CoachTeam` at all. Consent is therefore the *only* remaining limit on a
+  coach reaching an individual player's answers, which is why `CanViewPlayer` still requires
+  `ConsentLevel.Full` for a coach and why that check must not be relaxed too.
+- **`CoachTeam` is still in the model, but no longer grants or limits anything.** The table,
+  the entity and the seeded rows are untouched — dropping them is a schema migration on a
+  shared database and nobody has asked for it. The only remaining reader is the development
+  demo-data seeder, which uses it to pick a plausible coach. If it is not going to come back,
+  it should be removed deliberately, in its own change.
+- **`/Survey` lists every player in the club for a coach.** At a few dozen players that is
+  fine; at a few hundred the page is unusable long before it is wrong. The fix when that
+  happens is a filter on that page — by team, or by "not answered yet" — and not a quiet
+  return to team-scoped access, which is an authorisation decision and belongs in
+  `Authorization/`.
 - **A coach cannot answer for a player without full consent.** `CanViewPlayer` requires
   `ConsentLevel.Full` for a coach, and the form runs that policy. Arguably recording your own
   expectation is a different act from reading someone's answers — but if it is, the rule

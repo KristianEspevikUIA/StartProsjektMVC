@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -52,27 +51,20 @@ public class CoachController : Controller
     }
 
     /// <summary>
-    /// The coach's teams, with how far each has got in the current round.
+    /// Every team, with how far each has got in the current round.
     ///
-    /// Teams come from CoachTeam for the signed-in user, never from the role: a coach is
-    /// not a coach for everyone.
+    /// The coach role is not tied to a team, so a coach and an administrator see the same
+    /// list. What a coach may see ABOUT a player is still decided per player, by
+    /// CanViewPlayer -- which for a coach means full consent.
     /// </summary>
     public async Task<IActionResult> Index(int? roundId, CancellationToken cancellationToken)
     {
         var round = await ResolveRoundAsync(roundId, cancellationToken);
 
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-
-        // Admins are not registered on a team, and would otherwise get an empty page on a
-        // controller they are allowed into.
-        var teams = User.IsInRole(Roles.Admin)
-            ? await _db.Teams.AsNoTracking().OrderBy(t => t.Name).ToListAsync(cancellationToken)
-            : await _db.CoachTeams
-                .AsNoTracking()
-                .Where(ct => ct.CoachUserId == userId)
-                .Select(ct => ct.Team!)
-                .OrderBy(t => t.Name)
-                .ToListAsync(cancellationToken);
+        var teams = await _db.Teams
+            .AsNoTracking()
+            .OrderBy(t => t.Name)
+            .ToListAsync(cancellationToken);
 
         var model = new CoachTeamsViewModel
         {

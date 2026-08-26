@@ -82,10 +82,19 @@ public class FiveCTeamViewModel
             Comparison?.FollowUp ?? Array.Empty<CategoryComparison>();
 
         /// <summary>
-        /// The biggest disagreement between any two respondents, across the five categories.
-        /// This is the number the whole comparison exists for.
+        /// How far the coach's answers are from the player's own, across the whole
+        /// questionnaire. Null when either of them has not answered.
         /// </summary>
-        public double? LargestSpread => Comparison?.LargestSpread;
+        public RespondentGap? CoachVsPlayer => Comparison?.CoachVsPlayer;
+
+        /// <summary>The same for the guardian. Null when either of them has not answered.</summary>
+        public RespondentGap? GuardianVsPlayer => Comparison?.GuardianVsPlayer;
+
+        /// <summary>
+        /// One number for how far apart everyone who answered is. This is the number the
+        /// whole comparison exists for, and what the row is worth opening for.
+        /// </summary>
+        public double? OverallDifference => Comparison?.OverallDifference;
 
         /// <summary>
         /// Why this row has no numbers. Separating "not allowed to see" from "has not
@@ -98,9 +107,9 @@ public class FiveCTeamViewModel
             {
                 if (!CanView)
                 {
-                    return Consent == ConsentLevel.Full
-                        ? "Not on one of your teams."
-                        : "No consent for individual views.";
+                    // With the coach role no longer tied to a team, consent is the only
+                    // thing that withholds a row from a coach.
+                    return "No consent for individual views.";
                 }
 
                 if (Comparison?.HasAnyAnswers != true)

@@ -22,6 +22,11 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// <param name="GuardianAnswered">How many statements the guardian answered.</param>
 /// <param name="CoachMean">The coach's mean, or null if no coach answered.</param>
 /// <param name="CoachAnswered">How many statements the coach answered.</param>
+/// <param name="Differences">
+/// The difference scores for this category alone: coach against player, guardian against
+/// player, and one across all of them. Paired per statement, so it catches disagreement
+/// that the three means above hide -- see <see cref="RespondentGap"/>.
+/// </param>
 public sealed record CategoryComparison(
     string CategoryKey,
     string CategoryName,
@@ -30,7 +35,8 @@ public sealed record CategoryComparison(
     double? GuardianMean,
     int GuardianAnswered,
     double? CoachMean,
-    int CoachAnswered)
+    int CoachAnswered,
+    DifferenceScores Differences)
 {
     /// <summary>
     /// The player scores low across this category and should be followed up.
@@ -42,40 +48,20 @@ public sealed record CategoryComparison(
     /// </summary>
     public bool NeedsFollowUp => FiveCRules.NeedsFollowUp(PlayerMean, PlayerAnswered);
 
-    /// <summary>Every mean that exists for this category, in display order.</summary>
-    public IEnumerable<(RespondentType Respondent, double Mean)> PresentMeans
-    {
-        get
-        {
-            if (PlayerMean is { } player) yield return (RespondentType.Player, player);
-            if (GuardianMean is { } guardian) yield return (RespondentType.Guardian, guardian);
-            if (CoachMean is { } coach) yield return (RespondentType.Coach, coach);
-        }
-    }
-
     /// <summary>True when at least one of the three answered anything in this category.</summary>
     public bool HasAnyAnswers => PlayerMean.HasValue || GuardianMean.HasValue || CoachMean.HasValue;
 
     /// <summary>
-    /// The spread between the highest and the lowest mean, across whoever answered.
-    /// This is the disagreement the coach overview is for. Null when fewer than two of
-    /// them answered -- there is nothing to disagree about.
+    /// The difference across everyone who answered this category, or null when fewer than
+    /// two of them did. See <see cref="DifferenceScores.Overall"/>.
     /// </summary>
-    public double? Spread
-    {
-        get
-        {
-            var means = PresentMeans.Select(m => m.Mean).ToList();
-            return means.Count < 2 ? null : means.Max() - means.Min();
-        }
-    }
+    public double? Difference => Differences.Overall;
 
-    /// <summary>
-    /// Coach mean minus player mean. Positive means the coach rated the player higher than
-    /// the player rated themselves. Null unless both answered.
-    /// </summary>
-    public double? CoachMinusPlayer =>
-        CoachMean is { } coach && PlayerMean is { } player ? coach - player : null;
+    /// <summary>The coach-against-player score for this category, or null if either is missing.</summary>
+    public RespondentGap? CoachVsPlayer => Differences.CoachVsPlayer;
+
+    /// <summary>The guardian-against-player score for this category, or null if either is missing.</summary>
+    public RespondentGap? GuardianVsPlayer => Differences.GuardianVsPlayer;
 }
 
 /// <summary>
@@ -88,6 +74,14 @@ public sealed record CategoryComparison(
 /// <param name="PlayerSubmittedAt">When the player answered, or null.</param>
 /// <param name="GuardianSubmittedAt">When a guardian answered, or null.</param>
 /// <param name="CoachSubmittedAt">When a coach answered, or null.</param>
+/// <param name="Differences">
+/// The three difference scores across the whole questionnaire: coach against player,
+/// guardian against player, and one between all of them.
+///
+/// Measured over all twenty-five statements at once rather than by averaging the five
+/// category scores. Averaging the categories would silently give a category with two
+/// answered statements the same weight as one with five.
+/// </param>
 public sealed record PlayerFiveCComparison(
     int PlayerId,
     string PlayerCode,
@@ -95,7 +89,8 @@ public sealed record PlayerFiveCComparison(
     IReadOnlyList<CategoryComparison> Categories,
     DateTimeOffset? PlayerSubmittedAt,
     DateTimeOffset? GuardianSubmittedAt,
-    DateTimeOffset? CoachSubmittedAt)
+    DateTimeOffset? CoachSubmittedAt,
+    DifferenceScores Differences)
 {
     public bool PlayerHasAnswered => PlayerSubmittedAt.HasValue;
 
@@ -112,16 +107,31 @@ public sealed record PlayerFiveCComparison(
     /// <summary>True when at least one category needs following up. Drives the badge.</summary>
     public bool NeedsFollowUp => Categories.Any(c => c.NeedsFollowUp);
 
-    /// <summary>
-    /// The largest disagreement between any two respondents, across all five categories.
-    /// Used to sort a team list by "who is furthest from agreeing".
-    /// </summary>
-    public double? LargestSpread =>
-        Categories.Select(c => c.Spread).Where(s => s.HasValue).DefaultIfEmpty(null).Max();
+    /// <summary>Coach against the player's own answers, across the whole questionnaire.</summary>
+    public RespondentGap? CoachVsPlayer => Differences.CoachVsPlayer;
 
-    /// <summary>The category that disagreement sits in, or null when there is none.</summary>
-    public CategoryComparison? MostDisagreedCategory =>
-        Categories.Where(c => c.Spread.HasValue)
-                  .OrderByDescending(c => c.Spread)
+    /// <summary>Guardian against the player's own answers, across the whole questionnaire.</summary>
+    public RespondentGap? GuardianVsPlayer => Differences.GuardianVsPlayer;
+
+    /// <summary>
+    /// One number for how far apart everyone who answered is. Null when fewer than two of
+    /// them answered -- there is nothing to disagree about with one set of answers.
+    /// </summary>
+    public double? OverallDifference => Differences.Overall;
+
+    /// <summary>
+    /// The category the difference score is worst in, or null when nothing can be compared.
+    /// This is where a conversation with the player starts.
+    /// </summary>
+    public CategoryComparison? MostDifferentCategory =>
+        Categories.Where(c => c.Differences.Overall.HasValue)
+                  .OrderByDescending(c => c.Differences.Overall)
                   .FirstOrDefault();
+
+    /// <summary>
+    /// The worst category difference, for sorting a team list by "who is furthest from
+    /// agreeing". Null when nothing anywhere could be compared.
+    /// </summary>
+    public double? LargestCategoryDifference =>
+        Categories.Select(c => c.Difference).Where(d => d.HasValue).DefaultIfEmpty(null).Max();
 }

@@ -63,22 +63,22 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
             Add(child, RespondentType.Guardian);
         }
 
-        // The coach's own teams, from CoachTeam. A coach is not a coach for everyone.
-        var coachedTeamIds = await _db.CoachTeams
-            .AsNoTracking()
-            .Where(ct => ct.CoachUserId == userId)
-            .Select(ct => ct.TeamId)
-            .ToListAsync(cancellationToken);
-
-        if (coachedTeamIds.Count > 0)
+        // Every player, for a coach. The coach role is not tied to a team: a coach is a
+        // coach, and may answer about any player in the club.
+        //
+        // Note what this does to the size of the list. A club with three hundred players
+        // gives every coach three hundred forms, and the page becomes unusable long before
+        // it becomes wrong. If that day comes, the fix is a filter on this page -- by team,
+        // or by "not answered yet" -- and not a quiet return to team-scoped access, which
+        // is an authorisation decision and belongs in Authorization/.
+        if (user.IsInRole(Roles.Coach))
         {
-            var teamPlayers = await _db.Players
+            var allPlayers = await _db.Players
                 .AsNoTracking()
                 .Include(p => p.Team)
-                .Where(p => coachedTeamIds.Contains(p.TeamId))
                 .ToListAsync(cancellationToken);
 
-            foreach (var player in teamPlayers)
+            foreach (var player in allPlayers)
             {
                 Add(player, RespondentType.Coach);
             }
@@ -158,15 +158,12 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
             }
         }
 
+        // No team check. A coach may answer about any player -- CanViewPlayer, which the
+        // controller has already run, is what decides whether they get near this player at
+        // all, and for a coach that still means full consent.
         if (user.IsInRole(Roles.Coach))
         {
-            var coachesTeam = await _db.CoachTeams
-                .AnyAsync(ct => ct.TeamId == player.TeamId && ct.CoachUserId == userId, cancellationToken);
-
-            if (coachesTeam)
-            {
-                roles.Add(RespondentType.Coach);
-            }
+            roles.Add(RespondentType.Coach);
         }
 
         // Note that Admin is absent on purpose. An admin can see the answers; letting one

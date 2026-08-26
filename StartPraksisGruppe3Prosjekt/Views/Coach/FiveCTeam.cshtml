@@ -86,9 +86,10 @@
             <div class="sc-rule"></div>
             <h2>Players</h2>
             <p class="sc-lead">
-                A tick means that role has answered in this round. The spread is the distance
-                between the highest and the lowest average across the three of you, on the
-                category where you disagree most.
+                A tick means that role has answered in this round. The difference scores are
+                the distance between two sets of answers, paired statement by statement on the
+                1–5 scale: 0 is the same answer every time, and higher means further apart.
+                “All” is the average across everyone who answered.
             </p>
 
             <div class="sc-table-wrap">
@@ -100,7 +101,9 @@
                             <th scope="col">Player</th>
                             <th scope="col">Guardian</th>
                             <th scope="col">You</th>
-                            <th scope="col">Largest spread</th>
+                            <th scope="col">Coach vs player</th>
+                            <th scope="col">Guardian vs player</th>
+                            <th scope="col">All</th>
                             <th scope="col">Follow-up</th>
                             <th scope="col">Consent</th>
                             <th scope="col"></th>
@@ -121,12 +124,45 @@
 
                                 @if (row.WithheldReason is { } reason)
                                 {
-                                    <td colspan="2" class="sc-muted sc-small">@reason</td>
+                                    <td colspan="4" class="sc-muted sc-small">@reason</td>
                                 }
                                 else
                                 {
+                                    @* A dash is "nothing to compare", not a zero. Zero would
+                                       claim the two of them answered identically. *@
                                     <td class="sc-num">
-                                        @(row.LargestSpread is { } spread ? spread.ToString("0.0") : "–")
+                                        @if (row.CoachVsPlayer is { } coachGap)
+                                        {
+                                            <span class="@AgreementLevels.BadgeClass(coachGap.Level)">
+                                                @coachGap.Difference.ToString("0.0")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                    <td class="sc-num">
+                                        @if (row.GuardianVsPlayer is { } guardianGap)
+                                        {
+                                            <span class="@AgreementLevels.BadgeClass(guardianGap.Level)">
+                                                @guardianGap.Difference.ToString("0.0")
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                    <td class="sc-num">
+                                        @if (row.OverallDifference is { } overall)
+                                        {
+                                            <strong>@overall.ToString("0.0")</strong>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
                                     </td>
                                     <td>
                                         @if (row.NeedsFollowUp)
@@ -161,8 +197,8 @@
             {
                 <p class="sc-lead sc-small">
                     @Model.HiddenCount row@(Model.HiddenCount == 1 ? " is" : "s are") listed without
-                    numbers. The player is on the team, but you are not allowed to see their
-                    individual answers — so the follow-up count above does not include them.
+                    numbers. The player is on the team, but has not consented to a coach seeing
+                    their individual answers — so the follow-up count above does not include them.
                 </p>
             }
         </section>

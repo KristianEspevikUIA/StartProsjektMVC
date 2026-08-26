@@ -1,0 +1,59 @@
+@model FiveCScoreCardViewModel
+@{
+    // One difference score.
+    //
+    // As in _FiveCCategoryChart, only the meter is SVG. The CSP has no unsafe-inline, so a
+    // bar cannot get its width from style="" -- but width on an SVG rect is markup and is
+    // unaffected. Everything else is ordinary HTML so it selects, wraps and scales.
+    //
+    // The scale is 0 to 4, not 0 to 5: the widest two answers on a 1-5 scale can be apart
+    // is four points, so 4 would be the two of them at opposite ends on every statement.
+
+    var levelSuffix = Model.Level is { } level ? AgreementLevels.CssSuffix(level) : "none";
+    var maximum = FiveCScoreCardViewModel.MaximumDifference.ToString("0");
+}
+
+<article class="sc-score sc-score--@Model.Accent">
+    <p class="sc-score__title">@Model.Title</p>
+
+    @if (Model.Score is { } score)
+    {
+        <p class="sc-score__value">
+            @score.ToString("0.0")<span class="sc-score__scale">&nbsp;/ @maximum</span>
+        </p>
+
+        <svg class="sc-score__meter" viewBox="0 0 100 8" preserveAspectRatio="none"
+             role="img"
+             aria-label="@Model.Title: @score.ToString("0.0") out of @maximum, where 0 is identical answers">
+            <rect class="sc-score__track" x="0" y="0" width="100" height="8" />
+            <rect class="sc-score__bar--@levelSuffix" x="0" y="0" width="@Model.MeterWidth" height="8" />
+
+            @* A line at every whole point of difference. non-scaling-stroke keeps them one
+               pixel wide even though the viewBox is stretched horizontally. *@
+            @for (var i = 1; i < 4; i++)
+            {
+                var x = i * 25;
+                <line class="sc-score__gridline" vector-effect="non-scaling-stroke"
+                      x1="@x" y1="0" x2="@x" y2="8" />
+            }
+        </svg>
+
+        @if (Model.Level is { } band)
+        {
+            <p class="sc-score__band">
+                <span class="@AgreementLevels.BadgeClass(band)">@AgreementLevels.DisplayName(band)</span>
+            </p>
+        }
+    }
+    else
+    {
+        @* A missing score is not a zero. Zero would say the two of them answered
+           identically, which is the opposite of what has happened. *@
+        <p class="sc-score__value sc-score__value--none">–</p>
+        <p class="sc-score__band">
+            <span class="sc-badge sc-badge--muted">Not comparable yet</span>
+        </p>
+    }
+
+    <p class="sc-score__note">@Model.Explanation</p>
+</article>
