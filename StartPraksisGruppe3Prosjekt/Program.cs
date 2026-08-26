@@ -19,12 +19,12 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
     ?? "Data Source=speilet.db";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // ---------------------------------------------------------------------------
-// Identity med de fire rollene: Player, Coach, Guardian, Admin.
+// Identity emed de fire rollene: Player, Coach, Guardian, Admin.
 // ---------------------------------------------------------------------------
 builder.Services
     .AddDefaultIdentity<IdentityUser>(options =>
