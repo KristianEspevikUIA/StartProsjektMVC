@@ -1,16 +1,21 @@
 @model PlayerDetailViewModel
 @{
-    ViewData["Title"] = $"Spiller {Model.Code}";
+    ViewData["Title"] = $"Player {Model.Code}";
 }
 
 <h1>@Model.Code</h1>
 <p class="text-muted">@Model.TeamName @(Model.Position is null ? "" : $"· {Model.Position}")</p>
 
 <p>
-    <strong>Samtykke:</strong> @ConsentViewModel.Describe(Model.Consent)
+    <strong>Consent:</strong> @ConsentViewModel.Describe(Model.Consent)
 </p>
 
-@* TODO (Taavi): vis de ti påstandene med spillerens svar, trenerens gjetning og avviket.
-   Avviket kommer fra IScoringService og finnes ikke i databasen.
-   "Vet ikke" vises som "–", ikke som 0 eller 3. *@
-<p><em>Avviksvisningen er ikke bygget ennå.</em></p>
+<p class="text-muted">
+    This is the older ten-statement gap view. The 5C page for this player is
+    <a asp-action="FiveCPlayer" asp-route-id="@Model.PlayerId">here</a>.
+</p>
+
+@* TODO (Taavi): show the ten statements with the player's answer, the coach's guess and
+   the gap. The gap comes from IScoringService and is not stored anywhere.
+   "Don't know" shows as "–", never as 0 or 3. *@
+<p><em>The gap view is not built yet.</em></p>

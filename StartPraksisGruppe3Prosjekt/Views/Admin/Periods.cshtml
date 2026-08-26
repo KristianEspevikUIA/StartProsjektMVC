@@ -1,0 +1,127 @@
+@model AdminPeriodsViewModel
+@{
+    ViewData["Title"] = "Periods";
+    ViewData["FullWidth"] = true;
+
+    var message = TempData["AdminMessage"] as string;
+}
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>Periods</h1>
+        <p class="sc-hero__lead">
+            A period is one measurement window. Players, guardians and coaches answer the
+            same 5C form inside it, and the answers belong to that period alone.
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <section class="sc-section">
+            <div class="sc-notice" role="status"><p>@message</p></div>
+        </section>
+    }
+
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>Existing periods</h2>
+
+        <div class="sc-table-wrap">
+            <table class="sc-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Opens</th>
+                        <th scope="col">Closes</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Submissions</th>
+                        <th scope="col"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var period in Model.Periods)
+                    {
+                        <tr>
+                            <td class="sc-code">@period.Name</td>
+                            <td class="sc-small">@period.OpensAt.ToLocalTime().ToString("d MMM yyyy")</td>
+                            <td class="sc-small">@period.ClosesAt.ToLocalTime().ToString("d MMM yyyy")</td>
+                            <td>
+                                <span class="sc-badge @(period.IsOpen ? "sc-badge--ok" : "sc-badge--muted")">
+                                    @period.Status
+                                </span>
+                            </td>
+                            <td class="sc-num">
+                                @if (period.IsEmpty)
+                                {
+                                    @* An empty period is a normal state, not a fault. *@
+                                    <span class="sc-muted sc-small">Empty</span>
+                                }
+                                else
+                                {
+                                    @period.SubmissionCount
+                                }
+                            </td>
+                            <td>
+                                @if (period.IsOpen)
+                                {
+                                    <form asp-action="ClosePeriod" method="post">
+                                        <input type="hidden" name="id" value="@period.Id" />
+                                        <button type="submit" class="sc-btn sc-btn--secondary">Close now</button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <p class="sc-lead sc-small">
+            Closing a period stops it accepting new answers. Answers already given are kept.
+            More than one period can be open at once; the form lands on whichever closes last.
+        </p>
+    </section>
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>New period</h2>
+        <p class="sc-lead">
+            The new period starts empty. Nothing is copied from an earlier one — the point of
+            a period is that it is a fresh measurement.
+        </p>
+
+        <div class="sc-card sc-card--top">
+            <form asp-action="CreatePeriod" method="post">
+                <div asp-validation-summary="All" class="sc-field-error"></div>
+
+                <div class="sc-form-row">
+                    <div class="sc-form-field">
+                        <label asp-for="NewPeriod.Name" class="sc-label"></label>
+                        <input asp-for="NewPeriod.Name" class="sc-input" placeholder="Winter 2027" />
+                    </div>
+
+                    <div class="sc-form-field">
+                        <label asp-for="NewPeriod.OpensAt" class="sc-label"></label>
+                        <input asp-for="NewPeriod.OpensAt" type="date" class="sc-input" />
+                    </div>
+
+                    <div class="sc-form-field">
+                        <label asp-for="NewPeriod.ClosesAt" class="sc-label"></label>
+                        <input asp-for="NewPeriod.ClosesAt" type="date" class="sc-input" />
+                    </div>
+                </div>
+
+                <div class="sc-actions">
+                    <button type="submit" class="sc-btn">Create period</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

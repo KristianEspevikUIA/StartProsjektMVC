@@ -1,12 +1,13 @@
 @model PlayerDetailViewModel
 @{
-    ViewData["Title"] = "Mine svar";
+    ViewData["Title"] = "My answers";
 }
 
-<h1>Mine svar</h1>
-<p class="text-muted">@Model.TeamName</p>
+@*
+    Superseded. PlayerController.MyResponses now redirects to Index, which renders the
+    shared 5C page. Kept so an old bookmark resolves to something rather than a 500.
+*@
 
-@* TODO (Brage): vis spillerens egne svar per påstand for valgt runde.
-   Trenerens gjetning og avviket vises IKKE her før det er avklart hvordan den
-   tilbakemeldingen skal gis. *@
-<p><em>Ikke bygget ennå.</em></p>
+<h1>My answers</h1>
+<p class="text-muted">@Model.TeamName</p>
+<p><a asp-action="Index">Go to my 5C page</a></p>

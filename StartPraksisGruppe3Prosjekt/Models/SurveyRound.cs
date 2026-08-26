@@ -9,13 +9,13 @@ public class SurveyRound
 
     [Required]
     [StringLength(100)]
-    [Display(Name = "Navn")]
+    [Display(Name = "Name")]
     public string Name { get; set; } = string.Empty;
 
-    [Display(Name = "Åpner")]
+    [Display(Name = "Opens")]
     public DateTimeOffset OpensAt { get; set; }
 
-    [Display(Name = "Stenger")]
+    [Display(Name = "Closes")]
     public DateTimeOffset ClosesAt { get; set; }
 
     public ICollection<Response> Responses { get; set; } = new List<Response>();

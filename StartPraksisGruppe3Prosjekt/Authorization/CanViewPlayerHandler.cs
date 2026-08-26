@@ -3,36 +3,41 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
-using StartPraksisGruppe3Prosjekt.Services;
 
 
 namespace StartPraksisGruppe3Prosjekt.Authorization;
 
 /// <summary>
-/// Avgjør om innlogget bruker kan se opplysninger om én bestemt spiller.
+/// Decides whether the signed-in user may see information about one particular player.
 ///
-/// Reglene, i den rekkefølgen de vurderes:
-///   Admin      — alltid tilgang.
-///   Spilleren  — tilgang til seg selv (player.UserId == innlogget bruker).
-///   Foresatt   — tilgang bare hvis det finnes en Guardianship mellom brukeren og
-///                DENNE spilleren. Rollen "Guardian" gir ingen tilgang i seg selv.
-///   Trener     — tilgang hvis nyeste ConsentEvent for spilleren er Full. Trenerrollen
-///                er ikke knyttet til lag: en trener er trener, og CoachTeam avgjør
-///                ingenting her.
-///   Alle andre — ingen tilgang.
+/// The rules, in the order they are evaluated:
+///   Admin     -- always.
+///   Player    -- their own record (player.UserId == the signed-in user).
+///   Guardian  -- only where a Guardianship links this user to THIS player. The role
+///                "Guardian" grants nothing on its own.
+///   Coach     -- always. Not scoped to a team, and no longer scoped by consent.
+///   Anyone else -- no.
 ///
-/// Handleren kaller aldri context.Fail(): den lar bare være å lykkes. Fail() ville
-/// blokkert andre handlere for samme krav og gjort policyen vanskelig å utvide.
+/// CONSENT NO LONGER GATES COACHES. It used to: a coach needed ConsentLevel.Full before
+/// they could see an individual player at all. The club asked for coaches to always be
+/// able to open a player, and that is what this now does.
+///
+/// What replaces it is accountability rather than prevention: every coach or admin lookup
+/// of an individual player's answers is written to PlayerAccessEvent, an append-only log.
+/// See IPlayerAccessLog, and the note in docs/five-c.md. Consent still governs what may be
+/// done with the data outside the app, and it still has to be right in the Sikt filing --
+/// it just is not what stops a coach opening a page any more.
+///
+/// The handler never calls context.Fail(): it simply does not succeed. Fail() would block
+/// other handlers for the same requirement and make the policy hard to extend.
 /// </summary>
 public class CanViewPlayerHandler : AuthorizationHandler<CanViewPlayerRequirement, Player>
 {
     private readonly AppDbContext _db;
-    private readonly IConsentService _consent;
 
-    public CanViewPlayerHandler(AppDbContext db, IConsentService consent)
+    public CanViewPlayerHandler(AppDbContext db)
     {
         _db = db;
-        _consent = consent;
     }
 
     protected override async Task HandleRequirementAsync(
@@ -73,18 +78,17 @@ public class CanViewPlayerHandler : AuthorizationHandler<CanViewPlayerRequiremen
             }
         }
 
-        // Trener: fullt samtykke er det eneste kravet. Rollen er ikke lagavgrenset --
-        // enhver trener er trener for enhver spiller. Samtykket er dermed den ENESTE
-        // grensen som står igjen mot at en trener ser en enkeltspillers svar, så det er
-        // også den eneste som må holde. Se docs/five-c.md.
+        // Coach: always. Not scoped to a team, and no longer scoped by consent.
+        //
+        // Nothing here prevents a coach from opening any player in the club. What stands in
+        // for the old consent check is PlayerAccessEvent: the actions that show one player's
+        // answers write a row saying who looked, at whom, from where and when. That log is
+        // the safeguard now, so if it stops being written this rule is unguarded -- see
+        // IPlayerAccessLog and docs/five-c.md.
         if (context.User.IsInRole(Roles.Coach))
         {
-            var level = await _consent.GetCurrentLevelAsync(resource.Id);
-            if (level == ConsentLevel.Full)
-            {
-                context.Succeed(requirement);
-                return;
-            }
+            context.Succeed(requirement);
+            return;
         }
 
         // Ingen treff: ingen tilgang.

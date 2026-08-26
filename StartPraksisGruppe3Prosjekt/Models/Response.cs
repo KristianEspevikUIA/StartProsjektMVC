@@ -19,14 +19,14 @@ public class Response
     public int PlayerId { get; set; }
     public Player? Player { get; set; }
 
-    [Display(Name = "Svart av")]
+    [Display(Name = "Answered by")]
     public RespondentType Respondent { get; set; }
 
     /// <summary>Identity-bruker-ID til den som faktisk fylte ut skjemaet.</summary>
     [Required]
     public string RespondentUserId { get; set; } = string.Empty;
 
-    [Display(Name = "Levert")]
+    [Display(Name = "Submitted")]
     public DateTimeOffset SubmittedAt { get; set; }
 
     public List<Answer> Answers { get; set; } = new();

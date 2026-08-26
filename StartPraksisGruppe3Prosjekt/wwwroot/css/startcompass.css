@@ -970,3 +970,301 @@ body {
         padding: 32px 0 36px;
     }
 }
+
+/* ------------------------------------------------------- forms and filters ---- */
+
+.sc-form-row {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.sc-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sc-label {
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.sc-input,
+.sc-select {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    color: var(--sc-foreground);
+    font-family: var(--sc-sans);
+    font-size: 16px; /* 16px or larger, or iOS Safari zooms in on focus. */
+    min-height: 46px;
+    padding: 10px 12px;
+    width: 100%;
+}
+
+.sc-input:focus,
+.sc-select:focus {
+    border-color: var(--sc-blue);
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 1px;
+}
+
+/* The filter bar above a list. Wraps to one field per line on a phone. */
+.sc-filters {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-left: 6px solid var(--sc-blue);
+    margin-bottom: 24px;
+    padding: 18px 20px;
+}
+
+.sc-filters__actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.sc-filters__summary {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ------------------------------------------------ call to action and steps ---- */
+
+/* The "fill out form" block. Deliberately the loudest thing on the player's page:
+   for most players it is the only reason they opened the app. */
+.sc-cta {
+    align-items: center;
+    background: var(--sc-ink);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between;
+    padding: 26px 28px;
+}
+
+.sc-cta__title {
+    color: var(--sc-yellow);
+    font-family: var(--sc-display);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.05;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.sc-cta__text {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    max-width: 48ch;
+}
+
+.sc-cta__button {
+    background: var(--sc-yellow);
+    border-color: var(--sc-yellow);
+    color: var(--sc-ink);
+    flex: 0 0 auto;
+}
+
+.sc-cta__button:hover,
+.sc-cta__button:focus {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: var(--sc-ink);
+}
+
+/* Where the conversation has got to. Three steps, in order. */
+.sc-steps {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+}
+
+.sc-step {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px 18px;
+}
+
+.sc-step--done {
+    border-top-color: var(--sc-ok);
+}
+
+.sc-step--now {
+    border-top-color: var(--sc-blue);
+}
+
+.sc-step__label {
+    font-family: var(--sc-display);
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.sc-step__note {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+}
+
+@media (max-width: 640px) {
+    .sc-cta {
+        padding: 20px;
+    }
+
+    .sc-cta__button {
+        width: 100%;
+    }
+}
+
+.sc-mt {
+    margin-top: 24px;
+}
+
+/* ------------------------------------------------------------ small screens ---- */
+
+/*
+    Most players fill this in on a phone, so the form flow is the part that has to work at
+    360px, not just survive it. The rules below are about the form and the lists; the tables
+    in the coach views scroll inside .sc-table-wrap instead, because a coach comparing a
+    squad is on a laptop.
+*/
+@media (max-width: 640px) {
+    .sc-page {
+        padding: 0 14px;
+    }
+
+    .sc-section {
+        padding-top: 32px;
+    }
+
+    .sc-section--last {
+        padding-bottom: 48px;
+    }
+
+    /* Full-width buttons: a thumb hits a bar, not a word. */
+    .sc-btn {
+        display: block;
+        text-align: center;
+        width: 100%;
+    }
+
+    .sc-actions {
+        gap: 10px;
+    }
+
+    .sc-actions form {
+        width: 100%;
+    }
+
+    /* The form itself. Cards lose their side padding so the 1-5 row gets the full width. */
+    .sc-card {
+        padding: 18px 14px;
+    }
+
+    .sc-question {
+        padding-top: 18px;
+    }
+
+    .sc-question__text {
+        font-size: 16px;
+        gap: 8px;
+    }
+
+    .sc-filters {
+        padding: 14px;
+    }
+
+    .sc-filters__actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .sc-hero__meta span {
+        font-size: 11px;
+    }
+
+    .sc-steps {
+        gap: 8px;
+    }
+}
+
+/* Between a phone and a laptop the scale still needs its labels hidden, but the rest of
+   the layout is fine. */
+@media (min-width: 641px) and (max-width: 820px) {
+    .sc-scale__label {
+        font-size: 10px;
+    }
+}
+
+/* ------------------------------------------------------------ sign-in card ---- */
+
+.sc-auth {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-blue);
+    margin: 0 auto;
+    max-width: 460px;
+    padding: 28px 30px 30px;
+}
+
+.sc-mb {
+    margin-bottom: 18px;
+}
+
+.sc-check {
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+    font-size: 15px;
+    gap: 10px;
+}
+
+.sc-check__box {
+    height: 20px;
+    width: 20px;
+}
+
+/* Identity UI pages we have not overridden still ship Bootstrap markup. These few rules
+   keep them from looking like a different application while they are still the packaged
+   versions -- change password, forgotten password, and so on. */
+.sc-page .btn-primary,
+main .btn-primary {
+    background: var(--sc-ink);
+    border-color: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+main .form-control {
+    border-color: var(--sc-border);
+    border-radius: 0;
+    font-size: 16px;
+    min-height: 46px;
+}
+
+main .form-control:focus {
+    border-color: var(--sc-blue);
+    box-shadow: none;
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+    .sc-auth {
+        padding: 20px 16px 24px;
+    }
+}

@@ -141,6 +141,27 @@ builder.Services.AddSpeiletRateLimiting();
 builder.Services.AddScoped<IConsentService, ConsentService>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 
+// Revisjonsloggen. Trenere trenger ikke lenger samtykke for å åpne en enkeltspiller, og
+// denne loggen er det som står igjen i stedet: hvem så på hvem, når. Slutter den å skrives,
+// står regelen i CanViewPlayerHandler uten motvekt.
+builder.Services.AddScoped<IPlayerAccessLog, PlayerAccessLog>();
+
+// Trenerens frigivelse av egne svar til spilleren — samtalen i punkt 6.
+builder.Services.AddScoped<IFeedbackReleaseService, FeedbackReleaseService>();
+
+// Måleperioder. Både admin-siden og seedingen går gjennom denne, slik at reglene for
+// hva som er en brukbar periode bor ett sted.
+builder.Services.AddScoped<IPeriodService, PeriodService>();
+
+// Valgt periode huskes i en cookie, slik at valget overlever et menyklikk. Uten dette
+// måtte roundId tres gjennom hver eneste lenke i appen.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IPeriodSelection, PeriodSelection>();
+
+// Spiller- og foresattsiden. Bygger begge, slik at avgjørelsen om hva som skal skjules
+// før treneren har frigitt, tas ett sted og ikke i to views.
+builder.Services.AddScoped<IFiveCFeedbackBuilder, FiveCFeedbackBuilder>();
+
 // ---------------------------------------------------------------------------
 // 5C-spørreskjemaet.
 //
@@ -156,21 +177,33 @@ builder.Services.AddScoped<IFiveCAnalysisService, FiveCAnalysisService>();
 builder.Services.Configure<SupabaseOptions>(
     builder.Configuration.GetSection(SupabaseOptions.SectionName));
 
-// Hvor svarene lagres avgjøres av konfigurasjonen, ikke av et flagg i koden. Er
-// Supabase satt opp, går svarene dit. Er det ikke det, brukes et minnelager slik at
-// skjemaet og treneroversikten kan bygges før Victors tabeller finnes — og da sier
-// loggen tydelig at ingenting lagres.
+// Hvor 5C-svarene lagres.
+//
+// Standard er appens egen database — som etter overgangen til Npgsql ER Supabase. Det var
+// tidligere et minnelager, fordi appen kjørte på lokal SQLite og Supabase var noe man måtte
+// nå over HTTP. Det stemmer ikke lenger, og et minnelager betydde at hvert svar forsvant
+// ved omstart.
+//
+// De to andre er unntak, ikke alternativer:
+//   FiveC:Supabase:Url + ApiKey  — et GENUINT separat Supabase-prosjekt, nådd over PostgREST.
+//   FiveC:Store = "InMemory"     — kjøring uten å skrive noe, f.eks. i en demo.
 var supabaseOptions = builder.Configuration
     .GetSection(SupabaseOptions.SectionName)
     .Get<SupabaseOptions>() ?? new SupabaseOptions();
 
-if (supabaseOptions.IsConfigured)
+var storeSetting = builder.Configuration["FiveC:Store"];
+
+if (string.Equals(storeSetting, "InMemory", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<ISurveySubmissionStore, InMemorySurveySubmissionStore>();
+}
+else if (supabaseOptions.IsConfigured)
 {
     builder.Services.AddHttpClient<ISurveySubmissionStore, SupabaseSurveySubmissionStore>();
 }
 else
 {
-    builder.Services.AddSingleton<ISurveySubmissionStore, InMemorySurveySubmissionStore>();
+    builder.Services.AddScoped<ISurveySubmissionStore, EfSurveySubmissionStore>();
 }
 
 builder.Services.AddControllersWithViews(options =>

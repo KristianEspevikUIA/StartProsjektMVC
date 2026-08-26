@@ -1,22 +1,26 @@
 @model TeamOverviewViewModel
 @{
-    ViewData["Title"] = $"Lagoversikt – {Model.TeamName}";
+    ViewData["Title"] = $"Team overview – {Model.TeamName}";
 }
 
 <h1>@Model.TeamName</h1>
 
+<p class="text-muted">
+    This is the older ten-statement gap view. The 5C picture for this team is on
+    <a asp-action="FiveCTeam" asp-route-id="@Model.TeamId">the 5C overview</a>.
+</p>
+
 @if (Model.Aggregate is null)
 {
     <div class="alert alert-secondary">
-        @(ViewData["AggregateMessage"] as string ?? "Lagsnitt er ikke tilgjengelig.")
+        @(ViewData["AggregateMessage"] as string ?? "No team average is available.")
     </div>
 }
 else
 {
-    @* TODO (Taavi): vis snitt per område. *@
+    @* TODO (Taavi): show the average per area. *@
 }
 
-@* TODO (Taavi): tabell over spillerne.
-   Rader der CanView er false skal vise spillerkoden uten tall, med en tydelig
-   forklaring på hvorfor: "Ikke samtykke til individuell visning". *@
-<p><em>Spillertabellen er ikke bygget ennå.</em></p>
+@* TODO (Taavi): the player table.
+   Rows where CanView is false show the player code without numbers, and say why. *@
+<p><em>The player table is not built yet.</em></p>

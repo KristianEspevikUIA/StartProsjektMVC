@@ -8,7 +8,7 @@ public class Team
 
     [Required]
     [StringLength(100)]
-    [Display(Name = "Lagnavn")]
+    [Display(Name = "Team name")]
     public string Name { get; set; } = string.Empty;
 
     public ICollection<Player> Players { get; set; } = new List<Player>();

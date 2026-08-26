@@ -15,6 +15,6 @@ public class Guardianship
     public Player? Player { get; set; }
 
     [Required]
-    [Display(Name = "Foresatt")]
+    [Display(Name = "Guardian")]
     public string GuardianUserId { get; set; } = string.Empty;
 }

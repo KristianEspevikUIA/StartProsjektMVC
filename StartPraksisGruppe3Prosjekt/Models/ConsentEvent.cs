@@ -15,13 +15,13 @@ public class ConsentEvent
     public int PlayerId { get; set; }
     public Player? Player { get; set; }
 
-    [Display(Name = "Samtykkenivå")]
+    [Display(Name = "Consent level")]
     public ConsentLevel Level { get; set; }
 
     /// <summary>Identity-bruker-ID til den som endret samtykket (foresatt, spiller eller admin).</summary>
     [Required]
     public string ChangedByUserId { get; set; } = string.Empty;
 
-    [Display(Name = "Tidspunkt")]
+    [Display(Name = "Time")]
     public DateTimeOffset OccurredAt { get; set; }
 }

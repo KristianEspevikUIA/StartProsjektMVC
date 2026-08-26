@@ -1,16 +1,18 @@
 @model PlayerDetailViewModel
 @{
-    ViewData["Title"] = $"Spiller {Model.Code}";
+    ViewData["Title"] = $"Player {Model.Code}";
 }
+
+@*
+    Superseded. GuardianController.Player now renders Views/Shared/FiveCFeedback.cshtml,
+    the same 5C page the player sees. Kept as a signpost.
+*@
 
 <h1>@Model.Code</h1>
 <p class="text-muted">@Model.TeamName</p>
 
-<p><strong>Samtykke:</strong> @ConsentViewModel.Describe(Model.Consent)</p>
+<p><strong>Consent:</strong> @ConsentViewModel.Describe(Model.Consent)</p>
 
 <a class="btn btn-outline-secondary" asp-action="Consent" asp-route-id="@Model.PlayerId">
-    Endre samtykke
+    Change consent
 </a>
-
-@* TODO (Brage): vis barnets egne svar. Avklar med IK Start om foresatte skal se
-   trenerens gjetning — det er ikke gitt at det er riktig å vise. *@

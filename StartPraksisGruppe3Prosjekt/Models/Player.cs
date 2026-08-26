@@ -15,22 +15,22 @@ public class Player
     /// <summary>Klubbintern, pseudonym kode, f.eks. "TS-03-14".</summary>
     [Required]
     [StringLength(20)]
-    [Display(Name = "Spillerkode")]
+    [Display(Name = "Player code")]
     public string Code { get; set; } = string.Empty;
 
     /// <summary>Identity-bruker-ID. Null til spilleren har fått egen konto.</summary>
-    [Display(Name = "Brukerkonto")]
+    [Display(Name = "User account")]
     public string? UserId { get; set; }
 
-    [Display(Name = "Lag")]
+    [Display(Name = "Team")]
     public int TeamId { get; set; }
     public Team? Team { get; set; }
 
-    [Display(Name = "Fødselsdato")]
+    [Display(Name = "Date of birth")]
     public DateOnly BirthDate { get; set; }
 
     [StringLength(50)]
-    [Display(Name = "Posisjon")]
+    [Display(Name = "Position")]
     public string? Position { get; set; }
 
     public ICollection<Guardianship> Guardianships { get; set; } = new List<Guardianship>();

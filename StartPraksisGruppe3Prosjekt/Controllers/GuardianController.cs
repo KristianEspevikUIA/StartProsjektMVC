@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -5,15 +6,20 @@ using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Services;
+using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using StartPraksisGruppe3Prosjekt.ViewModels;
+using StartPraksisGruppe3Prosjekt.ViewModels.FiveC;
 
 namespace StartPraksisGruppe3Prosjekt.Controllers;
 
 /// <summary>
-/// Eier: Brage.
+/// Owner: Brage.
 ///
-/// Foresatt ser sitt eget barn — og bare det. Rollen alene gir ingen tilgang;
-/// koblingen må finnes i Guardianship. Se mønsteret i CoachController.PlayerDetail.
+/// A guardian sees their own child, and only that. The role grants nothing on its own --
+/// the link has to exist in Guardianship, which is what CanViewPlayer checks.
+///
+/// A guardian sees exactly what the player sees, including when the coach's answers are
+/// released. Same page, same redaction: <see cref="IFiveCFeedbackBuilder"/> builds both.
 /// </summary>
 [Authorize(Roles = Roles.Guardian + "," + Roles.Admin)]
 public class GuardianController : Controller
@@ -21,32 +27,56 @@ public class GuardianController : Controller
     private readonly AppDbContext _db;
     private readonly IAuthorizationService _authz;
     private readonly IConsentService _consent;
+    private readonly IPeriodService _periods;
+    private readonly IPeriodSelection _selection;
+    private readonly IFiveCFeedbackBuilder _feedback;
 
-    public GuardianController(AppDbContext db, IAuthorizationService authz, IConsentService consent)
+    public GuardianController(
+        AppDbContext db,
+        IAuthorizationService authz,
+        IConsentService consent,
+        IPeriodService periods,
+        IPeriodSelection selection,
+        IFiveCFeedbackBuilder feedback)
     {
         _db = db;
         _authz = authz;
         _consent = consent;
+        _periods = periods;
+        _selection = selection;
+        _feedback = feedback;
     }
 
     /// <summary>
-    /// Barna innlogget foresatt er registrert på.
-    /// TODO (Brage): slå opp Guardianships på innlogget bruker-ID.
+    /// The children this guardian is registered on. One child goes straight to their page --
+    /// a list of one is a click that asks nothing.
     /// </summary>
-    public IActionResult Index()
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        return View();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var children = await _db.Players
+            .AsNoTracking()
+            .Include(p => p.Team)
+            .Where(p => p.Guardianships.Any(g => g.GuardianUserId == userId))
+            .OrderBy(p => p.Code)
+            .ToListAsync(cancellationToken);
+
+        if (children.Count == 1)
+        {
+            return RedirectToAction(nameof(Player), new { id = children[0].Id });
+        }
+
+        return View(children);
     }
 
-    /// <summary>
-    /// Detaljer om ett barn.
-    /// TODO (Brage): fyll ut modellen. Autorisasjonsmønsteret ligger allerede her.
-    /// </summary>
-    public async Task<IActionResult> Player(int id)
+    /// <summary>One child's 5C page. Same view the player gets.</summary>
+    public async Task<IActionResult> Player(int id, int? roundId, CancellationToken cancellationToken)
     {
         var player = await _db.Players
+            .AsNoTracking()
             .Include(p => p.Team)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
         if (player is null)
         {
@@ -59,20 +89,32 @@ public class GuardianController : Controller
             return Forbid();
         }
 
-        var model = new PlayerDetailViewModel
-        {
-            PlayerId = player.Id,
-            Code = player.Code,
-            TeamName = player.Team?.Name ?? string.Empty,
-            Consent = await _consent.GetCurrentLevelAsync(player.Id)
-        };
+        var round = await _selection.ResolveAsync(roundId, cancellationToken);
 
-        return View(model);
+        if (round is null)
+        {
+            return NotFound();
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        var rounds = (await _periods.GetAllAsync(cancellationToken))
+            .Select(r => new FiveCTeamViewModel.RoundOption(r.Id, r.Name, r.IsOpenAt(now)))
+            .ToList();
+
+        var model = await _feedback.BuildAsync(
+            player,
+            round,
+            rounds,
+            viewerIsGuardian: true,
+            cancellationToken);
+
+        return View("FiveCFeedback", model);
     }
 
     /// <summary>
-    /// Samtykkebildet med historikk.
-    /// TODO (Brage): bygg ConsentViewModel av GetCurrentLevelAsync + GetHistoryAsync.
+    /// The consent picture with its history.
+    /// TODO (Brage): build ConsentViewModel from GetCurrentLevelAsync + GetHistoryAsync.
     /// </summary>
     [HttpGet]
     public IActionResult Consent(int id)
@@ -81,9 +123,9 @@ public class GuardianController : Controller
     }
 
     /// <summary>
-    /// Endring av samtykke.
-    /// TODO (Brage): kall IConsentService.RecordAsync — det legger til en NY hendelse.
-    /// Ingen rad skal endres eller slettes; AppDbContext kaster hvis du prøver.
+    /// Changing consent.
+    /// TODO (Brage): call IConsentService.RecordAsync -- it adds a NEW event. No row is
+    /// edited or deleted; AppDbContext throws if you try.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]

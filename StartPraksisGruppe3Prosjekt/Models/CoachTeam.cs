@@ -8,7 +8,7 @@ public class CoachTeam
     public int Id { get; set; }
 
     [Required]
-    [Display(Name = "Trener")]
+    [Display(Name = "Coach")]
     public string CoachUserId { get; set; } = string.Empty;
 
     public int TeamId { get; set; }

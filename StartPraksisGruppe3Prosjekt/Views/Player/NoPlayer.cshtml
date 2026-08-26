@@ -1,0 +1,29 @@
+@{
+    ViewData["Title"] = "My answers";
+    ViewData["FullWidth"] = true;
+}
+
+@*
+    A real state, not an error: a player registered by the club before they were given an
+    account has no row to show, and an admin opening this page has none either.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>My answers</h1>
+        <p class="sc-hero__lead">We cannot find a player linked to this account.</p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        <div class="sc-card sc-card--left">
+            <h3>Nothing to show yet</h3>
+            <p class="sc-card__meta">
+                Either no player record is linked to your account, or no measurement period
+                has been set up. The club can link your account to your player code.
+            </p>
+        </div>
+    </section>
+</div>

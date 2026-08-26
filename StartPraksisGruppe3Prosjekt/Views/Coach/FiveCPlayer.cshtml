@@ -206,6 +206,77 @@
         </section>
     }
 
+    @*
+        Step four of the conversation. Up to here the player has been told only that you HAVE
+        answered; releasing is what lets them see what you said and where you disagree.
+        Deliberately a separate act, so the numbers arrive in a conversation and not as a
+        notification on a fourteen-year-old's phone.
+    *@
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>Sharing with the player</h2>
+
+        @if (TempData["CoachMessage"] is string coachMessage)
+        {
+            <div class="sc-notice" role="status"><p>@coachMessage</p></div>
+        }
+
+        <div class="sc-card @(Model.AnswersReleasedToPlayer ? "sc-card--top" : "sc-card--left")">
+            <div class="sc-compare__head">
+                <h3>@(Model.AnswersReleasedToPlayer ? "Shared" : "Not shared yet")</h3>
+                <span class="sc-badge @(Model.AnswersReleasedToPlayer ? "sc-badge--ok" : "")">
+                    @(Model.AnswersReleasedToPlayer ? "Player can see your answers" : "Player sees only that you answered")
+                </span>
+            </div>
+
+            <p class="sc-card__meta">
+                @if (Model.AnswersReleasedToPlayer)
+                {
+                    <text>
+                        @Model.Code and their guardian can see your scores per C and the
+                        difference between your answers and theirs. Withdrawing hides them
+                        again; it does not erase that they were shared.
+                    </text>
+                }
+                else if (!Model.Comparison.CoachHasAnswered)
+                {
+                    <text>
+                        You have not answered about @Model.Code yet. Fill the form in first —
+                        there is nothing to share until you have.
+                    </text>
+                }
+                else if (!Model.Comparison.PlayerHasAnswered)
+                {
+                    <text>
+                        @Model.Code has not answered yet. You can still share, but there will
+                        be no comparison to show them until they do.
+                    </text>
+                }
+                else
+                {
+                    <text>
+                        Both of you have answered. Sharing lets @Model.Code and their guardian
+                        see your scores and the difference between them — best done alongside
+                        a conversation, not instead of one.
+                    </text>
+                }
+            </p>
+
+            @if (Model.Comparison.CoachHasAnswered)
+            {
+                <form asp-action="ReleaseAnswers" method="post" class="sc-actions">
+                    <input type="hidden" name="id" value="@Model.PlayerId" />
+                    <input type="hidden" name="roundId" value="@Model.RoundId" />
+                    <input type="hidden" name="release" value="@((!Model.AnswersReleasedToPlayer).ToString().ToLowerInvariant())" />
+
+                    <button type="submit" class="@(Model.AnswersReleasedToPlayer ? "sc-btn sc-btn--secondary" : "sc-btn")">
+                        @(Model.AnswersReleasedToPlayer ? "Stop sharing" : "Share my answers")
+                    </button>
+                </form>
+            }
+        </div>
+    </section>
+
     <section class="sc-section">
         <div class="sc-rule"></div>
         <h2>Share the form</h2>

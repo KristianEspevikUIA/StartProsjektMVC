@@ -1,9 +1,12 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using StartPraksisGruppe3Prosjekt.ViewModels;
@@ -33,6 +36,9 @@ public class CoachController : Controller
     private readonly IConsentService _consent;
     private readonly IFiveCAnalysisService _fiveC;
     private readonly IQuestionCatalog _catalog;
+    private readonly IFeedbackReleaseService _releases;
+    private readonly IPlayerAccessLog _accessLog;
+    private readonly IPeriodSelection _selection;
 
     public CoachController(
         AppDbContext db,
@@ -40,7 +46,10 @@ public class CoachController : Controller
         IScoringService scoring,
         IConsentService consent,
         IFiveCAnalysisService fiveC,
-        IQuestionCatalog catalog)
+        IQuestionCatalog catalog,
+        IFeedbackReleaseService releases,
+        IPlayerAccessLog accessLog,
+        IPeriodSelection selection)
     {
         _db = db;
         _authz = authz;
@@ -48,14 +57,17 @@ public class CoachController : Controller
         _consent = consent;
         _fiveC = fiveC;
         _catalog = catalog;
+        _releases = releases;
+        _accessLog = accessLog;
+        _selection = selection;
     }
 
     /// <summary>
     /// Every team, with how far each has got in the current round.
     ///
     /// The coach role is not tied to a team, so a coach and an administrator see the same
-    /// list. What a coach may see ABOUT a player is still decided per player, by
-    /// CanViewPlayer -- which for a coach means full consent.
+    /// list. Opening an individual player is still decided per player by CanViewPlayer --
+    /// which for a coach is now always yes, and is written to the audit log instead.
     /// </summary>
     public async Task<IActionResult> Index(int? roundId, CancellationToken cancellationToken)
     {
@@ -254,6 +266,10 @@ public class CoachController : Controller
             return NotFound();
         }
 
+        // This is a page that shows one minor's answers, and consent no longer gates it.
+        // The audit row is what stands in for that check -- see CanViewPlayerHandler.
+        await _accessLog.RecordAsync(User, player.Id, "Coach/FiveCPlayer", round.Id, cancellationToken);
+
         var comparison = await _fiveC.GetForPlayerAsync(
             round.Id,
             player.Id,
@@ -274,10 +290,65 @@ public class CoachController : Controller
             Rounds = await RoundOptionsAsync(cancellationToken),
             Comparison = comparison,
             QuestionSetVersion = _catalog.Questions.Version,
-            ShareLinks = BuildShareLinks(round.Id, player.Id, comparison)
+            ShareLinks = BuildShareLinks(round.Id, player.Id, comparison),
+            AnswersReleasedToPlayer = await _releases.IsReleasedAsync(round.Id, player.Id, cancellationToken)
         };
 
         return View(model);
+    }
+
+    /// <summary>
+    /// Shares the coach's own answers with the player and their guardian, or takes that
+    /// back again.
+    ///
+    /// This is step four of the conversation. Up to here the player has been told only that
+    /// the coach HAS answered; from here they can see what the coach said and where the two
+    /// of them disagree.
+    ///
+    /// Withdrawing does not erase anything -- it adds a new event saying the answers are no
+    /// longer shared. What was shown while it was shared was still shown.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> ReleaseAnswers(
+        int id,
+        int roundId,
+        bool release,
+        CancellationToken cancellationToken)
+    {
+        var player = await _db.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        // Re-checked on POST. The hidden fields in the form are input, not proof.
+        var authorized = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlayer);
+        if (!authorized.Succeeded)
+        {
+            return Forbid();
+        }
+
+        var coachUserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        if (release)
+        {
+            await _releases.ReleaseAsync(roundId, id, coachUserId, cancellationToken);
+            TempData["CoachMessage"] =
+                $"Your answers for {player.Code} are now visible to the player and their guardian.";
+        }
+        else
+        {
+            await _releases.WithdrawAsync(roundId, id, coachUserId, cancellationToken);
+            TempData["CoachMessage"] =
+                $"Your answers for {player.Code} are no longer shown to the player.";
+        }
+
+        return RedirectToAction(nameof(FiveCPlayer), new { id, roundId });
     }
 
     /// <summary>
@@ -353,6 +424,10 @@ public class CoachController : Controller
             return Forbid();
         }
 
+        // Another page that shows one player's answers, so it leaves the same audit row.
+        // Every such page has to, or the log stops being a record of who saw what.
+        await _accessLog.RecordAsync(User, player.Id, "Coach/PlayerDetail", roundId);
+
         var model = new PlayerDetailViewModel
         {
             PlayerId = player.Id,
@@ -387,24 +462,8 @@ public class CoachController : Controller
     /// The round to show: the one asked for, otherwise the open one, otherwise the most
     /// recent. Null only when no rounds exist at all.
     /// </summary>
-    private async Task<SurveyRound?> ResolveRoundAsync(int? roundId, CancellationToken cancellationToken)
-    {
-        if (roundId is { } id)
-        {
-            return await _db.SurveyRounds
-                .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
-        }
-
-        var now = DateTimeOffset.UtcNow;
-
-        var rounds = await _db.SurveyRounds
-            .AsNoTracking()
-            .OrderByDescending(r => r.ClosesAt)
-            .ToListAsync(cancellationToken);
-
-        return rounds.FirstOrDefault(r => r.IsOpenAt(now)) ?? rounds.FirstOrDefault();
-    }
+    private Task<SurveyRound?> ResolveRoundAsync(int? roundId, CancellationToken cancellationToken) =>
+        _selection.ResolveAsync(roundId, cancellationToken);
 
     private async Task<IReadOnlyList<FiveCTeamViewModel.RoundOption>> RoundOptionsAsync(
         CancellationToken cancellationToken)
