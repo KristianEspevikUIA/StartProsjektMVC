@@ -62,13 +62,18 @@ public sealed record FiveCScoreCardViewModel
     /// <param name="accent">Accent stripe: "coach", "guardian" or "all".</param>
     public static FiveCScoreCardViewModel ForGap(
         RespondentGap? gap,
+        RespondentType left,
+        RespondentType right,
         string playerCode,
         string missingReason,
         string accent) =>
         gap is null
             ? new FiveCScoreCardViewModel
             {
-                Title = accent == "guardian" ? "Player and guardian" : "Player and coach",
+                // Built from the pair, not from the accent string. The title has to be the
+                // same before and after the second person answers, and deriving it from a
+                // css class name meant every new pair needed another branch here.
+                Title = RespondentGap.LabelFor(left, right),
                 Explanation = missingReason,
                 Accent = accent
             }

@@ -51,16 +51,22 @@ public sealed record RespondentGap(
     /// The player is named first whenever they are one of the pair. Their own answers are
     /// the thing everything else is read against.
     /// </summary>
-    public string Label
-    {
-        get
-        {
-            var (first, second) = Left == RespondentType.Player || Right == RespondentType.Player
-                ? (RespondentType.Player, Left == RespondentType.Player ? Right : Left)
-                : (Left, Right);
+    public string Label => LabelFor(Left, Right);
 
-            return $"{DisplayName(first)} and {DisplayName(second).ToLowerInvariant()}";
-        }
+    /// <summary>
+    /// The heading for a pair, whether or not there is a measurement behind it.
+    ///
+    /// A card that could not be measured still needs a title, and it has to be the same
+    /// title the card gets once both of them have answered -- otherwise the page renames
+    /// itself as answers come in.
+    /// </summary>
+    public static string LabelFor(RespondentType left, RespondentType right)
+    {
+        var (first, second) = left == RespondentType.Player || right == RespondentType.Player
+            ? (RespondentType.Player, left == RespondentType.Player ? right : left)
+            : (left, right);
+
+        return $"{DisplayName(first)} and {DisplayName(second).ToLowerInvariant()}";
     }
 
     /// <summary>Display name for a respondent. One place, so the charts and the cards agree.</summary>
