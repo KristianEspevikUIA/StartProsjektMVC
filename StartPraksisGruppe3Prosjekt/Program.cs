@@ -321,3 +321,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+/// <summary>
+/// Gjør den genererte Program-klassen synlig for testprosjektet.
+///
+/// Med top-level statements er den internal, og WebApplicationFactory&lt;Program&gt; kommer
+/// ikke til den. Dette er hele grunnen til at linjen står her — den endrer ingen oppførsel.
+/// </summary>
+public partial class Program { }

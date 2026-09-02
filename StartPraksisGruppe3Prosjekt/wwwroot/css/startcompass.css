@@ -1268,3 +1268,53 @@ main .form-control:focus {
         padding: 20px 16px 24px;
     }
 }
+
+/* Category header row inside the statement-by-statement table. */
+.sc-table tbody tr.sc-row--group th {
+    background: var(--sc-muted);
+    color: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 10px 12px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------- over time ---- */
+
+.sc-trends {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.sc-trend {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-player);
+    padding: 18px 20px 16px;
+}
+
+.sc-trend__chart {
+    display: block;
+    height: 64px;
+    margin: 10px 0 4px;
+    width: 100%;
+}
+
+.sc-trend__line {
+    stroke: var(--sc-player);
+    stroke-width: 2;
+}
+
+.sc-trend__point {
+    fill: var(--sc-player);
+}
+
+.sc-trend__midline {
+    stroke: var(--sc-border);
+    stroke-dasharray: 3 3;
+    stroke-width: 1;
+}
