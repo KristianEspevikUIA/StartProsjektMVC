@@ -126,6 +126,18 @@ Det som testes er reglene som ikke tåler å bli feil:
   oppstart.
 - **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
 
+En del av testene går gjennom **hele applikasjonen over HTTP**, med `WebApplicationFactory`
+og `StartCompassFactory`. De svarer på spørsmål ingen enkelttjeneste kan svare på: hva en
+gitt innlogget bruker faktisk får tilbake, gjennom ruting, policyer, controller og ferdig
+rendret visning. Innloggingscookien er byttet mot `TestAuthHandler`, så en test kan spørre
+«hva ser en foresatt her» uten å håndtere passord. Databasen er den samme SQLite-en som
+resten.
+
+Det er der disse ligger, og de kunne ellers bare sjekkes ved å logge inn som fire personer og
+klikke: at en anonym forespørsel avvises, at en foresatt ser sitt eget barn og *ikke* et
+annet, at en trener slipper inn uten samtykke **og** at oppslaget havner i revisjonsloggen,
+at spillerens egne besøk ikke logges, og at trenerens svar er skjult til de er frigitt.
+
 CI ligger i [`.github/workflows/ci.yml`](.github/workflows/ci.yml) og kjører `restore`,
 `build` og `test` på hver push og hver pull request. Den trenger ingen hemmeligheter:
 databasepassordet trengs for å *kjøre* appen, ikke for å bygge eller teste den.
@@ -315,36 +327,6 @@ Viktig for den som bygger videre: **redigeringen skjer i modellen, ikke i visnin
 `FiveCFeedbackBuilder` fjerner trenerens tall fra modellen når det ikke er frigitt, slik at
 en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelsen inn i en
 `.cshtml`-fil.
-
----
-
-## Tester
-
-```bash
-dotnet test
-```
-
-`tests/StartPraksisGruppe3Prosjekt.Tests/` kjører hele applikasjonen med
-`WebApplicationFactory`. To ting byttes ut, og ingenting annet — autorisasjonshandlerne,
-policyene og visningene er de samme som i produksjon:
-
-- **EF sin in-memory-provider** i stedet for Supabase, så testene aldri rører den delte
-  basen og ikke trenger en server.
-- **Et testskjema for innlogging** (`TestAuthHandler`), så en test kan spørre «hva ser en
-  foresatt her» uten å håndtere passord.
-
-Testene svarer på de reglene systemet hviler på, og som ellers bare kunne sjekkes ved å
-logge inn som fire personer og klikke: hvem som får se en spiller, at en trener slipper inn
-uten samtykke *og* at oppslaget havner i revisjonsloggen, at spilleren ikke ser trenerens
-svar før de er frigitt, reverseringsregelen `6 − verdi`, oppfølgingsgrensen, og retningen på
-utviklingstallene.
-
-**Én ting er ikke dekket:** den unike indeksen «én besvarelse per person per spiller per
-periode». SQLite ville håndhevet den, men SQLite nekter å sortere på `DateTimeOffset` og
-appen gjør det flere steder. Å teste den krever en ekte Postgres, f.eks. Testcontainers.
-
-CI kjører `build` og `test` på hver push og pull request — `.github/workflows/build-and-test.yml`.
-Den trenger verken database eller hemmeligheter.
 
 ---
 

@@ -35,7 +35,12 @@ public sealed class QuestionCatalog : IQuestionCatalog
 
     public QuestionCatalog(IWebHostEnvironment environment, ILogger<QuestionCatalog> logger)
     {
-        var path = Path.Combine(environment.ContentRootPath, RelativePath);
+        // GetFullPath, not just Combine: RelativePath uses forward slashes, and Combine
+        // leaves them alone. On Windows that produced "C:\...\Data/Questions/..." in the
+        // error message below -- the one place this path is ever read by a person, and the
+        // one place a mixed separator is confusing. Normalising it also makes the message
+        // assertable on both platforms, which it was not.
+        var path = Path.GetFullPath(Path.Combine(environment.ContentRootPath, RelativePath));
 
         if (!File.Exists(path))
         {

@@ -1,3 +1,6 @@
+using StartPraksisGruppe3Prosjekt.Services;
+using StartPraksisGruppe3Prosjekt.Models;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
@@ -61,4 +64,30 @@ internal sealed class FakeHttpContextAccessor : IHttpContextAccessor
             .Where(value => !string.IsNullOrEmpty(value))
             .Select(value => value!.Split(';')[0].Split('=', 2))
             .ToDictionary(parts => parts[0], parts => parts.Length > 1 ? parts[1] : string.Empty);
+}
+
+/// <summary>
+/// An access log that records nothing and has nothing to report.
+///
+/// FiveCFeedbackBuilder reads the log to show the player who has looked at them. Tests that
+/// are about something else -- redaction, staging -- want that list empty, and an empty log
+/// is a real state rather than a contrived one: it is what a player sees before any coach
+/// has opened them.
+///
+/// PlayerAccessLogTests covers the log itself, against a real database.
+/// </summary>
+internal sealed class FakePlayerAccessLog : IPlayerAccessLog
+{
+    public Task RecordAsync(
+        ClaimsPrincipal user,
+        int playerId,
+        string context,
+        int? roundId = null,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<IReadOnlyList<PlayerAccessEvent>> GetForPlayerAsync(
+        int playerId,
+        int take = 100,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<PlayerAccessEvent>>(Array.Empty<PlayerAccessEvent>());
 }

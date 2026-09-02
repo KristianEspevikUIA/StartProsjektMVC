@@ -160,7 +160,10 @@ public class FiveCFeedbackBuilderTests
     {
         var builder = new FiveCFeedbackBuilder(
             new FiveCAnalysisService(new EfSurveySubmissionStore(context), TestCatalog.Load()),
-            new FeedbackReleaseService(context));
+            new FeedbackReleaseService(context),
+            // Empty on purpose: this test is about redaction, not about the access log.
+            // PlayerAccessLogTests covers that against a real database.
+            new FakePlayerAccessLog());
 
         return builder.BuildAsync(
             player,
