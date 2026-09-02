@@ -162,14 +162,19 @@
     //
     // The strip is built from whatever panels the server actually rendered, so a page
     // without a trend, or without an aggregate to break down, gets a strip with only the
-    // tabs it has. Nothing here knows how many sections there are meant to be.
+    // tabs it has. Nothing here knows how many sections a page is meant to have -- which
+    // is what lets the coach team page, the coach player page, the feedback page and the
+    // form all share one component and look the same.
+    //
+    // Returns a small handle so a page with live state -- the form, counting its own
+    // answers -- can keep the strip in step. Null when there was nothing to build.
     function initSectionTabs() {
         var panels = Array.prototype.slice.call(
             document.querySelectorAll("[data-tab-panel]"));
 
         // One panel is not a set of tabs, it is a page. Two is the least that can switch.
         if (panels.length < 2) {
-            return;
+            return null;
         }
 
         var strip = document.createElement("div");
@@ -178,6 +183,8 @@
         strip.setAttribute("aria-label", "Sections");
 
         var tabs = [];
+        var badges = [];
+        var dots = [];
 
         panels.forEach(function (panel, index) {
             var label = panel.getAttribute("data-tab-label") || "Section " + (index + 1);
@@ -201,23 +208,24 @@
             tab.setAttribute("aria-controls", id);
             tab.appendChild(document.createTextNode(label));
 
-            var count = panel.getAttribute("data-tab-count");
-            if (count) {
-                var badge = document.createElement("span");
-                badge.className = "sc-tabs__count";
-                badge.appendChild(document.createTextNode(count));
-                tab.appendChild(badge);
-            }
+            // Count and dot are created empty and stay in the DOM. A page that never uses
+            // them shows nothing -- .sc-tabs__count:empty is display:none -- and a page that
+            // updates them while somebody works does not have to build elements to do it.
+            var badge = document.createElement("span");
+            badge.className = "sc-tabs__count";
+            badge.textContent = panel.getAttribute("data-tab-count") || "";
+            tab.appendChild(badge);
+            badges.push(badge);
 
             // A section wanting attention says so on its tab, because the reader is by
             // definition looking at a different one.
-            if (panel.getAttribute("data-tab-flag") === "true") {
-                var dot = document.createElement("span");
-                dot.className = "sc-tabs__dot";
-                dot.setAttribute("role", "img");
-                dot.setAttribute("aria-label", "needs follow-up");
-                tab.appendChild(dot);
-            }
+            var dot = document.createElement("span");
+            dot.className = "sc-tabs__dot";
+            dot.setAttribute("role", "img");
+            dot.setAttribute("aria-label", "needs attention");
+            dot.hidden = panel.getAttribute("data-tab-flag") !== "true";
+            tab.appendChild(dot);
+            dots.push(dot);
 
             tab.addEventListener("click", function () {
                 select(index, true);
@@ -301,11 +309,20 @@
         }
 
         function initialIndex() {
-            // A link to #panel-... wins: it is the more deliberate of the two.
+            // A link to #sc-panel-N wins: it is the most deliberate of the three.
             var hash = window.location.hash.replace("#", "");
             for (var i = 0; i < panels.length; i++) {
                 if (panels[i].id === hash) {
                     return i;
+                }
+            }
+
+            // Then whatever the server asked for. The form uses it to open the section
+            // holding the first statement that came back unanswered -- otherwise that is
+            // an error message sitting behind a tab nobody was told to press.
+            for (var j = 0; j < panels.length; j++) {
+                if (panels[j].getAttribute("data-tab-open") === "true") {
+                    return j;
                 }
             }
 
@@ -332,12 +349,113 @@
 
         panels[0].parentNode.insertBefore(strip, panels[0]);
         select(initialIndex(), false);
+
+        return {
+            panels: panels,
+            strip: strip,
+            select: select,
+            setCount: function (index, text) {
+                badges[index].textContent = text;
+            },
+            setFlag: function (index, on) {
+                dots[index].hidden = !on;
+            }
+        };
+    }
+
+    // The form, on top of the tabs above.
+    //
+    // Same strip, same look as the coach pages -- a respondent who has seen one of these
+    // pages has seen all of them. What a form needs on top of a set of tabs is forward
+    // motion and a truthful count: five statements at a time is the point, but only if you
+    // can see how far you have got and get to the end without hunting for it.
+    //
+    // Hidden panels still post. A radio in a section nobody opened submits exactly as it
+    // would have done in the long column, so the tabs change what is on screen and nothing
+    // about what is saved.
+    function initFormSteps(tabs) {
+        var form = document.querySelector("[data-survey-form]");
+        if (!form || !tabs) {
+            return;
+        }
+
+        var panels = tabs.panels;
+
+        // Answered means any radio in the group is checked -- including "Do not know",
+        // which is an answer, just not a number. Same rule as the bar at the top.
+        function countIn(panel) {
+            var groups = panel.querySelectorAll("[role=radiogroup]");
+            var done = 0;
+
+            for (var i = 0; i < groups.length; i++) {
+                if (groups[i].querySelector("input[type=radio]:checked")) {
+                    done++;
+                }
+            }
+
+            return { done: done, total: groups.length };
+        }
+
+        function refresh() {
+            panels.forEach(function (panel, index) {
+                var count = countIn(panel);
+                if (count.total === 0) {
+                    return;
+                }
+
+                tabs.setCount(index, count.done + "/" + count.total);
+
+                // A section with something left in it is marked, so the reader does not
+                // have to open all five to find the one they skipped.
+                tabs.setFlag(index, count.done < count.total);
+            });
+        }
+
+        // Back and Next, built here and appended to each panel. A form is walked through
+        // in order; the strip is for jumping about once you know where you are going.
+        panels.forEach(function (panel, index) {
+            if (countIn(panel).total === 0) {
+                return;
+            }
+
+            var nav = document.createElement("div");
+            nav.className = "sc-stepnav";
+
+            if (index > 0) {
+                var back = document.createElement("button");
+                back.type = "button";
+                back.className = "sc-btn sc-btn--secondary";
+                back.textContent = "Back";
+                back.addEventListener("click", function () {
+                    tabs.select(index - 1, true);
+                });
+                nav.appendChild(back);
+            }
+
+            if (index < panels.length - 1) {
+                var next = document.createElement("button");
+                next.type = "button";
+                next.className = "sc-btn";
+                next.textContent = "Next";
+                next.addEventListener("click", function () {
+                    tabs.select(index + 1, true);
+                });
+                nav.appendChild(next);
+            }
+
+            if (nav.childNodes.length > 0) {
+                panel.appendChild(nav);
+            }
+        });
+
+        form.addEventListener("change", refresh);
+        refresh();
     }
 
     document.addEventListener("DOMContentLoaded", function () {
         initProgress();
         initCopyLinks();
         initPlayerFilter();
-        initSectionTabs();
+        initFormSteps(initSectionTabs());
     });
 })();

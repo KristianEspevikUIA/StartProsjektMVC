@@ -72,11 +72,37 @@
             </div>
         }
 
+        @*
+            One C per panel. survey.js turns these into the same tab strip the coach pages
+            use, adds Back and Next, and writes the answered count onto each tab -- so the
+            form is five statements at a time instead of twenty-five in one column, and you
+            can still see how far you have got.
+
+            Hidden panels still post: a radio in a section nobody opened submits exactly as
+            it would have in the long column. With JavaScript off there is no strip and
+            nothing is hidden, which is the form as it was.
+
+            data-tab-open sends the reader to the first C with something still unanswered
+            after a rejected save. An error message behind an unopened tab is a form that
+            will not submit and will not say why.
+        *@
+        @{ var firstWithError = true; }
         @foreach (var categoryBlock in Model.Sections)
         {
-            <section class="sc-section">
+            var blockHasError = categoryBlock.Questions.Any(q =>
+                ViewData.ModelState[$"Answers[{q.Index}].Value"]?.Errors.Count > 0);
+
+            var openThis = blockHasError && firstWithError;
+            if (openThis)
+            {
+                firstWithError = false;
+            }
+
+            <section class="sc-section" data-tab-panel
+                     data-tab-label="@categoryBlock.Name"
+                     data-tab-open="@(openThis ? "true" : "false")">
                 <div class="sc-rule"></div>
-                <h2>@categoryBlock.Name</h2>
+                <h2 data-tab-heading>@categoryBlock.Name</h2>
                 <p class="sc-lead">@categoryBlock.Description</p>
 
                 <div class="sc-card">
@@ -162,9 +188,14 @@
             </section>
         }
 
+        @*
+            Deliberately not a panel: Save is reachable from whichever C you are looking at,
+            and the form does not make you walk to the end to submit.
+        *@
         <div class="sc-section sc-section--last">
             <p class="sc-lead">
-                You can change your answers for as long as the round is open.
+                You can change your answers for as long as the round is open, and you do not
+                have to answer every statement before saving.
             </p>
 
             <div class="sc-actions">

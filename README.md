@@ -291,12 +291,25 @@ en laptop.
 på tvers av alle 25 påstandene, per kategori, og per påstand. Samme stolper, samme partial,
 samme 1–5-skala — poenget er at man ikke skal lære seg diagrammet på nytt ett nivå opp.
 
-**Sidene er faner, ikke én lang kolonne.** De fire seksjonene — lagsnitt, per påstand, over
-tid og spillere — lå tidligere under hverandre og ble omtrent fem skjermer med scrolling før
-en trener nådde spilleren de åpnet siden for. `survey.js` bygger fanestripa av de panelene
-som faktisk står på siden, så en runde uten lagsnitt får ingen «Per statement»-fane. Uten
-JavaScript finnes ingen stripe og ingenting er skjult: da er siden den samme kolonnen med
-seksjoner som før. Valgt fane huskes per lag og periode i `sessionStorage`.
+**Sidene er faner, ikke én lang kolonne.** Det gjelder *alle* de lange 5C-sidene, gjennom én
+og samme komponent, slik at man ikke møter ny navigasjon på hver side:
+
+| Side | Faner |
+| --- | --- |
+| Lagsiden | Overview, Per statement, Over time, Players |
+| Spillersiden | Differences, The five C's, Statements, Over time, Sharing |
+| Spillerens egen side | Status, Your answers, Who has looked |
+| Skjemaet | én fane per C, med Back/Next og teller |
+
+En seksjon melder seg på med `data-tab-panel`; `survey.js` bygger stripa av de panelene som
+faktisk står der. To ting ligger bevisst *utenfor* panelene, fordi de er grunnen til at siden
+ble åpnet: «fyll ut skjemaet» på spillersiden, og **Lagre** på skjemaet. Uten JavaScript
+finnes ingen stripe og ingenting er skjult — da er sidene de samme kolonnene som før. Valgt
+fane huskes per side i `sessionStorage`.
+
+Skjemaet gjør litt mer enn å bytte: hver fane viser hvor mange av de fem påstandene som er
+besvart (`3/5`) og markeres om noe mangler, og panelene har Back/Next. Skjulte paneler sendes
+inn som før — fanene endrer hva som vises, ikke hva som lagres.
 
 **Hvert tall er et snitt av SPILLERE, ikke av svar.** På hvert nivå er lagets tall snittet av
 spillernes tall på det nivået, slik at én spiller teller én gang enten hen svarte på fem

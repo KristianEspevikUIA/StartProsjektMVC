@@ -296,7 +296,22 @@ having developed. A period with too few players behind it is a gap rather than a
 and the page names it: an unexplained hole in a line reads as "nobody answered", and somebody
 did.
 
-### One page, four panels
+### One component, four pages
+
+Every long page in the 5C feature is built the same way, from the same code, and a coach or
+a player who has learned one has learned all of them:
+
+| Page | Panels |
+| --- | --- |
+| `Coach/FiveCTeam` | Overview, Per statement, Over time, Players |
+| `Coach/FiveCPlayer` | Differences, The five C's, Statements, Over time, Sharing |
+| `Shared/FiveCFeedback` | Status, Your answers, Who has looked |
+| `Survey/Fill` | one panel per C, plus Back/Next and a live answered count |
+
+A section opts in by carrying `data-tab-panel` and a `data-tab-label`; `survey.js` does the
+rest. Two things are deliberately left OUT of the panels, because they are the reason the
+page was opened and must never sit behind a tab: the "answer the form" call on the feedback
+page, and **Save** on the form.
 
 The team page holds four sections — the squad average, the same thing statement by
 statement, the squad over time, and the players — and stacked in one column that is about
@@ -312,9 +327,17 @@ panel is hidden — the page is the column of sections it always was, in the sam
 is the same rule the search box follows, and the reason the tabs are not rendered server
 side: a strip that switched nothing would be worse than a long page.
 
-The selected tab is remembered per team and per round in `sessionStorage`, so opening a
-player and coming back returns to the section that was open. A `#sc-panel-…` link wins over
-the remembered one, being the more deliberate of the two.
+The selected tab is remembered per page in `sessionStorage`, so opening a player and coming
+back returns to the section that was open. A `#sc-panel-N` link wins over the remembered
+one, and `data-tab-open` from the server wins over both -- which is how the form opens the
+first C still holding an unanswered statement after a rejected save, rather than leaving the
+error message behind a tab nobody was told to press.
+
+**The form is the one that does more than switch.** It is still tabs, and still looks like
+the others, but a form needs forward motion: `initFormSteps` appends Back and Next to each
+panel, writes the answered count onto every tab (`3/5`), and marks the tabs with something
+still missing. Hidden panels post exactly as they would have in the long column -- the tabs
+change what is on screen and nothing at all about what is saved.
 
 ### Finding a player in a squad
 
