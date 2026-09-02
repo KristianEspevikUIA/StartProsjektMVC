@@ -1,0 +1,35 @@
+@model NotBuiltYetViewModel
+@*
+    The placeholder every unbuilt page renders. See NotBuiltYetViewModel for why it exists.
+
+    Keep the way out. A page that says only "Not built yet." is a dead end, and the reader
+    who got here from a link somebody forgot to remove has nowhere to go.
+*@
+
+<div class="sc-notice sc-notice--info" role="status">
+    <p>
+        <strong>Not built yet.</strong> The page is planned but does not work, so nothing in
+        the menu links to it. It is listed here so the plan is visible rather than hidden in
+        a TODO comment.
+    </p>
+</div>
+
+@if (Model.Planned.Count > 0)
+{
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>What it will do</h2>
+        <ul>
+            @foreach (var item in Model.Planned)
+            {
+                <li>@item</li>
+            }
+        </ul>
+    </section>
+}
+
+<p class="sc-small sc-muted">Owner: @Model.Owner.</p>
+
+<a class="btn btn-outline-secondary"
+   asp-controller="@Model.BackController"
+   asp-action="@Model.BackAction">@Model.BackText</a>

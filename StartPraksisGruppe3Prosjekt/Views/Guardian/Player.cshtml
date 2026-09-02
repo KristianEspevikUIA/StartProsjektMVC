@@ -6,6 +6,10 @@
 @*
     Superseded. GuardianController.Player now renders Views/Shared/FiveCFeedback.cshtml,
     the same 5C page the player sees. Kept as a signpost.
+
+    The "Change consent" button that used to be here linked to Guardian/Consent, which is
+    not built. A button that leads to an empty page is a promise the app cannot keep, so it
+    says so instead of linking.
 *@
 
 <h1>@Model.Code</h1>
@@ -13,6 +17,7 @@
 
 <p><strong>Consent:</strong> @ConsentViewModel.Describe(Model.Consent)</p>
 
-<a class="btn btn-outline-secondary" asp-action="Consent" asp-route-id="@Model.PlayerId">
-    Change consent
-</a>
+<p class="sc-small sc-muted">
+    Changing consent is not built yet. It is Brage's, and it goes through
+    IConsentService.RecordAsync — the log is append-only.
+</p>

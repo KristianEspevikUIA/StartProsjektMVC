@@ -77,9 +77,11 @@ public static class RateLimitingExtensions
                     context.HttpContext.Request.Path,
                     context.HttpContext.Connection.RemoteIpAddress);
 
+                // English, like the rest of the interface. This is the one line a rate
+                // limited user actually reads.
                 context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
                 await context.HttpContext.Response.WriteAsync(
-                    "For mange forespørsler. Vent litt og prøv igjen.", cancellationToken);
+                    "Too many requests. Wait a moment and try again.", cancellationToken);
             };
         });
 

@@ -1,12 +1,28 @@
 @{
     ViewData["Title"] = "Find a player";
+
+    var placeholder = new NotBuiltYetViewModel
+    {
+        Owner = "Taavi",
+        BackText = "Back to my teams",
+        BackController = "Coach",
+        BackAction = "Index",
+        Planned = new[]
+        {
+            "A search field and a result list, by player code — for example TS-08-16. "
+                + "Names are not in this system.",
+            "Every result still has to pass CanViewPlayer before it is shown. That a player "
+                + "exists is itself a disclosure.",
+            "Worth an [EnableRateLimiting(RateLimitPolicies.Sensitive)] when it lands: a "
+                + "search that walks the code space is exactly what that policy is for.",
+            "The form list at /Survey already filters by player code, and does it inside a "
+                + "period. Check whether this page is still wanted before building it."
+        }
+    };
 }
 
 <h1>Find a player</h1>
 
 <p class="text-muted">Search by player code, for example TS-08-16.</p>
 
-@* TODO (Taavi): search field and results.
-   Results still have to go through CanViewPlayer before they are shown — that a player
-   exists is itself a disclosure. *@
-<p><em>Not built yet.</em></p>
+<partial name="_NotBuiltYet" model="placeholder" />
