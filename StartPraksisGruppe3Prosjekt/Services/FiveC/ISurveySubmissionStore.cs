@@ -63,4 +63,18 @@ public interface ISurveySubmissionStore
         int roundId,
         IEnumerable<int> playerIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// How many submissions each of these rounds holds, in one round trip.
+    ///
+    /// The admin period list needs a number per period and nothing else. Reading the
+    /// submissions themselves to count them meant one request per period, each one dragging
+    /// back twenty-five answers per respondent that were then thrown away.
+    ///
+    /// Every round asked for gets an entry, zero included. A missing key would leave the
+    /// caller to guess, and "no answers" is exactly what the caller wants to be able to say.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> CountByRoundAsync(
+        IEnumerable<int> roundIds,
+        CancellationToken cancellationToken = default);
 }

@@ -39,6 +39,7 @@ public class CoachController : Controller
     private readonly IFeedbackReleaseService _releases;
     private readonly IPlayerAccessLog _accessLog;
     private readonly IPeriodSelection _selection;
+    private readonly IPeriodService _periods;
 
     public CoachController(
         AppDbContext db,
@@ -49,7 +50,8 @@ public class CoachController : Controller
         IQuestionCatalog catalog,
         IFeedbackReleaseService releases,
         IPlayerAccessLog accessLog,
-        IPeriodSelection selection)
+        IPeriodSelection selection,
+        IPeriodService periods)
     {
         _db = db;
         _authz = authz;
@@ -60,6 +62,7 @@ public class CoachController : Controller
         _releases = releases;
         _accessLog = accessLog;
         _selection = selection;
+        _periods = periods;
     }
 
     /// <summary>
@@ -296,6 +299,13 @@ public class CoachController : Controller
             Comparison = comparison,
             QuestionSetVersion = _catalog.Questions.Version,
             ShareLinks = BuildShareLinks(round.Id, player.Id, comparison),
+            Trend = await _fiveC.GetTrendAsync(
+                player.Id,
+                player.Code,
+                (await _periods.GetAllAsync(cancellationToken))
+                    .Select(r => new TrendPeriod(r.Id, r.Name, r.ClosesAt))
+                    .ToList(),
+                cancellationToken),
             AnswersReleasedToPlayer = await _releases.IsReleasedAsync(round.Id, player.Id, cancellationToken)
         };
 

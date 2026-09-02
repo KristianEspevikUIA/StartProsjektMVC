@@ -18,7 +18,7 @@ namespace StartPraksisGruppe3Prosjekt.ViewModels.FiveC;
 /// </summary>
 public sealed record FiveCScoreCardViewModel
 {
-    /// <summary>Heading, e.g. "Coach vs player".</summary>
+    /// <summary>Heading, e.g. "Player and coach".</summary>
     public required string Title { get; init; }
 
     /// <summary>
@@ -62,13 +62,18 @@ public sealed record FiveCScoreCardViewModel
     /// <param name="accent">Accent stripe: "coach", "guardian" or "all".</param>
     public static FiveCScoreCardViewModel ForGap(
         RespondentGap? gap,
+        RespondentType left,
+        RespondentType right,
         string playerCode,
         string missingReason,
         string accent) =>
         gap is null
             ? new FiveCScoreCardViewModel
             {
-                Title = accent == "guardian" ? "Guardian vs player" : "Coach vs player",
+                // Built from the pair, not from the accent string. The title has to be the
+                // same before and after the second person answers, and deriving it from a
+                // css class name meant every new pair needed another branch here.
+                Title = RespondentGap.LabelFor(left, right),
                 Explanation = missingReason,
                 Accent = accent
             }
@@ -102,8 +107,8 @@ public sealed record FiveCScoreCardViewModel
         var level = FiveCRules.LevelOf(overall);
 
         var explanation = scores.IsCompleteTriangle
-            ? $"The average distance across all three pairs — coach against {playerCode}, " +
-              $"guardian against {playerCode}, and coach against guardian."
+            ? $"The average distance across all three pairs — {playerCode} and the coach, " +
+              $"{playerCode} and the guardian, and the coach and the guardian."
             : "Only two of the three have answered, so this is that one pair. It becomes a " +
               "three-way score once the third form is in.";
 

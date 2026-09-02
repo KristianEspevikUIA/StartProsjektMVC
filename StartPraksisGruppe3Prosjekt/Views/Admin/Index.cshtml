@@ -4,10 +4,23 @@
 
 <h1>Administration</h1>
 
+<h2 class="h5">Available</h2>
 <ul>
     <li><a asp-action="Periods">Periods</a></li>
-    <li><a asp-action="Users">Users and roles</a></li>
-    <li><a asp-action="Teams">Teams and coaches</a></li>
+</ul>
+
+@*
+    Planned, not linked. These used to be plain links to pages that answered "Not built yet."
+    -- a menu entry that leads nowhere is worse than no entry, because it costs a click to
+    find out. They are listed so the plan stays visible; the pages themselves say what they
+    will do and who owns them (see Views/Shared/_NotBuiltYet.cshtml).
+*@
+<h2 class="h5">Planned</h2>
+<ul>
+    <li>Users and roles <span class="sc-badge sc-badge--muted">Not built yet</span></li>
+    <li>Teams and coaches <span class="sc-badge sc-badge--muted">Not built yet</span></li>
+    <li>Data access request <span class="sc-badge sc-badge--muted">Not built yet</span></li>
+    <li>Audit log view <span class="sc-badge sc-badge--muted">Not built yet</span></li>
 </ul>
 
 <p class="text-muted">

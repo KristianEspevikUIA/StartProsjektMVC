@@ -22,7 +22,13 @@ spiller og trener, spiller- og foresattsiden, revisjonsloggen, og admin-siden fo
 `Search` og `ScoringService`), samtykkeskjemaet for foresatte, brukeradministrasjon og
 GDPR-innsyn/sletting i `AdminController`.
 
-`dotnet build` kjører rent, og `dotnet run` migrerer databasen og legger inn seed-data.
+Sidene som ikke er bygget, er **ikke lenket til** fra menyen eller fra admin-forsiden. De
+står på lista der som «Not built yet», og selve siden forteller hvem som eier arbeidet, hva
+den skal gjøre, og har en vei tilbake — se `Views/Shared/_NotBuiltYet.cshtml`. En lenke som
+fører til en tom side koster et klikk å oppdage, og det er verre enn ingen lenke.
+
+`dotnet build` kjører rent, `dotnet test` er grønn, og `dotnet run` migrerer databasen og
+legger inn seed-data.
 
 ---
 
@@ -89,6 +95,55 @@ og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen førs
 
 ---
 
+## Tester
+
+```bash
+dotnet test
+```
+
+Testene ligger i `StartPraksisGruppe3Prosjekt.Tests` (xUnit) og kjører på **SQLite i minnet**,
+ikke mot Supabase. Ingen hemmeligheter, ingen nettverk, og ingen fare for å skrive i den delte
+basen — kjør dem så ofte du vil.
+
+At de kjører på SQLite og appen på Postgres er en avveining og ikke en forglemmelse: SQLite
+gir ekte unike indekser, fremmednøkler og faktisk SQL-oversetting, og en spørring som ikke
+lar seg oversette i det hele tatt faller her i stedet for i produksjon. SQLite har ingen
+`DateTimeOffset`, så `SqliteAppDbContext` i testprosjektet legger på en konvertering. Den
+hører hjemme der og ikke i `AppDbContext` — Postgres har `timestamptz` og trenger den ikke.
+
+Det som testes er reglene som ikke tåler å bli feil:
+
+- **Reverseringen og båndene** (`FiveCRules`, `ScoringService.ScoreOf`) — inkludert at de to
+  skjemaene skårer en reversert påstand likt.
+- **Append-only-loggene.** Vakten ligger i `AppDbContext.SaveChanges`, så testene skriver
+  direkte på konteksten: går de gjennom en tjeneste, tester de tjenesten og ikke vakten.
+- **Redigeringen før frigivelse.** At trenerens tall ikke er i *modellen* før treneren har
+  frigitt dem — ikke bare at de er skjult i visningen.
+- **Perioder**: navnekrav, dubletter, vindu som slutter før det starter, og hvilken periode
+  som er «gjeldende» når flere er åpne.
+- **Spørsmålsfila.** `QuestionCatalogTests` laster *den* fila appen leverer (lenket inn i
+  testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
+  oppstart.
+- **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
+
+En del av testene går gjennom **hele applikasjonen over HTTP**, med `WebApplicationFactory`
+og `StartCompassFactory`. De svarer på spørsmål ingen enkelttjeneste kan svare på: hva en
+gitt innlogget bruker faktisk får tilbake, gjennom ruting, policyer, controller og ferdig
+rendret visning. Innloggingscookien er byttet mot `TestAuthHandler`, så en test kan spørre
+«hva ser en foresatt her» uten å håndtere passord. Databasen er den samme SQLite-en som
+resten.
+
+Det er der disse ligger, og de kunne ellers bare sjekkes ved å logge inn som fire personer og
+klikke: at en anonym forespørsel avvises, at en foresatt ser sitt eget barn og *ikke* et
+annet, at en trener slipper inn uten samtykke **og** at oppslaget havner i revisjonsloggen,
+at spillerens egne besøk ikke logges, og at trenerens svar er skjult til de er frigitt.
+
+CI ligger i [`.github/workflows/ci.yml`](.github/workflows/ci.yml) og kjører `restore`,
+`build` og `test` på hver push og hver pull request. Den trenger ingen hemmeligheter:
+databasepassordet trengs for å *kjøre* appen, ikke for å bygge eller teste den.
+
+---
+
 ## Stack
 
 - ASP.NET Core MVC, **.NET 8 (LTS)**
@@ -150,7 +205,9 @@ stengt. Skjemaet lander på den som stenger sist.
 Perioder opprettes på to måter, og begge går gjennom `IPeriodService`, så reglene for hva
 som er en brukbar periode bor ett sted:
 
-- **Admin-siden** `Admin/Periods`: navn, åpner, stenger. Ny periode starter tom.
+- **Admin-siden** `Admin/Periods`: navn, åpner, stenger. Ny periode starter tom. Den ligger
+  som **«Periods»** i hovedmenyen for admin, ikke bare under «Administration» — en periode må
+  finnes og være åpen før noen kan svare på noe, så det er den admin-siden som åpnes oftest.
 - **Seeding** i `SeedData.SeedRoundsAsync`, som er idempotent *per periode* — ellers kunne
   en ny periode aldri legges til i en base som allerede var seedet.
 
@@ -182,6 +239,11 @@ bare å ta imot nye.
 Trener- og admin-oppslag på en enkeltspiller havner i revisjonsloggen. Spillerens egne
 besøk på sin egen side gjør det ikke — det ville vært støy som skjuler radene som betyr noe.
 
+**Spilleren ser loggen selv**, nederst på sin egen side: rolle og tidspunkt, ikke bruker-ID
+eller e-postadresse. Leseren vet hvem treneren sin er, og en kontoadresse er ikke deres å få.
+Det er den andre halvdelen av at trenere ikke lenger trenger samtykke: klubben kan gjøre rede
+for hvert oppslag, og det kan den det gjelder også.
+
 ### Skjemalisten
 
 `/Survey` er én liste med tre betydninger: for en spiller ett kort om seg selv, for en
@@ -202,6 +264,41 @@ endepunktene «Strongly disagree» / «Strongly agree». Trenerens tabeller scro
 sidelengs inne i `.sc-table-wrap` — en trener som sammenligner en tropp sitter uansett på
 en laptop.
 
+### Utvikling over tid
+
+Trenerens spillerside viser spillerens egne snitt per C på tvers av periodene de har svart i,
+med endringen i tall og ord. Kun **spillerens egne** svar: hva en trener mente om dem i mars
+er ikke en del av hvordan spilleren utviklet seg til september, og en linje som blandet inn
+det ville flyttet seg når treneren skiftet mening.
+
+Trenger minst to perioder med svar. Med én står det at det finnes en posisjon, men ingen
+retning — nye perioder opprettes under Administration.
+
+### Statement by statement
+
+Under snittene ligger alle 25 påstandene med hva hver enkelt faktisk svarte. Tallene er
+**rå** — det respondenten klikket — ikke den reverserte skåren. På en reversert påstand
+betyr derfor 5 at man er sterkt enig i en negativt formulert setning, altså en lav skår, og
+den er merket «Reversed» av nettopp den grunn.
+
+Avstanden mellom to svar er lik uansett: reversering snur begge sider, så |(6−a) − (6−b)|
+er |a − b|. Rå svar og en absoluttdifferanse er derfor konsistent sammen, mens rå svar og en
+fortegnsdifferanse ikke ville vært det.
+
+### Tre ordlyder per spørsmål
+
+Samme påstand, tre lesere. Spilleren svarer om seg selv, treneren om en spiller, foresatt om
+sitt eget barn — bare grammatikken skifter:
+
+| Felt | Leser | Eksempel |
+| --- | --- | --- |
+| `text` | spilleren | «I keep working on my development …» |
+| `textAboutPlayer` | treneren | «The player keeps working on their development …» |
+| `textForGuardian` | foresatt | «My child keeps working on their development …» |
+
+Hver faller tilbake på den over, så et spørsmålssett som bare fyller ut `text` fungerer for
+alle. Svaret lagres likt uansett hvilken ordlyd som produserte det.
+
 ### Samtaleflyten
 
 5C-runden er en samtale, ikke en dom. Rekkefølgen:
@@ -212,6 +309,11 @@ en laptop.
 4. Treneren frigir svarene sine. Først da ser spilleren trenerens score og avviket.
 
 Treneren ser alt hele veien. Foresatt ser nøyaktig det samme som spilleren.
+
+Merk at samtalen følger **spilleren**, ikke den som ser på: en foresatt som ikke har fylt ut
+sitt eget skjema følger likevel barnets samtale med treneren. Deres eget skjema er et eget
+bidrag, ikke en sperre. (Det var en bug til 02.09.2026 — foresatte så ingenting før de hadde
+svart selv. Testen `Guardian_sees_the_same_as_the_player` fanget den.)
 
 Asymmetrien er med vilje: at en trener leser sin egen uenighet med en fjortenåring er en
 treneravgjørelse, og det samme tallet som dukker opp uanmeldt på spillerens telefon er det
@@ -254,6 +356,9 @@ StartPraksisGruppe3Prosjekt/
 ├─ ViewModels/
 ├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Shared/
 └─ Program.cs
+
+StartPraksisGruppe3Prosjekt.Tests/   xUnit, SQLite i minnet. Se «Tester».
+.github/workflows/ci.yml             build + test på push og pull request
 ```
 
 ---
@@ -497,12 +602,15 @@ bare proxyens IP-adresse.
 
 ## Ting som må avklares før ekte data
 
-- [ ] Melding til Sikt
+- [~] Melding til Sikt — utkast i [`docs/sikt-melding.md`](docs/sikt-melding.md). Sju punkter
+      gjenstår, og fire av dem er klubbens å svare på
 - [ ] Personvernerklæring (`Views/Home/Privacy.cshtml`)
 - [x] Selvregistrering stengt — kontoer opprettes av klubben. Admin-siden som faktisk
       oppretter dem er fortsatt TODO i `AdminController.Users`
-- [ ] `AllowedHosts` står på `*` i `appsettings.json`. Settes til det faktiske vertsnavnet
-      før produksjon
+- [x] `AllowedHosts` er ikke lenger `*`. `appsettings.json` slipper bare gjennom lokale navn,
+      `appsettings.Development.json` beholder `*` for utvikling, og produksjon setter det
+      faktiske vertsnavnet i miljøet (`AllowedHosts=…`). Står den likevel på `*` utenfor
+      utvikling, sier `Program.cs` fra i loggen ved oppstart
 - [ ] Identity UI lar en bruker slette sin egen konto på
       `/Identity/Account/Manage/DeletePersonalData`. Det går utenom sletterutinen i
       `AdminController.Delete` og etterlater `Player.UserId` uten bruker. Avklar om siden

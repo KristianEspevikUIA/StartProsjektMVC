@@ -57,6 +57,8 @@ public class FiveCPlayerViewModel
     {
         FiveCScoreCardViewModel.ForGap(
             Comparison.CoachVsPlayer,
+            RespondentType.Coach,
+            RespondentType.Player,
             Code,
             Comparison.CoachHasAnswered
                 ? $"A coach has answered, but {Code} has not, so there is nothing to compare against."
@@ -65,14 +67,41 @@ public class FiveCPlayerViewModel
 
         FiveCScoreCardViewModel.ForGap(
             Comparison.GuardianVsPlayer,
+            RespondentType.Guardian,
+            RespondentType.Player,
             Code,
             Comparison.GuardianHasAnswered
                 ? $"A guardian has answered, but {Code} has not, so there is nothing to compare against."
                 : $"No guardian has answered about {Code} in this round.",
             "guardian"),
 
+        // The only pair that is not about the player's own view of themselves: how far apart
+        // the two adults around them are. It was already being measured -- it is a third of
+        // the "between all" score, and it shows up per category further down -- but it had no
+        // card of its own up here, which is where a coach actually reads these numbers.
+        FiveCScoreCardViewModel.ForGap(
+            Comparison.Differences.CoachVsGuardian,
+            RespondentType.Coach,
+            RespondentType.Guardian,
+            Code,
+            Comparison.CoachHasAnswered
+                ? $"No guardian has answered about {Code} in this round."
+                : Comparison.GuardianHasAnswered
+                    ? $"No coach has answered about {Code} in this round."
+                    : $"Neither a coach nor a guardian has answered about {Code} in this round.",
+            "adults"),
+
         FiveCScoreCardViewModel.ForOverall(Comparison.Differences, Code)
     };
+
+    /// <summary>
+    /// The player's own scores across every period, oldest first.
+    ///
+    /// Development over time is what the club asked the system for. It is deliberately the
+    /// player's own line only: what a coach thought of them in March is not part of how the
+    /// player developed by September.
+    /// </summary>
+    public PlayerTrend? Trend { get; set; }
 
     /// <summary>
     /// Whether the coach has shared their own answers with the player and guardian.

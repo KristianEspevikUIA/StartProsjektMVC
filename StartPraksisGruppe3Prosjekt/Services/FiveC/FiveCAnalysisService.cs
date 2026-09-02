@@ -48,6 +48,46 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
             entry => Build(roundId, entry.Key, entry.Value, byPlayer[entry.Key].ToList()));
     }
 
+    /// <inheritdoc />
+    public async Task<PlayerTrend> GetTrendAsync(
+        int playerId,
+        string playerCode,
+        IReadOnlyList<TrendPeriod> periods,
+        CancellationToken cancellationToken = default)
+    {
+        var ordered = periods.OrderBy(p => p.ClosesAt).ToList();
+
+        // One read per period. A handful of periods is a handful of queries, and the store
+        // has no "several rounds at once" method -- adding one would only pay off with far
+        // more periods than a season has.
+        var meansPerPeriod = new List<Dictionary<string, double?>>(ordered.Count);
+
+        foreach (var period in ordered)
+        {
+            var submissions = await _store.GetForPlayerAsync(period.RoundId, playerId, cancellationToken);
+
+            var own = submissions.FirstOrDefault(s =>
+                SafeRole(s.RespondentRole) == RespondentType.Player);
+
+            var scores = ScoresByCategory(own);
+
+            meansPerPeriod.Add(_catalog.Questions.Categories.ToDictionary(
+                category => category.Key,
+                category => MeanOf(scores, category.Key).Mean));
+        }
+
+        var categories = _catalog.Questions.Categories
+            .Select(category => new CategoryTrend(
+                CategoryKey: category.Key,
+                CategoryName: category.Name,
+                Means: meansPerPeriod
+                    .Select(period => period.TryGetValue(category.Key, out var mean) ? mean : null)
+                    .ToList()))
+            .ToList();
+
+        return new PlayerTrend(playerId, playerCode, ordered, categories);
+    }
+
     /// <summary>
     /// Folds a player's submissions into one comparison, one row per category.
     /// </summary>
@@ -74,12 +114,36 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
         var guardianScores = ScoresByCategory(guardian);
         var coachScores = ScoresByCategory(coach);
 
+        // Raw answers as well as scores. The averages are built from scores, so that a high
+        // number always means "good"; the per-statement table shows what people actually
+        // clicked, which is what a conversation refers back to.
+        var playerRaw = RawByQuestion(player);
+        var guardianRaw = RawByQuestion(guardian);
+        var coachRaw = RawByQuestion(coach);
+
+        // Running number across the whole form, so a statement is called the same thing here
+        // as it was on the form the respondent filled in.
+        var number = 0;
+
         var categories = _catalog.Questions.Categories
             .Select(category =>
             {
                 var (playerMean, playerCount) = MeanOf(playerScores, category.Key);
                 var (guardianMean, guardianCount) = MeanOf(guardianScores, category.Key);
                 var (coachMean, coachCount) = MeanOf(coachScores, category.Key);
+
+                var questions = category.Questions
+                    .Select(question => new QuestionComparison(
+                        QuestionKey: question.Key,
+                        Number: ++number,
+                        // The player's own wording. The coach reads the same statement the
+                        // player answered, not the about-the-player rewrite of it.
+                        Text: question.Text,
+                        Reversed: question.Reversed,
+                        PlayerValue: Raw(playerRaw, question.Key),
+                        GuardianValue: Raw(guardianRaw, question.Key),
+                        CoachValue: Raw(coachRaw, question.Key)))
+                    .ToList();
 
                 return new CategoryComparison(
                     CategoryKey: category.Key,
@@ -93,7 +157,8 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
                     Differences: DifferencesBetween(
                         InCategory(playerScores, category.Key),
                         InCategory(guardianScores, category.Key),
-                        InCategory(coachScores, category.Key)));
+                        InCategory(coachScores, category.Key)),
+                    Questions: questions);
             })
             .ToList();
 
@@ -129,6 +194,47 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
                 RespondentType.Guardian, guardianScores, RespondentType.Player, playerScores),
             CoachVsGuardian: RespondentGap.Between(
                 RespondentType.Coach, coachScores, RespondentType.Guardian, guardianScores));
+
+    /// <summary>
+    /// The raw answers in a submission, keyed by question. Unreversed and unscored: this is
+    /// the number the respondent clicked.
+    ///
+    /// Unanswered questions and values outside the scale are left out, so a missing key
+    /// means "no usable answer" and the caller does not have to test for both.
+    /// </summary>
+    private Dictionary<string, int> RawByQuestion(SurveySubmission? submission)
+    {
+        var raw = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (submission is null)
+        {
+            return raw;
+        }
+
+        foreach (var answer in submission.Answers)
+        {
+            if (answer.Value is not { } value
+                || value < FiveCRules.ScaleMin
+                || value > FiveCRules.ScaleMax)
+            {
+                continue;
+            }
+
+            // A question that has since been removed from the question set is skipped, for
+            // the same reason it is skipped when scoring: it has no statement to show.
+            if (_catalog.FindQuestion(answer.QuestionKey) is null)
+            {
+                continue;
+            }
+
+            raw[answer.QuestionKey] = value;
+        }
+
+        return raw;
+    }
+
+    private static int? Raw(IReadOnlyDictionary<string, int> answers, string questionKey) =>
+        answers.TryGetValue(questionKey, out var value) ? value : null;
 
     /// <summary>One category's scores, or an empty set when that category was not answered.</summary>
     private static IReadOnlyDictionary<string, int> InCategory(

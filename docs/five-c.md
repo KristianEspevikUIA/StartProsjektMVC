@@ -110,18 +110,29 @@ hashed, scoped to one player and one round, and revocable. It is not a query par
 > public and it is subject to row level security. Answers about minors behind a key that
 > ships to browsers is the wrong shape regardless of what the policies say.
 
-`ISurveySubmissionStore` still exists as an abstraction, but the live implementation is the
-EF-backed store that writes straight to the app database in Supabase Postgres. The in-memory
-and PostgREST variants are historical fallbacks rather than the current production path.
+`ISurveySubmissionStore` has three implementations, and configuration picks one:
 
-- **`EfSurveySubmissionStore`** — the default live implementation. It writes to the app's
-  own Postgres database through EF Core and Npgsql, with foreign keys to players and rounds.
-- **`InMemorySurveySubmissionStore`** — a development-only fallback. Values disappear when the
-  process restarts and the data is not persisted.
-- **`SupabaseSurveySubmissionStore`** — kept only for an intentionally separate Supabase
-  project; it is not the default path for this app.
+- **`EfSurveySubmissionStore`** — **the default**, and what runs unless something is
+  configured. Answers go in the application's own database, which since the move to Npgsql
+  *is* Supabase: `FiveCSubmissions` and `FiveCAnswers`, with real foreign keys to `Players`
+  and `SurveyRounds`. One credential, one connection, one transaction.
+- **`SupabaseSurveySubmissionStore`** — used when `FiveC:Supabase:Url` and `:ApiKey` are both
+  set, for a *genuinely separate* Supabase project. Talks to PostgREST directly; no client
+  library.
+- **`InMemorySurveySubmissionStore`** — only when `FiveC:Store` is set to `"InMemory"`.
+  Answers live in memory and are gone when the process stops, which is what makes it useful
+  for a demo and useless for anything else. In Development it seeds itself with made-up
+  submissions so the coach overview has something to draw.
+
+An empty `Url` or `ApiKey` therefore means the database, not memory. That was the other way
+round while the app ran on local SQLite, and every answer disappeared on restart.
 
 Which one is live is written to the log at startup, and shown to admins on `/Survey`.
+
+All three implement `CountByRoundAsync`, which answers "how many submissions does each of
+these periods hold" in one round trip. The admin period list is the only caller, and it used
+to ask per period — reading every submission with all twenty-five of its answers just to call
+`.Count` on the list.
 
 ### Configuration
 
@@ -250,13 +261,14 @@ round it belonged to.
 
 ### What the coach does and does not see
 
-- A player the coach may not see is **listed anyway** — code and position, no numbers, no
-  link, and the reason written out. Hiding the row would hide that the player exists.
-- "Not allowed to see" and "has not answered" are kept apart in words. They are entirely
-  different states that otherwise become the same grey row. Since the coach role stopped
-  being team-scoped, the only reason a row is withheld from a coach is consent.
-- Counts of *who answered* are shown for every row. They say nothing about any individual and
-  do not depend on consent. What was answered does.
+- **Nothing is withheld from a coach any more.** A coach sees every player and every number.
+  The code that renders a row without figures, and the "no consent for individual views"
+  wording next to it, are left over from when consent gated a coach — they are now
+  unreachable. Removing them is on the list.
+- "Has not answered" is still its own state, and still says so in words rather than showing
+  a dash that could be read as a zero.
+- Counts of *who answered* say nothing about any individual. They were shown for every row
+  even when the numbers were not, which is why they were separated in the first place.
 - No free-text field and no notes. A coach's written note about a minor is a new category of
   personal data and is not in the data model.
 
@@ -264,25 +276,30 @@ round it belonged to.
 
 ## Known limits
 
-- **The coach role is not tied to a team.** A coach is a coach: every coach sees every team,
-  gets a form for every player in the club, and `CanViewTeam` / `CanViewTeamAggregate` no
-  longer look at `CoachTeam` at all. The access rule for an individual player is now
-  intentionally simple: a coach may open a player, and then the access log records what was
-  seen. The old consent gate is gone, not just relaxed.
+- **Nothing limits which players a coach can reach.** A coach is a coach: every coach sees
+  every team, gets a form for every player in the club, and `CanViewTeam` /
+  `CanViewTeamAggregate` no longer look at `CoachTeam`. Consent used to be the last
+  remaining limit; the club asked for that to go too, and it did.
+
+  What stands in its place is `PlayerAccessEvent` — an append-only record of who opened
+  which player, from which page, when. It prevents nothing; it makes every lookup
+  accountable afterwards. **If it stops being written, the rule in `CanViewPlayerHandler`
+  has no counterweight at all**, so any new page that shows one player's answers has to call
+  `IPlayerAccessLog.RecordAsync`. `AccessControlTests` holds that down for the two pages
+  that exist.
 - **`CoachTeam` is still in the model, but no longer grants or limits anything.** The table,
   the entity and the seeded rows are untouched — dropping them is a schema migration on a
   shared database and nobody has asked for it. The only remaining reader is the development
   demo-data seeder, which uses it to pick a plausible coach. If it is not going to come back,
   it should be removed deliberately, in its own change.
-- **`/Survey` lists every player in the club for a coach.** At a few dozen players that is
-  fine; at a few hundred the page is unusable long before it is wrong. The fix when that
-  happens is a filter on that page — by team, or by "not answered yet" — and not a quiet
-  return to team-scoped access, which is an authorisation decision and belongs in
-  `Authorization/`.
-- **Consent is still part of the data model, but it is no longer a coach access gate.**
-  `ConsentLevel` is stored as the GDPR basis and shown in the UI, but it does not decide
-  whether a coach can open an individual player's answers. The audit log is the effective
-  replacement; that is the thing that must keep being written.
+- **`/Survey` lists every player in the club for a coach**, which is why that page has
+  filters: period, team, role, status and player code. If it becomes unusable again at a few
+  hundred players, the answer is a better filter — not a quiet return to team-scoped access,
+  which is an authorisation decision and belongs in `Authorization/`.
+- **Consent no longer decides anything a coach does.** It is still recorded, still
+  append-only, and still shown on the coach's player page — but nothing in the code branches
+  on it any more. It has to be described that way in the Sikt filing, and the club has to
+  confirm that is what they want. See `docs/sikt-melding.md`.
 - **`ConsentService.GetCurrentLevelsAsync` was implemented here** (it was one of Brage's
   TODOs) because the team overview lists a whole squad and would otherwise do one query per
   player. Same rule as the single-player version. The rest of that service is untouched.

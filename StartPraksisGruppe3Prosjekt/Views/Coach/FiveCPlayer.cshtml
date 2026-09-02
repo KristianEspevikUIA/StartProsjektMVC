@@ -204,6 +204,97 @@
                 }
             </div>
         </section>
+
+        @*
+            Statement by statement.
+
+            The averages above are what you read first; this is what a conversation actually
+            refers back to — "on statement four you said 5 and I said 2" rather than "you
+            rated yourself 0.8 higher". The numbers are RAW, exactly what each person
+            clicked, which is why reversed statements are marked rather than silently
+            corrected: on those, agreeing strongly is the low score.
+        *@
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Statement by statement</h2>
+            <p class="sc-lead">
+                Every answer as it was given, on the 1–5 scale. A dash means that person did
+                not answer that statement — it is not a zero. Rows two points apart or more
+                are marked; that is a different answer, not a rounding difference.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Statement</th>
+                            <th scope="col">Player</th>
+                            <th scope="col">Guardian</th>
+                            <th scope="col">You</th>
+                            <th scope="col">Widest gap</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var category in comparison.Categories)
+                        {
+                            <tr class="sc-row--group">
+                                <th scope="rowgroup" colspan="6">@category.CategoryName</th>
+                            </tr>
+
+                            @foreach (var question in category.Questions)
+                            {
+                                var wide = question.LargestDifference >= 2;
+
+                                <tr class="@(wide ? "sc-row--alert" : "")">
+                                    <td class="sc-muted sc-small">@question.Number</td>
+                                    <td>
+                                        @question.Text
+                                        @if (question.Reversed)
+                                        {
+                                            <span class="sc-badge sc-badge--muted">Reversed</span>
+                                        }
+                                    </td>
+                                    <td class="sc-num">@(question.PlayerValue?.ToString() ?? "–")</td>
+                                    <td class="sc-num">@(question.GuardianValue?.ToString() ?? "–")</td>
+                                    <td class="sc-num">@(question.CoachValue?.ToString() ?? "–")</td>
+                                    <td class="sc-num">
+                                        @if (question.LargestDifference is { } widest)
+                                        {
+                                            <span class="@(wide ? "sc-badge sc-badge--alert" : "sc-muted")">@widest</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <p class="sc-lead sc-small">
+                “Reversed” marks a negatively worded statement. There, a high answer is a low
+                score — the averages above already account for it, these raw numbers do not.
+            </p>
+        </section>
+    }
+
+    @if (Model.Trend is { } trend)
+    {
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Over time</h2>
+            <p class="sc-lead">
+                @Model.Code's own averages across the periods they have answered in. Only
+                their own answers — what anyone else thought of them is a different question,
+                and mixing it in would make the line move when the coach changed their mind.
+            </p>
+
+            <partial name="_FiveCTrend" model="trend" />
+        </section>
     }
 
     @*

@@ -66,12 +66,23 @@ public sealed class Question
     public string Text { get; init; } = string.Empty;
 
     /// <summary>
-    /// Optional alternative wording for coaches and guardians, who answer about the
-    /// player rather than about themselves. Null means every role sees <see cref="Text"/>,
-    /// which is the current default. See <see cref="TextFor"/>.
+    /// Wording for somebody answering ABOUT the player rather than about themselves --
+    /// "The player keeps working ...". Used by coaches, and by guardians when
+    /// <see cref="TextForGuardian"/> is not set. Null falls back to <see cref="Text"/>.
     /// </summary>
     [JsonPropertyName("textAboutPlayer")]
     public string? TextAboutPlayer { get; init; }
+
+    /// <summary>
+    /// Wording for a guardian -- "My child keeps working ...".
+    ///
+    /// Separate from <see cref="TextAboutPlayer"/> because the two readers are not the same
+    /// person. A guardian answering about "the player" is being asked about a stranger, and
+    /// a coach reading "my child" is being asked something else entirely. Falls back to
+    /// <see cref="TextAboutPlayer"/>, then to <see cref="Text"/>.
+    /// </summary>
+    [JsonPropertyName("textForGuardian")]
+    public string? TextForGuardian { get; init; }
 
     /// <summary>
     /// True when the statement is negatively worded. Scored as (6 - value) by
@@ -82,14 +93,22 @@ public sealed class Question
     public bool Reversed { get; init; }
 
     /// <summary>
-    /// The wording this respondent should see. Falls back to <see cref="Text"/> whenever
-    /// no separate about-the-player wording has been written, so all three roles get an
-    /// identical form until the coaching team decides otherwise.
+    /// The wording this respondent should see.
+    ///
+    /// One question, three readers. The player answers about themselves, the coach about a
+    /// player they train, the guardian about their own child. It is the same statement and
+    /// the same 1-5 scale -- only the grammar changes, and the answer is stored identically
+    /// whichever wording produced it.
+    ///
+    /// Each level falls back to the one below, so a question set that only fills in
+    /// <see cref="Text"/> still works for everybody.
     /// </summary>
-    public string TextFor(RespondentType respondent) =>
-        respondent == RespondentType.Player
-            ? Text
-            : TextAboutPlayer ?? Text;
+    public string TextFor(RespondentType respondent) => respondent switch
+    {
+        RespondentType.Player => Text,
+        RespondentType.Guardian => TextForGuardian ?? TextAboutPlayer ?? Text,
+        _ => TextAboutPlayer ?? Text
+    };
 }
 
 /// <summary>The response scale. Defined in the data file so the labels are editable too.</summary>

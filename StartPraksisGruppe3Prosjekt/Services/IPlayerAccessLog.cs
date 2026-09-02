@@ -20,6 +20,10 @@ public interface IPlayerAccessLog
     /// Records one lookup. Never throws on the caller's behalf: a page that failed to log
     /// is a problem, but taking the page down in front of a coach does not fix it. Failures
     /// are logged as errors instead.
+    ///
+    /// The row is written through a DbContext of its own, so calling this does not commit
+    /// whatever else the request happens to be tracking, and an unrelated failure in the
+    /// request does not take the log row with it. Call it wherever it reads best.
     /// </summary>
     /// <param name="user">Who is looking.</param>
     /// <param name="playerId">The player being looked at.</param>

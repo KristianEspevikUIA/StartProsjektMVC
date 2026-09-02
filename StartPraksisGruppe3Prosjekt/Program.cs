@@ -277,6 +277,23 @@ if (string.IsNullOrEmpty(new NpgsqlConnectionStringBuilder(connectionString).Pas
         "ConnectionStrings:DefaultConnection mangler Password. Se meldingen over.");
 }
 
+// ---------------------------------------------------------------------------
+// AllowedHosts. «*» tar imot hvilket som helst Host-hode, og et Host-hode fra utsiden
+// havner rett i lenkene Identity sender ut — blant annet i en tilbakestillingslenke
+// for passord. Standarden i appsettings.json er derfor bare lokale navn, og produksjon
+// setter det faktiske vertsnavnet i miljøet. Står den likevel på «*», skal det høres.
+// ---------------------------------------------------------------------------
+var allowedHosts = app.Configuration["AllowedHosts"];
+
+if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
+{
+    app.Logger.LogWarning(
+        "AllowedHosts er «{AllowedHosts}» utenfor utvikling. Appen svarer da på et hvilket " +
+        "som helst Host-hode. Sett det faktiske vertsnavnet i miljøet, f.eks. " +
+        "AllowedHosts=startcompass.example.no.",
+        allowedHosts ?? "(ikke satt)");
+}
+
 // Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
 if (app.Environment.IsDevelopment())
 {
@@ -307,6 +324,16 @@ if (app.Environment.IsDevelopment())
 // man må gjette på.
 using (var scope = app.Services.CreateScope())
 {
+    // Tving fram spørsmålskatalogen her, ikke ved første forespørsel.
+    //
+    // QuestionCatalog validerer fila i konstruktøren, og hele poenget er at en feil i den
+    // stopper oppstarten framfor å dukke opp som et halvtomt skjema midt i en runde. Den er
+    // en singleton, så den bygges først når noen ber om den — og det gjorde minnelageret,
+    // helt til EF-lageret ble standard. Da sluttet valideringen stille å skje ved oppstart.
+    // Resultatet brukes ikke med vilje: det er selve oppslaget som er poenget, fordi
+    // konstruktøren validerer og logger. Ikke fjern linjen fordi den ser ubrukt ut.
+    _ = scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
+
     var store = scope.ServiceProvider.GetRequiredService<ISurveySubmissionStore>();
 
     app.Logger.LogInformation("5C submissions are stored in: {Store}.", store.Description);
@@ -321,3 +348,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+/// <summary>
+/// Gjør den genererte Program-klassen synlig for testprosjektet.
+///
+/// Med top-level statements er den internal, og WebApplicationFactory&lt;Program&gt; kommer
+/// ikke til den. Dette er hele grunnen til at linjen står her — den endrer ingen oppførsel.
+/// </summary>
+public partial class Program { }

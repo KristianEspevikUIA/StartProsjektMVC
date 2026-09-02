@@ -24,7 +24,12 @@
             @switch (Model.Stage)
             {
                 case FeedbackStage.NotAnswered:
-                    <text>@Model.RoundName is open. @(Model.ViewerIsGuardian ? "You have not answered about your child yet." : "You have not answered yet.")</text>
+                    <text>
+                        @Model.RoundName is open.
+                        @(Model.ViewerIsGuardian
+                            ? "Your child has not answered yet."
+                            : "You have not answered yet.")
+                    </text>
                     break;
                 case FeedbackStage.WaitingForCoach:
                     <text>Your answers are saved. The coach has not answered yet.</text>
@@ -85,12 +90,26 @@
         <h2>Status</h2>
 
         <ol class="sc-steps">
-            <li class="sc-step @(Model.ViewerHasAnswered ? "sc-step--done" : "sc-step--now")">
-                <span class="sc-step__label">1. You answer</span>
+            <li class="sc-step @(Model.PlayerHasAnswered ? "sc-step--done" : "sc-step--now")">
+                <span class="sc-step__label">
+                    1. @(Model.ViewerIsGuardian ? "Your child answers" : "You answer")
+                </span>
                 <span class="sc-step__note">
-                    @(Model.ViewerHasAnswered ? "Done" : "Not answered yet")
+                    @(Model.PlayerHasAnswered ? "Done" : "Not answered yet")
                 </span>
             </li>
+
+            @if (Model.ViewerIsGuardian)
+            {
+                @* The guardian's own form is a separate contribution, not a step in the
+                   player's conversation with the coach. *@
+                <li class="sc-step @(Model.ViewerHasAnswered ? "sc-step--done" : "")">
+                    <span class="sc-step__label">Your own form</span>
+                    <span class="sc-step__note">
+                        @(Model.ViewerHasAnswered ? "Done" : "Not answered yet")
+                    </span>
+                </li>
+            }
             <li class="sc-step @(Model.CoachHasAnswered ? "sc-step--done" : "")">
                 <span class="sc-step__label">2. The coach answers</span>
                 <span class="sc-step__note">
@@ -178,6 +197,58 @@
     }
     else
     {
-        <div class="sc-section sc-section--last"></div>
+        <div class="sc-section"></div>
     }
+
+    @*
+        The audit log, shown to the person it is about.
+
+        Coaches no longer need consent to open a player's answers. This is the other half of
+        that: the club can account for every lookup, and so can the player. Roles and dates
+        only — the reader knows who their coach is, and an account address is not theirs to
+        be handed.
+    *@
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>Who has looked</h2>
+
+        @if (Model.RecentAccess.Count == 0)
+        {
+            <p class="sc-lead">
+                Nobody has opened @(Model.ViewerIsGuardian ? "your child's" : "your") answers yet.
+                When a coach or an administrator does, it will be listed here.
+            </p>
+        }
+        else
+        {
+            <p class="sc-lead">
+                Every time a coach or an administrator opens
+                @(Model.ViewerIsGuardian ? "your child's" : "your") answers, it is recorded.
+                @(Model.ViewerIsGuardian ? "Your child" : "You") opening this page is not —
+                that would be a list of yourself.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Who</th>
+                            <th scope="col">When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in Model.RecentAccess)
+                        {
+                            <tr>
+                                <td>@Roles.DisplayName(entry.Role)</td>
+                                <td class="sc-small">
+                                    @entry.When.ToLocalTime().ToString("d MMMM yyyy, HH:mm")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
 </div>

@@ -137,6 +137,41 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
         return await AttachAnswersAsync(rows, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, int>> CountByRoundAsync(
+        IEnumerable<int> roundIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = roundIds.Distinct().ToList();
+
+        if (ids.Count == 0)
+        {
+            return new Dictionary<int, int>();
+        }
+
+        // One request for every round at once, selecting the round id and nothing else.
+        // PostgREST can return a count in the Content-Range header, but only for one filter
+        // at a time -- that would be a request per round, which is the thing this replaces.
+        var query =
+            $"{_options.SubmissionsTable}" +
+            $"?round_id=in.({string.Join(',', ids)})" +
+            "&select=round_id";
+
+        using var response = await _http.GetAsync(query, cancellationToken);
+        await EnsureSuccessAsync(response, "count submissions", cancellationToken);
+
+        var rows = await response.Content.ReadFromJsonAsync<List<SubmissionRow>>(Json, cancellationToken)
+                   ?? new List<SubmissionRow>();
+
+        var counts = rows
+            .GroupBy(row => row.RoundId)
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        return ids.ToDictionary(
+            id => id,
+            id => counts.TryGetValue(id, out var count) ? count : 0);
+    }
+
     private async Task<long> UpsertSubmissionAsync(
         SurveySubmission submission,
         CancellationToken cancellationToken)

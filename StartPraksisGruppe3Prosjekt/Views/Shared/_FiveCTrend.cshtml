@@ -1,0 +1,115 @@
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.PlayerTrend
+@{
+    // Development over time: one small line per C, plus the change in words.
+    //
+    // Inline SVG, like the other charts here. The CSP has no unsafe-inline, so nothing can
+    // take its geometry from a style attribute -- but points on a polyline are markup and
+    // are unaffected.
+    //
+    // The vertical scale is the full 1-5, not the range of the data. A line drawn to fit its
+    // own extremes makes a move from 3.1 to 3.3 look like a transformation.
+
+    const int width = 100;
+    const int height = 30;
+
+    var periods = Model.Periods;
+    var lastIndex = Math.Max(1, periods.Count - 1);
+
+    // x spreads the periods evenly; y is inverted because SVG counts downwards, and a
+    // higher score should sit higher on the page.
+    string X(int index) => (index * (double)width / lastIndex).ToString("0.##",
+        System.Globalization.CultureInfo.InvariantCulture);
+
+    string Y(double mean) => ((5 - mean) / 4 * height).ToString("0.##",
+        System.Globalization.CultureInfo.InvariantCulture);
+}
+
+@if (!Model.HasComparablePeriods)
+{
+    <div class="sc-card sc-card--left">
+        <h3>Not enough periods yet</h3>
+        <p class="sc-card__meta">
+            Development needs at least two periods with answers in them. @Model.PlayerCode has
+            answered in fewer than that, so there is a score but no direction yet. New periods
+            are created under Administration.
+        </p>
+    </div>
+}
+else
+{
+    <div class="sc-trends">
+        @foreach (var category in Model.Categories)
+        {
+            var points = category.Points.ToList();
+
+            <article class="sc-trend">
+                <div class="sc-compare__head">
+                    <h3>@category.CategoryName</h3>
+
+                    @if (category.Change is { } change)
+                    {
+                        var improved = change > 0;
+
+                        <span class="sc-badge @(category.HasMoved
+                            ? improved ? "sc-badge--ok" : "sc-badge--alert"
+                            : "sc-badge--muted")">
+                            @(improved ? "+" : "−")@Math.Abs(change).ToString("0.0")
+                        </span>
+                    }
+                </div>
+
+                <svg class="sc-trend__chart" viewBox="0 0 @width @height"
+                     preserveAspectRatio="none" role="img"
+                     aria-label="@category.CategoryName over time: @(category.First?.ToString("0.0") ?? "no answer") to @(category.Latest?.ToString("0.0") ?? "no answer") on a scale from 1 to 5">
+
+                    @* The midpoint of the scale, so a line can be read as high or low
+                       without counting gridlines. *@
+                    <line class="sc-trend__midline" vector-effect="non-scaling-stroke"
+                          x1="0" y1="@Y(3)" x2="@width" y2="@Y(3)" />
+
+                    @if (points.Count > 1)
+                    {
+                        <polyline class="sc-trend__line" vector-effect="non-scaling-stroke"
+                                  fill="none"
+                                  points="@string.Join(" ", points.Select(p => $"{X(p.Index)},{Y(p.Mean)}"))" />
+                    }
+
+                    @foreach (var point in points)
+                    {
+                        <circle class="sc-trend__point" cx="@X(point.Index)" cy="@Y(point.Mean)" r="2" />
+                    }
+                </svg>
+
+                <p class="sc-compare__desc">
+                    @if (category.HasMoved && category.Change is { } moved)
+                    {
+                        <text>
+                            From @category.First!.Value.ToString("0.0") to
+                            @category.Latest!.Value.ToString("0.0") —
+                            @(moved > 0 ? "up" : "down")
+                            @Math.Abs(moved).ToString("0.0") over
+                            @points.Count period@(points.Count == 1 ? "" : "s").
+                        </text>
+                    }
+                    else if (category.Change is not null)
+                    {
+                        <text>
+                            Steady around @category.Latest!.Value.ToString("0.0"). A change of
+                            under half a point is not two different answers.
+                        </text>
+                    }
+                    else
+                    {
+                        <text>Answered in only one period, so there is nothing to compare yet.</text>
+                    }
+                </p>
+            </article>
+        }
+    </div>
+
+    <p class="sc-lead sc-small">
+        Periods, oldest first: @string.Join(" → ", Model.Periods.Select(p => p.Name)).
+        The vertical scale is the full 1–5 in every chart, so the five can be read against
+        each other. A gap in a line is a period @Model.PlayerCode did not answer.
+    </p>
+}

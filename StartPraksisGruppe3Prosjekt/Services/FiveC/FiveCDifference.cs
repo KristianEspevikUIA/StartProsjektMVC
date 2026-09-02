@@ -41,8 +41,33 @@ public sealed record RespondentGap(
     /// <summary>How big the difference is, in words. See <see cref="FiveCRules.LevelOf"/>.</summary>
     public AgreementLevel Level => FiveCRules.LevelOf(Difference);
 
-    /// <summary>Heading for the score card, e.g. "Coach vs player".</summary>
-    public string Label => $"{DisplayName(Left)} vs {DisplayName(Right).ToLowerInvariant()}";
+    /// <summary>
+    /// Heading for the score card, e.g. "Player and coach".
+    ///
+    /// "And", not "vs" -- the coaching team asked for it, and they are right. The number is
+    /// how far apart two readings of the same player are, not a contest between two people,
+    /// and the heading sits directly above a conversation the coach is about to have.
+    ///
+    /// The player is named first whenever they are one of the pair. Their own answers are
+    /// the thing everything else is read against.
+    /// </summary>
+    public string Label => LabelFor(Left, Right);
+
+    /// <summary>
+    /// The heading for a pair, whether or not there is a measurement behind it.
+    ///
+    /// A card that could not be measured still needs a title, and it has to be the same
+    /// title the card gets once both of them have answered -- otherwise the page renames
+    /// itself as answers come in.
+    /// </summary>
+    public static string LabelFor(RespondentType left, RespondentType right)
+    {
+        var (first, second) = left == RespondentType.Player || right == RespondentType.Player
+            ? (RespondentType.Player, left == RespondentType.Player ? right : left)
+            : (left, right);
+
+        return $"{DisplayName(first)} and {DisplayName(second).ToLowerInvariant()}";
+    }
 
     /// <summary>Display name for a respondent. One place, so the charts and the cards agree.</summary>
     public static string DisplayName(RespondentType respondent) => respondent switch
