@@ -10,11 +10,16 @@ namespace StartPraksisGruppe3Prosjekt.Services;
 public sealed class PlayerAccessLog : IPlayerAccessLog
 {
     private readonly AppDbContext _db;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<PlayerAccessLog> _logger;
 
-    public PlayerAccessLog(AppDbContext db, ILogger<PlayerAccessLog> logger)
+    public PlayerAccessLog(
+        AppDbContext db,
+        IServiceScopeFactory scopeFactory,
+        ILogger<PlayerAccessLog> logger)
     {
         _db = db;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -46,7 +51,21 @@ public sealed class PlayerAccessLog : IPlayerAccessLog
 
         try
         {
-            _db.PlayerAccessEvents.Add(new PlayerAccessEvent
+            // Written through a DbContext of its own, not the request's.
+            //
+            // SaveChanges commits everything the context is tracking, not just what was
+            // added here. On the request context that means a caller who logs an access
+            // half-way through its own work has that half-finished work committed as a side
+            // effect -- and the reverse, that a failure elsewhere in the request rolls the
+            // log row back. Neither is something a caller can see coming from the name
+            // RecordAsync. A separate context makes the write exactly one row.
+            //
+            // It also means the append-only guard in AppDbContext.SaveChanges only ever sees
+            // this insert, so an unrelated tracked ConsentEvent cannot make logging throw.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            db.PlayerAccessEvents.Add(new PlayerAccessEvent
             {
                 PlayerId = playerId,
                 ViewedByUserId = userId,
@@ -56,7 +75,7 @@ public sealed class PlayerAccessLog : IPlayerAccessLog
                 OccurredAt = DateTimeOffset.UtcNow
             });
 
-            await _db.SaveChangesAsync(cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
         {

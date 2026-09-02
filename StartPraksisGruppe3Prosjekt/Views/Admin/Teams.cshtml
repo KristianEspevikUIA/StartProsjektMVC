@@ -1,13 +1,28 @@
 @{
     ViewData["Title"] = "Teams and coaches";
+
+    var placeholder = new NotBuiltYetViewModel
+    {
+        Owner = "Kristian",
+        BackText = "Back to administration",
+        BackController = "Admin",
+        BackAction = "Index",
+        Planned = new[]
+        {
+            "Create and edit teams, and link coaches to them (CoachTeam).",
+            "CoachTeam no longer decides what a coach may see — a coach may see any player. "
+                + "It is still what says which team a coach belongs to, which is what the "
+                + "team aggregate policy reads.",
+            "A player under 19 must not be registered without at least one guardian — see "
+                + "PlayerRules.GuardianRequiredBelowAge."
+        }
+    };
 }
 
 <h1>Teams and coaches</h1>
 
-@* TODO (Kristian): create and edit teams, and link coaches to them (CoachTeam).
-   Note that a player under 19 must not be registered without at least one guardian —
-   see PlayerRules.GuardianRequiredBelowAge.
+<p class="text-muted">
+    A team is a name and a list of player codes. Which coach belongs to it is a CoachTeam row.
+</p>
 
-   Note also that CoachTeam no longer decides what a coach may see: a coach may see any
-   player. It is still what says which team a coach belongs to. *@
-<p><em>Not built yet.</em></p>
+<partial name="_NotBuiltYet" model="placeholder" />

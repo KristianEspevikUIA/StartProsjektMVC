@@ -29,10 +29,12 @@ public sealed class PeriodSelection : IPeriodSelection
     /// <inheritdoc />
     public async Task<SurveyRound?> ResolveAsync(
         int? requestedRoundId,
-        CancellationToken cancellationToken = default)
-    {
-        var rounds = await _periods.GetAllAsync(cancellationToken);
+        CancellationToken cancellationToken = default) =>
+        Select(await _periods.GetAllAsync(cancellationToken), requestedRoundId);
 
+    /// <inheritdoc />
+    public SurveyRound? Select(IReadOnlyList<SurveyRound> rounds, int? requestedRoundId)
+    {
         if (rounds.Count == 0)
         {
             return null;
@@ -64,7 +66,13 @@ public sealed class PeriodSelection : IPeriodSelection
         }
 
         // 3. The current period: the open one closing furthest out, otherwise the newest.
-        return await _periods.GetCurrentAsync(cancellationToken);
+        //    Worked out from the list rather than asked of IPeriodService, which would be a
+        //    second query for periods that are already in hand. Same rule as
+        //    IPeriodService.GetCurrentAsync -- if that one changes, this changes with it.
+        var now = DateTimeOffset.UtcNow;
+
+        return rounds.Where(r => r.IsOpenAt(now)).MaxBy(r => r.ClosesAt)
+               ?? rounds.MaxBy(r => r.ClosesAt);
     }
 
     private int? TryReadRemembered()

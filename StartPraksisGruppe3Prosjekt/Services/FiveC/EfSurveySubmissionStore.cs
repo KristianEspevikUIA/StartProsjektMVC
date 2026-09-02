@@ -135,6 +135,32 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         return rows.Select(ToContract).ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, int>> CountByRoundAsync(
+        IEnumerable<int> roundIds,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = roundIds.Distinct().ToList();
+
+        if (ids.Count == 0)
+        {
+            return new Dictionary<int, int>();
+        }
+
+        // Counted in the database. The rows never leave it, and neither do the answers
+        // hanging off them.
+        var counts = await _db.FiveCSubmissions
+            .AsNoTracking()
+            .Where(s => ids.Contains(s.RoundId))
+            .GroupBy(s => s.RoundId)
+            .Select(group => new { RoundId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.RoundId, row => row.Count, cancellationToken);
+
+        return ids.ToDictionary(
+            id => id,
+            id => counts.TryGetValue(id, out var count) ? count : 0);
+    }
+
     private static SurveySubmission ToContract(FiveCSubmission row) => new()
     {
         RoundId = row.RoundId,

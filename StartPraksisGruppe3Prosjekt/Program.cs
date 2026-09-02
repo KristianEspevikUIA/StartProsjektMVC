@@ -277,6 +277,23 @@ if (string.IsNullOrEmpty(new NpgsqlConnectionStringBuilder(connectionString).Pas
         "ConnectionStrings:DefaultConnection mangler Password. Se meldingen over.");
 }
 
+// ---------------------------------------------------------------------------
+// AllowedHosts. «*» tar imot hvilket som helst Host-hode, og et Host-hode fra utsiden
+// havner rett i lenkene Identity sender ut — blant annet i en tilbakestillingslenke
+// for passord. Standarden i appsettings.json er derfor bare lokale navn, og produksjon
+// setter det faktiske vertsnavnet i miljøet. Står den likevel på «*», skal det høres.
+// ---------------------------------------------------------------------------
+var allowedHosts = app.Configuration["AllowedHosts"];
+
+if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
+{
+    app.Logger.LogWarning(
+        "AllowedHosts er «{AllowedHosts}» utenfor utvikling. Appen svarer da på et hvilket " +
+        "som helst Host-hode. Sett det faktiske vertsnavnet i miljøet, f.eks. " +
+        "AllowedHosts=startcompass.example.no.",
+        allowedHosts ?? "(ikke satt)");
+}
+
 // Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
 if (app.Environment.IsDevelopment())
 {

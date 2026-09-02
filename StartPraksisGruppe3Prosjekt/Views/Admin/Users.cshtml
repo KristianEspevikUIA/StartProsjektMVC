@@ -1,10 +1,29 @@
 @{
     ViewData["Title"] = "Users and roles";
+
+    var placeholder = new NotBuiltYetViewModel
+    {
+        Owner = "Kristian",
+        BackText = "Back to administration",
+        BackController = "Admin",
+        BackAction = "Index",
+        Planned = new[]
+        {
+            "List users with their roles, and let an admin grant or remove a role.",
+            "Role names are English in code (Roles.Player and so on) and are shown through "
+                + "Roles.DisplayName, which is a pass-through now that the interface is English too.",
+            "Creating a player under 19 has to require at least one guardian — see "
+                + "PlayerRules.GuardianRequiredBelowAge. The rule holds in seed data today, "
+                + "but nothing enforces it on registration yet."
+        }
+    };
 }
 
 <h1>Users and roles</h1>
 
-@* TODO (Kristian): list users with their roles, and let an admin grant or remove a role.
-   Role names are English in code (Roles.Player and so on) and are shown through
-   Roles.DisplayName, which is now a pass-through since the interface is English too. *@
-<p><em>Not built yet.</em></p>
+<p class="text-muted">
+    Accounts are created by the club — self-registration is closed. This is where that will
+    happen.
+</p>
+
+<partial name="_NotBuiltYet" model="placeholder" />

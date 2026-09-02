@@ -110,15 +110,29 @@ hashed, scoped to one player and one round, and revocable. It is not a query par
 > public and it is subject to row level security. Answers about minors behind a key that
 > ships to browsers is the wrong shape regardless of what the policies say.
 
-`ISurveySubmissionStore` has two implementations, and configuration picks one:
+`ISurveySubmissionStore` has three implementations, and configuration picks one:
 
+- **`EfSurveySubmissionStore`** — **the default**, and what runs unless something is
+  configured. Answers go in the application's own database, which since the move to Npgsql
+  *is* Supabase: `FiveCSubmissions` and `FiveCAnswers`, with real foreign keys to `Players`
+  and `SurveyRounds`. One credential, one connection, one transaction.
 - **`SupabaseSurveySubmissionStore`** — used when `FiveC:Supabase:Url` and `:ApiKey` are both
-  set. Talks to PostgREST directly; no client library.
-- **`InMemorySurveySubmissionStore`** — the fallback. Answers live in memory and are gone
-  when the process stops. In Development it seeds itself with made-up submissions so the
-  coach overview has something to draw.
+  set, for a *genuinely separate* Supabase project. Talks to PostgREST directly; no client
+  library.
+- **`InMemorySurveySubmissionStore`** — only when `FiveC:Store` is set to `"InMemory"`.
+  Answers live in memory and are gone when the process stops, which is what makes it useful
+  for a demo and useless for anything else. In Development it seeds itself with made-up
+  submissions so the coach overview has something to draw.
+
+An empty `Url` or `ApiKey` therefore means the database, not memory. That was the other way
+round while the app ran on local SQLite, and every answer disappeared on restart.
 
 Which one is live is written to the log at startup, and shown to admins on `/Survey`.
+
+All three implement `CountByRoundAsync`, which answers "how many submissions does each of
+these periods hold" in one round trip. The admin period list is the only caller, and it used
+to ask per period — reading every submission with all twenty-five of its answers just to call
+`.Count` on the list.
 
 ### Configuration
 

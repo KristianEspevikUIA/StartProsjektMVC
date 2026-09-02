@@ -1,5 +1,23 @@
 @{
     ViewData["Title"] = "Consent";
+
+    var placeholder = new NotBuiltYetViewModel
+    {
+        Owner = "Brage",
+        BackText = "Back to my child",
+        BackController = "Guardian",
+        BackAction = "Index",
+        Planned = new[]
+        {
+            "Build ConsentViewModel from IConsentService.GetCurrentLevelAsync and "
+                + "GetHistoryAsync, and post changes through RecordAsync.",
+            "Never edit or delete a row. Withdrawing consent adds a NEW event at a lower "
+                + "level; AppDbContext throws if anything tries to change an existing one.",
+            "Consent no longer stops a coach from opening a player — that changed on purpose. "
+                + "The page has to say what consent still governs, or a guardian will read "
+                + "the wrong promise into it."
+        }
+    };
 }
 
 <h1>Consent</h1>
@@ -9,7 +27,4 @@
     than editing the old one, so the club can always document what was allowed when.
 </p>
 
-@* TODO (Brage): build ConsentViewModel from GetCurrentLevelAsync + GetHistoryAsync, and
-   post changes through IConsentService.RecordAsync. Never edit or delete a row —
-   AppDbContext throws if you try. *@
-<p><em>Not built yet.</em></p>
+<partial name="_NotBuiltYet" model="placeholder" />

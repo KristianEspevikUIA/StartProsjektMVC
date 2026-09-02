@@ -42,27 +42,19 @@ public sealed class PeriodService : IPeriodService
     public async Task<IReadOnlyDictionary<int, int>> GetSubmissionCountsAsync(
         CancellationToken cancellationToken = default)
     {
-        var rounds = await _db.SurveyRounds
+        var roundIds = await _db.SurveyRounds
             .AsNoTracking()
             .Select(r => r.Id)
             .ToListAsync(cancellationToken);
 
-        var playerIds = await _db.Players
-            .AsNoTracking()
-            .Select(p => p.Id)
-            .ToListAsync(cancellationToken);
-
-        var counts = new Dictionary<int, int>();
-
         // Counts come from the submission store rather than from the database, because that
         // is where 5C answers live -- and it may not be the database. See docs/five-c.md.
-        foreach (var roundId in rounds)
-        {
-            var submissions = await _store.GetForPlayersAsync(roundId, playerIds, cancellationToken);
-            counts[roundId] = submissions.Count;
-        }
-
-        return counts;
+        //
+        // One call for every period. This used to read every submission for every player,
+        // one period at a time: with the Supabase store that was two HTTP requests per
+        // period, dragging back twenty-five answers per respondent only to call .Count on
+        // the list. The store counts now, and nothing but the numbers comes back.
+        return await _store.CountByRoundAsync(roundIds, cancellationToken);
     }
 
     /// <inheritdoc />

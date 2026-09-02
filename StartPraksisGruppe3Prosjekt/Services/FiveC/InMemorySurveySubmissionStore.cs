@@ -104,6 +104,24 @@ public sealed class InMemorySurveySubmissionStore : ISurveySubmissionStore
             .ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, int>> CountByRoundAsync(
+        IEnumerable<int> roundIds,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSeededAsync(cancellationToken);
+
+        var wanted = roundIds.Distinct().ToList();
+
+        var counts = _submissions.Values
+            .GroupBy(s => s.RoundId)
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        return wanted.ToDictionary(
+            id => id,
+            id => counts.TryGetValue(id, out var count) ? count : 0);
+    }
+
     /// <summary>
     /// Fills the store with invented submissions the first time it is read, so the coach
     /// overview is not empty on a fresh checkout. Outside Development it does nothing --

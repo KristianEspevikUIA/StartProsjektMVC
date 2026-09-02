@@ -19,7 +19,19 @@
 *@
 @{
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
     var fullWidth = ViewData["FullWidth"] as bool? == true;
+
+    // Periods and Administration are both AdminController, so the active state has to look
+    // at the action as well -- otherwise both light up at once.
+    var periodsActive =
+        string.Equals(controller, "Admin", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(action, "Periods", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "CreatePeriod", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(action, "ClosePeriod", StringComparison.OrdinalIgnoreCase));
+
+    var adminActive =
+        string.Equals(controller, "Admin", StringComparison.OrdinalIgnoreCase) && !periodsActive;
 
     string NavClass(string name) =>
         string.Equals(controller, name, StringComparison.OrdinalIgnoreCase)
@@ -83,8 +95,16 @@
                         }
                         @if (User.IsInRole(Roles.Admin))
                         {
+                            @* Periods is the admin page people open most often -- a period has
+                               to exist and be open before anyone can answer anything. Two
+                               clicks in under Administration was one too many. *@
                             <li class="nav-item">
-                                <a class="@NavClass("Admin")" asp-controller="Admin" asp-action="Index">Administration</a>
+                                <a class="@(periodsActive ? "nav-link active" : "nav-link")"
+                                   asp-controller="Admin" asp-action="Periods">Periods</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="@(adminActive ? "nav-link active" : "nav-link")"
+                                   asp-controller="Admin" asp-action="Index">Administration</a>
                             </li>
                         }
                     </ul>

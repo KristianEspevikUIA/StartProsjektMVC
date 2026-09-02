@@ -25,4 +25,17 @@ public interface IPeriodSelection
     Task<SurveyRound?> ResolveAsync(
         int? requestedRoundId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The same decision, made against periods the caller has already loaded.
+    ///
+    /// A page that shows a period picker has the whole list in hand before it needs to know
+    /// which one is selected. <see cref="ResolveAsync"/> would fetch it again -- the form
+    /// list did exactly that, two round trips for one list. Nothing else differs: the order
+    /// is still URL, then remembered, then current, and following a URL still updates what
+    /// is remembered.
+    /// </summary>
+    /// <param name="rounds">Every period. Order does not matter.</param>
+    /// <param name="requestedRoundId">The period named in the URL, if any.</param>
+    SurveyRound? Select(IReadOnlyList<SurveyRound> rounds, int? requestedRoundId);
 }
