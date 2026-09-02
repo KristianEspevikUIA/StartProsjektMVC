@@ -1,5 +1,24 @@
 @{
     ViewData["Title"] = "Data access request";
+
+    var placeholder = new NotBuiltYetViewModel
+    {
+        Owner = "Kristian",
+        BackText = "Back to administration",
+        BackController = "Admin",
+        BackAction = "Index",
+        Planned = new[]
+        {
+            "Everything the system holds about one player, in readable form: Player, "
+                + "Guardianships, every Response with its Answers, and every FiveCSubmission "
+                + "with its answers.",
+            "The whole ConsentEvent history and the PlayerAccessEvent log — a player is "
+                + "entitled to know who has looked at them, and that log is what stands in "
+                + "for the consent check coaches used to need.",
+            "The difference scores are not included. They are never stored, only recalculated "
+                + "— see the note on ScoringService in the README."
+        }
+    };
 }
 
 <h1>Data access request</h1>
@@ -9,7 +28,4 @@
     guardian asks to see it.
 </p>
 
-@* TODO (Kristian): Player, Guardianships, every Response with its Answers, the whole
-   ConsentEvent history, and the PlayerAccessEvent log — a player is entitled to know who
-   has looked at them. The difference scores are not included: they are not stored. *@
-<p><em>Not built yet.</em></p>
+<partial name="_NotBuiltYet" model="placeholder" />

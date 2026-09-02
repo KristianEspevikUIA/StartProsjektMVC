@@ -1,0 +1,61 @@
+# Build and test on every push and every pull request.
+#
+# The application needs a database password to RUN -- see Program.cs -- but not to build or
+# to test: the tests use SQLite in memory and never touch Supabase. So there is no secret to
+# configure here, and a fork's pull request is checked exactly like a branch is.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+# A new push supersedes the run in progress for the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # Must match <TargetFramework> in both csproj files. .NET 8 is the current LTS;
+          # read the note about framework versions in the README before changing it.
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore StartPraksisGruppe3Prosjekt.sln
+
+      - name: Build
+        run: dotnet build StartPraksisGruppe3Prosjekt.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test StartPraksisGruppe3Prosjekt.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        # Also on failure -- a red run is exactly when the file is worth having.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore

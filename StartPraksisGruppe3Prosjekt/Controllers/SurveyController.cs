@@ -44,6 +44,7 @@ public class SurveyController : Controller
     private readonly ISurveySubmissionStore _store;
     private readonly ISurveyAssignmentService _assignments;
     private readonly ILogger<SurveyController> _logger;
+    private readonly IPeriodService _periods;
     private readonly IPeriodSelection _selection;
 
     public SurveyController(
@@ -53,6 +54,7 @@ public class SurveyController : Controller
         ISurveySubmissionStore store,
         ISurveyAssignmentService assignments,
         ILogger<SurveyController> logger,
+        IPeriodService periods,
         IPeriodSelection selection)
     {
         _db = db;
@@ -61,6 +63,7 @@ public class SurveyController : Controller
         _store = store;
         _assignments = assignments;
         _logger = logger;
+        _periods = periods;
         _selection = selection;
     }
 
@@ -73,15 +76,14 @@ public class SurveyController : Controller
     {
         var now = DateTimeOffset.UtcNow;
 
-        var rounds = await _db.SurveyRounds
-            .AsNoTracking()
-            .OrderByDescending(r => r.ClosesAt)
-            .ToListAsync(cancellationToken);
+        // One trip for the periods. The picker needs all of them and the selection is made
+        // from the same list -- ResolveAsync would fetch it a second time.
+        var rounds = await _periods.GetAllAsync(cancellationToken);
 
         // The period asked for, otherwise the one remembered from last time, otherwise the
         // current one. Picking a period here and then opening the team overview keeps the
         // choice -- see IPeriodSelection.
-        var selected = await _selection.ResolveAsync(filter.RoundId, cancellationToken);
+        var selected = _selection.Select(rounds, filter.RoundId);
 
         var model = new SurveyIndexViewModel
         {
@@ -330,10 +332,10 @@ public class SurveyController : Controller
         if (!canView.Succeeded)
         {
             // Forbid rather than NotFound: the user is signed in, they just are not allowed
-            // here. Note that for a coach this also fails when consent is not Full -- which
-            // means a coach cannot record their expectation about a player who has not
-            // consented. That follows from the policy rather than from a decision made here;
-            // if answering should have its own rule, it belongs in Authorization/.
+            // here. Consent is no longer part of that decision -- a coach may open any player
+            // in the club, and what stands in for the old consent check is the audit log in
+            // IPlayerAccessLog. The rule itself lives in CanViewPlayerHandler; if answering
+            // should ever get a rule of its own, it belongs in Authorization/ too, not here.
             return ResolvedForm.Failed(Forbid());
         }
 
