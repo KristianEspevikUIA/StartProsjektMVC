@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -90,6 +92,7 @@ public sealed class StartCompassFactory : WebApplicationFactory<Program>
         {
             ReplaceDatabaseWithSqlite(services);
             ReplaceAuthenticationWithTestScheme(services);
+            AllowCookiesOverPlainHttp(services);
         });
     }
 
@@ -133,6 +136,21 @@ public sealed class StartCompassFactory : WebApplicationFactory<Program>
         services.AddSingleton(options);
         services.AddScoped<AppDbContext>(_ => new SqliteAppDbContext(options));
     }
+
+    /// <summary>
+    /// Lets the antiforgery cookie be issued over plain HTTP.
+    ///
+    /// Outside Development the application requires https for its cookies, which is right,
+    /// and this test host is not Development. But it speaks plain HTTP, so rendering any
+    /// page with a &lt;form&gt; on it threw before this existed — the antiforgery tag helper
+    /// refuses to issue a token it cannot set a cookie for.
+    ///
+    /// This relaxes the transport, not the protection: tokens are still generated and still
+    /// validated, so a test can still prove that a POST without one is rejected.
+    /// </summary>
+    private static void AllowCookiesOverPlainHttp(IServiceCollection services) =>
+        services.PostConfigure<AntiforgeryOptions>(options =>
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest);
 
     private static void ReplaceAuthenticationWithTestScheme(IServiceCollection services)
     {

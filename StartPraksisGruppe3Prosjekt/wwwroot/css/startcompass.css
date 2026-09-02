@@ -845,6 +845,13 @@ body {
     border-top-color: var(--sc-guardian);
 }
 
+/* Coach and guardian: the one pair that is not about the player's own view of themselves.
+   Neutral ink rather than either role colour, so it does not read as belonging to one of
+   them. */
+.sc-score--adults {
+    border-top-color: var(--sc-ink);
+}
+
 .sc-score--all {
     border-top-color: var(--sc-blue);
 }
