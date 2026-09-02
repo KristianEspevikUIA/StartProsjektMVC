@@ -43,7 +43,7 @@ til de andre først, en reset gjelder alle). Deretter, med hele strengen fra `ap
 pluss `;Password=…` på slutten:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=Require;Trust Server Certificate=true;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=Require;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
 ```
 
 Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper

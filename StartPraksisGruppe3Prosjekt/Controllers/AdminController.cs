@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Security;
@@ -24,17 +26,20 @@ public class AdminController : Controller
     private readonly IConsentService _consent;
     private readonly IPeriodService _periods;
     private readonly IPlayerAccessLog _accessLog;
+    private readonly UserManager<IdentityUser> _userManager;
 
     public AdminController(
         AppDbContext db,
         IConsentService consent,
         IPeriodService periods,
-        IPlayerAccessLog accessLog)
+        IPlayerAccessLog accessLog,
+        UserManager<IdentityUser> userManager)
     {
         _db = db;
         _consent = consent;
         _periods = periods;
         _accessLog = accessLog;
+        _userManager = userManager;
     }
 
     public IActionResult Index()
@@ -164,7 +169,95 @@ public class AdminController : Controller
 
         await _accessLog.RecordAsync(User, player.Id, "Admin/Export", cancellationToken: cancellationToken);
 
-        throw new NotImplementedException();
+        var export = new
+        {
+            ExportedAt = DateTimeOffset.UtcNow,
+            Player = new
+            {
+                player.Id,
+                player.Code,
+                player.UserId,
+                player.TeamId,
+                player.BirthDate,
+                player.Position
+            },
+            Guardianships = await _db.Guardianships
+                .AsNoTracking()
+                .Where(g => g.PlayerId == id)
+                .Select(g => new { g.Id, g.GuardianUserId })
+                .ToListAsync(cancellationToken),
+            Responses = await _db.Responses
+                .AsNoTracking()
+                .Where(r => r.PlayerId == id)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.RoundId,
+                    r.Respondent,
+                    r.RespondentUserId,
+                    r.SubmittedAt,
+                    Answers = r.Answers.Select(a => new { a.Id, a.ItemId, a.Value }).ToList()
+                })
+                .ToListAsync(cancellationToken),
+            FiveCSubmissions = await _db.FiveCSubmissions
+                .AsNoTracking()
+                .Where(s => s.PlayerId == id)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.RoundId,
+                    s.PlayerCode,
+                    s.RespondentRole,
+                    s.RespondentUserId,
+                    s.QuestionSetVersion,
+                    s.SubmittedAt,
+                    Answers = s.Answers.Select(a => new
+                    {
+                        a.Id,
+                        a.QuestionKey,
+                        a.CategoryKey,
+                        a.Value
+                    }).ToList()
+                })
+                .ToListAsync(cancellationToken),
+            ConsentEvents = await _db.ConsentEvents
+                .AsNoTracking()
+                .Where(c => c.PlayerId == id)
+                .Select(c => new { c.Id, c.Level, c.ChangedByUserId, c.OccurredAt })
+                .ToListAsync(cancellationToken),
+            AccessEvents = await _db.PlayerAccessEvents
+                .AsNoTracking()
+                .Where(a => a.PlayerId == id)
+                .Select(a => new
+                {
+                    a.Id,
+                    a.ViewedByUserId,
+                    a.ViewedByRole,
+                    a.Context,
+                    a.RoundId,
+                    a.OccurredAt
+                })
+                .ToListAsync(cancellationToken),
+            FeedbackReleases = await _db.FeedbackReleases
+                .AsNoTracking()
+                .Where(f => f.PlayerId == id)
+                .Select(f => new
+                {
+                    f.Id,
+                    f.RoundId,
+                    f.CoachUserId,
+                    f.IsReleased,
+                    f.OccurredAt
+                })
+                .ToListAsync(cancellationToken)
+        };
+
+        var json = JsonSerializer.SerializeToUtf8Bytes(export, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        return File(json, "application/json", $"player-{player.Code}-export.json");
     }
 
     /// <summary>
@@ -175,8 +268,37 @@ public class AdminController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var player = await _db.Players
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+
+        _db.Players.Remove(player);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(player.UserId))
+        {
+            var user = await _userManager.FindByIdAsync(player.UserId);
+            if (user is not null)
+            {
+                var result = await _userManager.DeleteAsync(user);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException($"Could not delete the Identity account: {errors}");
+                }
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return RedirectToAction(nameof(Index));
     }
 }
