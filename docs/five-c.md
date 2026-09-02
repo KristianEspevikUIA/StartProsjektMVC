@@ -261,13 +261,14 @@ round it belonged to.
 
 ### What the coach does and does not see
 
-- A player the coach may not see is **listed anyway** — code and position, no numbers, no
-  link, and the reason written out. Hiding the row would hide that the player exists.
-- "Not allowed to see" and "has not answered" are kept apart in words. They are entirely
-  different states that otherwise become the same grey row. Since the coach role stopped
-  being team-scoped, the only reason a row is withheld from a coach is consent.
-- Counts of *who answered* are shown for every row. They say nothing about any individual and
-  do not depend on consent. What was answered does.
+- **Nothing is withheld from a coach any more.** A coach sees every player and every number.
+  The code that renders a row without figures, and the "no consent for individual views"
+  wording next to it, are left over from when consent gated a coach — they are now
+  unreachable. Removing them is on the list.
+- "Has not answered" is still its own state, and still says so in words rather than showing
+  a dash that could be read as a zero.
+- Counts of *who answered* say nothing about any individual. They were shown for every row
+  even when the numbers were not, which is why they were separated in the first place.
 - No free-text field and no notes. A coach's written note about a minor is a new category of
   personal data and is not in the data model.
 
@@ -275,26 +276,30 @@ round it belonged to.
 
 ## Known limits
 
-- **The coach role is not tied to a team.** A coach is a coach: every coach sees every team,
-  gets a form for every player in the club, and `CanViewTeam` / `CanViewTeamAggregate` no
-  longer look at `CoachTeam` at all. Consent is therefore the *only* remaining limit on a
-  coach reaching an individual player's answers, which is why `CanViewPlayer` still requires
-  `ConsentLevel.Full` for a coach and why that check must not be relaxed too.
+- **Nothing limits which players a coach can reach.** A coach is a coach: every coach sees
+  every team, gets a form for every player in the club, and `CanViewTeam` /
+  `CanViewTeamAggregate` no longer look at `CoachTeam`. Consent used to be the last
+  remaining limit; the club asked for that to go too, and it did.
+
+  What stands in its place is `PlayerAccessEvent` — an append-only record of who opened
+  which player, from which page, when. It prevents nothing; it makes every lookup
+  accountable afterwards. **If it stops being written, the rule in `CanViewPlayerHandler`
+  has no counterweight at all**, so any new page that shows one player's answers has to call
+  `IPlayerAccessLog.RecordAsync`. `AccessControlTests` holds that down for the two pages
+  that exist.
 - **`CoachTeam` is still in the model, but no longer grants or limits anything.** The table,
   the entity and the seeded rows are untouched — dropping them is a schema migration on a
   shared database and nobody has asked for it. The only remaining reader is the development
   demo-data seeder, which uses it to pick a plausible coach. If it is not going to come back,
   it should be removed deliberately, in its own change.
-- **`/Survey` lists every player in the club for a coach.** At a few dozen players that is
-  fine; at a few hundred the page is unusable long before it is wrong. The fix when that
-  happens is a filter on that page — by team, or by "not answered yet" — and not a quiet
-  return to team-scoped access, which is an authorisation decision and belongs in
-  `Authorization/`.
-- **A coach cannot answer for a player without full consent.** `CanViewPlayer` requires
-  `ConsentLevel.Full` for a coach, and the form runs that policy. Arguably recording your own
-  expectation is a different act from reading someone's answers — but if it is, the rule
-  belongs in `Authorization/`, not as an exception in a controller. Flagged, not worked
-  around.
+- **`/Survey` lists every player in the club for a coach**, which is why that page has
+  filters: period, team, role, status and player code. If it becomes unusable again at a few
+  hundred players, the answer is a better filter — not a quiet return to team-scoped access,
+  which is an authorisation decision and belongs in `Authorization/`.
+- **Consent no longer decides anything a coach does.** It is still recorded, still
+  append-only, and still shown on the coach's player page — but nothing in the code branches
+  on it any more. It has to be described that way in the Sikt filing, and the club has to
+  confirm that is what they want. See `docs/sikt-melding.md`.
 - **`ConsentService.GetCurrentLevelsAsync` was implemented here** (it was one of Brage's
   TODOs) because the team overview lists a whole squad and would otherwise do one query per
   player. Same rule as the single-player version. The rest of that service is untouched.
