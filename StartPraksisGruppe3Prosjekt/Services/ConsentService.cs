@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 
@@ -85,35 +86,86 @@ public class ConsentService : IConsentService
     }
 
     /// <inheritdoc />
-    public Task RecordAsync(
+    public async Task RecordAsync(
         int playerId,
         ConsentLevel level,
         string changedByUserId,
         CancellationToken cancellationToken = default)
     {
-        // TODO (Brage): sjekk CanRecordConsentAsync først, legg deretter til en NY
-        // ConsentEvent med OccurredAt = DateTimeOffset.UtcNow. Aldri Update/Remove —
-        // AppDbContext kaster hvis du prøver.
-        throw new NotImplementedException();
+        if (string.IsNullOrWhiteSpace(changedByUserId))
+        {
+            throw new ArgumentException("A user id is required when recording consent.", nameof(changedByUserId));
+        }
+
+        if (!await CanRecordConsentAsync(changedByUserId, playerId, cancellationToken))
+        {
+            throw new InvalidOperationException("User is not allowed to change this consent level.");
+        }
+
+        _db.ConsentEvents.Add(new ConsentEvent
+        {
+            PlayerId = playerId,
+            Level = level,
+            ChangedByUserId = changedByUserId,
+            OccurredAt = DateTimeOffset.UtcNow
+        });
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<ConsentEvent>> GetHistoryAsync(
+    public async Task<IReadOnlyList<ConsentEvent>> GetHistoryAsync(
         int playerId,
-        CancellationToken cancellationToken = default)
-    {
-        // TODO (Brage): hele loggen for spilleren, nyeste først.
-        throw new NotImplementedException();
-    }
+        CancellationToken cancellationToken = default) =>
+        await _db.ConsentEvents
+            .AsNoTracking()
+            .Where(c => c.PlayerId == playerId)
+            .OrderByDescending(c => c.OccurredAt)
+            .ThenByDescending(c => c.Id)
+            .ToListAsync(cancellationToken);
 
     /// <inheritdoc />
-    public Task<bool> CanRecordConsentAsync(
+    public async Task<bool> CanRecordConsentAsync(
         string userId,
         int playerId,
         CancellationToken cancellationToken = default)
     {
-        // TODO (Brage): true for admin, for registrert foresatt til spilleren, og for
-        // spilleren selv når hen er myndig (se PlayerRules.GuardianRequiredBelowAge).
-        throw new NotImplementedException();
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return false;
+        }
+
+        var player = await _db.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == playerId, cancellationToken);
+
+        if (player is null)
+        {
+            return false;
+        }
+
+        if (player.UserId == userId)
+        {
+            var age = player.AgeAt(DateOnly.FromDateTime(DateTime.UtcNow));
+            return age >= PlayerRules.GuardianRequiredBelowAge;
+        }
+
+        var isGuardian = await _db.Guardianships
+            .AsNoTracking()
+            .AnyAsync(g => g.PlayerId == playerId && g.GuardianUserId == userId, cancellationToken);
+
+        if (isGuardian)
+        {
+            return true;
+        }
+
+        return await _db.UserRoles
+            .AsNoTracking()
+            .Join(
+                _db.Roles.AsNoTracking(),
+                ur => ur.RoleId,
+                r => r.Id,
+                (ur, r) => new { ur.UserId, r.Name })
+            .AnyAsync(x => x.UserId == userId && x.Name == Roles.Admin, cancellationToken);
     }
 }

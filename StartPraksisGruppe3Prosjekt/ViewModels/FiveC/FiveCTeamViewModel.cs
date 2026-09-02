@@ -107,9 +107,7 @@ public class FiveCTeamViewModel
             {
                 if (!CanView)
                 {
-                    // With the coach role no longer tied to a team, consent is the only
-                    // thing that withholds a row from a coach.
-                    return "No consent for individual views.";
+                    return "This row is not available for the current viewer.";
                 }
 
                 if (Comparison?.HasAnyAnswers != true)

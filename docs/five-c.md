@@ -110,13 +110,16 @@ hashed, scoped to one player and one round, and revocable. It is not a query par
 > public and it is subject to row level security. Answers about minors behind a key that
 > ships to browsers is the wrong shape regardless of what the policies say.
 
-`ISurveySubmissionStore` has two implementations, and configuration picks one:
+`ISurveySubmissionStore` still exists as an abstraction, but the live implementation is the
+EF-backed store that writes straight to the app database in Supabase Postgres. The in-memory
+and PostgREST variants are historical fallbacks rather than the current production path.
 
-- **`SupabaseSurveySubmissionStore`** — used when `FiveC:Supabase:Url` and `:ApiKey` are both
-  set. Talks to PostgREST directly; no client library.
-- **`InMemorySurveySubmissionStore`** — the fallback. Answers live in memory and are gone
-  when the process stops. In Development it seeds itself with made-up submissions so the
-  coach overview has something to draw.
+- **`EfSurveySubmissionStore`** — the default live implementation. It writes to the app's
+  own Postgres database through EF Core and Npgsql, with foreign keys to players and rounds.
+- **`InMemorySurveySubmissionStore`** — a development-only fallback. Values disappear when the
+  process restarts and the data is not persisted.
+- **`SupabaseSurveySubmissionStore`** — kept only for an intentionally separate Supabase
+  project; it is not the default path for this app.
 
 Which one is live is written to the log at startup, and shown to admins on `/Survey`.
 
@@ -263,9 +266,9 @@ round it belonged to.
 
 - **The coach role is not tied to a team.** A coach is a coach: every coach sees every team,
   gets a form for every player in the club, and `CanViewTeam` / `CanViewTeamAggregate` no
-  longer look at `CoachTeam` at all. Consent is therefore the *only* remaining limit on a
-  coach reaching an individual player's answers, which is why `CanViewPlayer` still requires
-  `ConsentLevel.Full` for a coach and why that check must not be relaxed too.
+  longer look at `CoachTeam` at all. The access rule for an individual player is now
+  intentionally simple: a coach may open a player, and then the access log records what was
+  seen. The old consent gate is gone, not just relaxed.
 - **`CoachTeam` is still in the model, but no longer grants or limits anything.** The table,
   the entity and the seeded rows are untouched — dropping them is a schema migration on a
   shared database and nobody has asked for it. The only remaining reader is the development
@@ -276,11 +279,10 @@ round it belonged to.
   happens is a filter on that page — by team, or by "not answered yet" — and not a quiet
   return to team-scoped access, which is an authorisation decision and belongs in
   `Authorization/`.
-- **A coach cannot answer for a player without full consent.** `CanViewPlayer` requires
-  `ConsentLevel.Full` for a coach, and the form runs that policy. Arguably recording your own
-  expectation is a different act from reading someone's answers — but if it is, the rule
-  belongs in `Authorization/`, not as an exception in a controller. Flagged, not worked
-  around.
+- **Consent is still part of the data model, but it is no longer a coach access gate.**
+  `ConsentLevel` is stored as the GDPR basis and shown in the UI, but it does not decide
+  whether a coach can open an individual player's answers. The audit log is the effective
+  replacement; that is the thing that must keep being written.
 - **`ConsentService.GetCurrentLevelsAsync` was implemented here** (it was one of Brage's
   TODOs) because the team overview lists a whole squad and would otherwise do one query per
   player. Same rule as the single-player version. The rest of that service is untouched.
