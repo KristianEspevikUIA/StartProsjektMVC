@@ -1,23 +1,6 @@
+@model ConsentViewModel
 @{
     ViewData["Title"] = "Consent";
-
-    var placeholder = new NotBuiltYetViewModel
-    {
-        Owner = "Brage",
-        BackText = "Back to my child",
-        BackController = "Guardian",
-        BackAction = "Index",
-        Planned = new[]
-        {
-            "Build ConsentViewModel from IConsentService.GetCurrentLevelAsync and "
-                + "GetHistoryAsync, and post changes through RecordAsync.",
-            "Never edit or delete a row. Withdrawing consent adds a NEW event at a lower "
-                + "level; AppDbContext throws if anything tries to change an existing one.",
-            "Consent no longer stops a coach from opening a player — that changed on purpose. "
-                + "The page has to say what consent still governs, or a guardian will read "
-                + "the wrong promise into it."
-        }
-    };
 }
 
 <h1>Consent</h1>
@@ -27,4 +10,64 @@
     than editing the old one, so the club can always document what was allowed when.
 </p>
 
-<partial name="_NotBuiltYet" model="placeholder" />
+@if (TempData["ConsentMessage"] is string message)
+{
+    <div class="alert alert-success">@message</div>
+}
+
+<h2>@Model.PlayerCode</h2>
+<p><strong>Current level:</strong> @ConsentViewModel.Describe(Model.CurrentLevel)</p>
+
+@if (Model.CanChange)
+{
+    <form asp-action="Consent" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.PlayerId" />
+
+        <div class="mb-3">
+            @foreach (var level in Enum.GetValues<ConsentLevel>())
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="level" id="level-@level" value="@level" @(Model.CurrentLevel == level ? "checked" : null)>
+                    <label class="form-check-label" for="level-@level">
+                        @ConsentViewModel.ShortName(level) — @ConsentViewModel.Describe(level)
+                    </label>
+                </div>
+            }
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save consent</button>
+    </form>
+}
+else
+{
+    <p class="text-muted">You are not allowed to change this consent level.</p>
+}
+
+<h3 class="mt-4">History</h3>
+@if (Model.History.Count == 0)
+{
+    <p class="text-muted">No consent events have been recorded yet.</p>
+}
+else
+{
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Level</th>
+                <th>Changed by</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model.History)
+            {
+                <tr>
+                    <td>@ConsentViewModel.ShortName(item.Level)</td>
+                    <td>@item.ChangedByUserId</td>
+                    <td>@item.OccurredAt.ToLocalTime()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

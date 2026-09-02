@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
@@ -31,7 +32,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         SurveySubmission submission,
         CancellationToken cancellationToken = default)
     {
-        var existing = await _db.FiveCSubmissions
+        var candidate = await _db.FiveCSubmissions
             .Include(s => s.Answers)
             .FirstOrDefaultAsync(
                 s => s.RoundId == submission.RoundId
@@ -39,34 +40,31 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
                      && s.RespondentUserId == submission.RespondentUserId,
                 cancellationToken);
 
-        if (existing is null)
+        var toPersist = candidate ?? new FiveCSubmission
         {
-            existing = new FiveCSubmission
-            {
-                RoundId = submission.RoundId,
-                PlayerId = submission.PlayerId,
-                RespondentUserId = submission.RespondentUserId
-            };
+            RoundId = submission.RoundId,
+            PlayerId = submission.PlayerId,
+            RespondentUserId = submission.RespondentUserId
+        };
 
-            _db.FiveCSubmissions.Add(existing);
+        if (candidate is null)
+        {
+            _db.FiveCSubmissions.Add(toPersist);
         }
         else
         {
-            // Replace the answers wholesale. Diffing 25 rows to save a delete is not worth
-            // the branch, and a wholesale replace cannot leave behind an answer the
-            // respondent has since cleared.
-            _db.FiveCAnswers.RemoveRange(existing.Answers);
-            existing.Answers.Clear();
+            _db.FiveCAnswers.RemoveRange(candidate.Answers);
+            candidate.Answers.Clear();
         }
 
-        existing.PlayerCode = submission.PlayerCode;
-        existing.RespondentRole = submission.RespondentRole;
-        existing.QuestionSetVersion = submission.QuestionSetVersion;
-        existing.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
+        toPersist.PlayerCode = submission.PlayerCode;
+        toPersist.RespondentRole = submission.RespondentRole;
+        toPersist.QuestionSetVersion = submission.QuestionSetVersion;
+        toPersist.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
 
         foreach (var answer in submission.Answers)
         {
-            existing.Answers.Add(new FiveCAnswer
+            toPersist.Answers.Add(new FiveCAnswer
             {
                 QuestionKey = answer.QuestionKey,
                 CategoryKey = answer.CategoryKey,
@@ -74,8 +72,49 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             });
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
+        {
+            var retry = await _db.FiveCSubmissions
+                .Include(s => s.Answers)
+                .FirstOrDefaultAsync(
+                    s => s.RoundId == submission.RoundId
+                         && s.PlayerId == submission.PlayerId
+                         && s.RespondentUserId == submission.RespondentUserId,
+                    cancellationToken);
+
+            if (retry is null)
+            {
+                throw;
+            }
+
+            _db.FiveCAnswers.RemoveRange(retry.Answers);
+            retry.Answers.Clear();
+            retry.PlayerCode = submission.PlayerCode;
+            retry.RespondentRole = submission.RespondentRole;
+            retry.QuestionSetVersion = submission.QuestionSetVersion;
+            retry.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
+
+            foreach (var answer in submission.Answers)
+            {
+                retry.Answers.Add(new FiveCAnswer
+                {
+                    QuestionKey = answer.QuestionKey,
+                    CategoryKey = answer.CategoryKey,
+                    Value = answer.Value
+                });
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+        }
     }
+
+    private static bool IsUniqueConstraintViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException postgres &&
+        postgres.SqlState == PostgresErrorCodes.UniqueViolation;
 
     /// <inheritdoc />
     public async Task<SurveySubmission?> FindAsync(

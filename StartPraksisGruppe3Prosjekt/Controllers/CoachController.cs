@@ -222,6 +222,11 @@ public class CoachController : Controller
             var allowed = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlayer);
             var canView = allowed.Succeeded;
 
+            if (canView)
+            {
+                await _accessLog.RecordAsync(User, player.Id, "Coach/FiveCTeam", round.Id, cancellationToken);
+            }
+
             model.Players.Add(new FiveCTeamViewModel.PlayerRow
             {
                 PlayerId = player.Id,

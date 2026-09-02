@@ -114,23 +114,71 @@ public class GuardianController : Controller
 
     /// <summary>
     /// The consent picture with its history.
-    /// TODO (Brage): build ConsentViewModel from GetCurrentLevelAsync + GetHistoryAsync.
     /// </summary>
     [HttpGet]
-    public IActionResult Consent(int id)
+    public async Task<IActionResult> Consent(int id, CancellationToken cancellationToken)
     {
-        return View();
+        var player = await _db.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        var authorized = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlayer);
+        if (!authorized.Succeeded)
+        {
+            return Forbid();
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var model = new ConsentViewModel
+        {
+            PlayerId = player.Id,
+            PlayerCode = player.Code,
+            CurrentLevel = await _consent.GetCurrentLevelAsync(player.Id, cancellationToken),
+            CanChange = !string.IsNullOrEmpty(userId) &&
+                await _consent.CanRecordConsentAsync(userId, player.Id, cancellationToken),
+            History = (await _consent.GetHistoryAsync(player.Id, cancellationToken)).ToList()
+        };
+
+        return View(model);
     }
 
     /// <summary>
-    /// Changing consent.
-    /// TODO (Brage): call IConsentService.RecordAsync -- it adds a NEW event. No row is
-    /// edited or deleted; AppDbContext throws if you try.
+    /// Changing consent. A new event is appended, never an edit.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Consent(int id, ConsentLevel level)
+    public async Task<IActionResult> Consent(int id, ConsentLevel level, CancellationToken cancellationToken)
     {
+        var player = await _db.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        var authorized = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlayer);
+        if (!authorized.Succeeded)
+        {
+            return Forbid();
+        }
+
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId) || !await _consent.CanRecordConsentAsync(userId, player.Id, cancellationToken))
+        {
+            return Forbid();
+        }
+
+        await _consent.RecordAsync(player.Id, level, userId, cancellationToken);
+        TempData["ConsentMessage"] = $"Consent updated for {player.Code}.";
+
         return RedirectToAction(nameof(Consent), new { id });
     }
 }

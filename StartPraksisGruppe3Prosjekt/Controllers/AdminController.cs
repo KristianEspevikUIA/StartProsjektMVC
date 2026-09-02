@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
-using Microsoft.AspNetCore.RateLimiting;
 using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.ViewModels;
@@ -22,12 +23,18 @@ public class AdminController : Controller
     private readonly AppDbContext _db;
     private readonly IConsentService _consent;
     private readonly IPeriodService _periods;
+    private readonly IPlayerAccessLog _accessLog;
 
-    public AdminController(AppDbContext db, IConsentService consent, IPeriodService periods)
+    public AdminController(
+        AppDbContext db,
+        IConsentService consent,
+        IPeriodService periods,
+        IPlayerAccessLog accessLog)
     {
         _db = db;
         _consent = consent;
         _periods = periods;
+        _accessLog = accessLog;
     }
 
     public IActionResult Index()
@@ -144,9 +151,20 @@ public class AdminController : Controller
     /// TODO (Kristian): samle Player, Guardianships, Responses med Answers og hele
     /// ConsentEvent-historikken. Avviket er ikke med — det er ikke lagret, det regnes ut.
     /// </summary>
-    public IActionResult Export(int id)
+    public async Task<IActionResult> Export(int id, CancellationToken cancellationToken)
     {
-        return View();
+        var player = await _db.Players
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        await _accessLog.RecordAsync(User, player.Id, "Admin/Export", cancellationToken: cancellationToken);
+
+        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -159,6 +177,6 @@ public class AdminController : Controller
     [ValidateAntiForgeryToken]
     public IActionResult Delete(int id)
     {
-        return RedirectToAction(nameof(Index));
+        throw new NotImplementedException();
     }
 }

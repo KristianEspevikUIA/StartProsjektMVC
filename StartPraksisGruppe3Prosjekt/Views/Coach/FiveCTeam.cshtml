@@ -105,7 +105,6 @@
                             <th scope="col">Player and guardian</th>
                             <th scope="col">All</th>
                             <th scope="col">Follow-up</th>
-                            <th scope="col">Consent</th>
                             <th scope="col"></th>
                         </tr>
                     </thead>
@@ -178,7 +177,6 @@
                                     </td>
                                 }
 
-                                <td class="sc-small">@ConsentViewModel.ShortName(row.Consent)</td>
                                 <td>
                                     @if (row.CanView)
                                     {
@@ -193,14 +191,6 @@
                 </table>
             </div>
 
-            @if (Model.HiddenCount > 0)
-            {
-                <p class="sc-lead sc-small">
-                    @Model.HiddenCount row@(Model.HiddenCount == 1 ? " is" : "s are") listed without
-                    numbers. The player is on the team, but has not consented to a coach seeing
-                    their individual answers — so the follow-up count above does not include them.
-                </p>
-            }
         </section>
     }
 </div>
