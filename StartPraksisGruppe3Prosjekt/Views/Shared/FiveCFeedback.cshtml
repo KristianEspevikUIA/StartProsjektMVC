@@ -85,9 +85,14 @@
     }
 
     @* ---- Where the conversation is. ---- *@
-    <section class="sc-section">
+    @*
+        Three panels, and the same strip as everywhere else. The call to answer above them
+        is deliberately NOT one: for most players it is the only reason they opened the app,
+        and it should never be behind a tab.
+    *@
+    <section class="sc-section" data-tab-panel data-tab-label="Status">
         <div class="sc-rule"></div>
-        <h2>Status</h2>
+        <h2 data-tab-heading>Status</h2>
 
         <ol class="sc-steps">
             <li class="sc-step @(Model.PlayerHasAnswered ? "sc-step--done" : "sc-step--now")">
@@ -139,9 +144,11 @@
     @* ---- The scores. ---- *@
     @if (comparison is not null && comparison.PlayerHasAnswered)
     {
-        <section class="sc-section sc-section--last">
+        @* The tab stays "Your answers" whichever stage this is. A label that grew longer
+           when the coach released theirs would move the tabs beside it. *@
+        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Your answers">
             <div class="sc-rule"></div>
-            <h2>@(Model.Stage == FeedbackStage.Released ? "Your answers and the coach's" : "Your answers")</h2>
+            <h2 data-tab-heading>@(Model.Stage == FeedbackStage.Released ? "Your answers and the coach's" : "Your answers")</h2>
 
             <p class="sc-lead">
                 Each number is an average on the 1–5 scale, after negatively worded
@@ -208,9 +215,9 @@
         only — the reader knows who their coach is, and an account address is not theirs to
         be handed.
     *@
-    <section class="sc-section sc-section--last">
+    <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Who has looked">
         <div class="sc-rule"></div>
-        <h2>Who has looked</h2>
+        <h2 data-tab-heading>Who has looked</h2>
 
         @if (Model.RecentAccess.Count == 0)
         {

@@ -76,9 +76,9 @@
             </section>
         }
 
-        <section class="sc-section">
+        <section class="sc-section" data-tab-panel data-tab-label="Differences">
             <div class="sc-rule"></div>
-            <h2>Difference scores</h2>
+            <h2 data-tab-heading>Difference scores</h2>
             <p class="sc-lead">
                 How far apart the answers are, on the same 1–5 scale the statements use. The
                 answers are paired statement by statement, so 0 means the two of them gave the
@@ -104,9 +104,9 @@
             }
         </section>
 
-        <section class="sc-section">
+        <section class="sc-section" data-tab-panel data-tab-label="The five C's">
             <div class="sc-rule"></div>
-            <h2>The five C's</h2>
+            <h2 data-tab-heading>The five C's</h2>
             <p class="sc-lead">
                 Each bar is an average on the 1–5 scale, after negatively worded statements
                 have been turned round so that a higher bar always means better. A statement
@@ -214,9 +214,9 @@
             clicked, which is why reversed statements are marked rather than silently
             corrected: on those, agreeing strongly is the low score.
         *@
-        <section class="sc-section">
+        <section class="sc-section" data-tab-panel data-tab-label="Statements">
             <div class="sc-rule"></div>
-            <h2>Statement by statement</h2>
+            <h2 data-tab-heading>Statement by statement</h2>
             <p class="sc-lead">
                 Every answer as it was given, on the 1–5 scale. A dash means that person did
                 not answer that statement — it is not a zero. Rows two points apart or more
@@ -284,9 +284,9 @@
 
     @if (Model.Trend is { } trend)
     {
-        <section class="sc-section">
+        <section class="sc-section" data-tab-panel data-tab-label="Over time">
             <div class="sc-rule"></div>
-            <h2>Over time</h2>
+            <h2 data-tab-heading>Over time</h2>
             <p class="sc-lead">
                 @Model.Code's own averages across the periods they have answered in. Only
                 their own answers — what anyone else thought of them is a different question,
@@ -303,9 +303,9 @@
         Deliberately a separate act, so the numbers arrive in a conversation and not as a
         notification on a fourteen-year-old's phone.
     *@
-    <section class="sc-section">
+    <section class="sc-section" data-tab-panel data-tab-label="Sharing">
         <div class="sc-rule"></div>
-        <h2>Sharing with the player</h2>
+        <h2 data-tab-heading>Sharing with the player</h2>
 
         @if (TempData["CoachMessage"] is string coachMessage)
         {
@@ -366,11 +366,10 @@
                 </form>
             }
         </div>
-    </section>
 
-    <section class="sc-section">
-        <div class="sc-rule"></div>
-        <h2>Share the form</h2>
+        @* The second half of the same subject, and so the same panel: two adjacent tabs
+           reading "Sharing" and "Share the form" would be a coin toss every time. *@
+        <h3 class="sc-mt">Share the form</h3>
         <p class="sc-lead">
             The link opens the form with this player and role already chosen. It grants no
             access on its own: whoever follows it signs in as themselves, and the same checks
