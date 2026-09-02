@@ -7,12 +7,22 @@
 @*
     The 5C team overview.
 
+    Two halves, and they are governed differently. The squad aggregate at the top names
+    nobody and is decided once by CanViewTeamAggregate; the rows below are about individuals
+    and are decided one at a time by CanViewPlayer. The aggregate comes first because it is
+    the question a coach opens the page with.
+
     Two states that easily collapse into the same grey row are kept apart here: "not
     allowed to see" and "has not answered". The cell says which one it is, in words.
 
     Sorting is by player code. Sorting by the largest disagreement is more useful, but it
     also turns the table into a ranking of minors, so it is a deliberate click rather than
     the default.
+
+    The four sections below are marked as panels and survey.js turns them into tabs, so the
+    page opens on one screen instead of five. With JavaScript off they are what they have
+    always been: sections stacked down the page, in this order. Nothing is hidden server
+    side -- see initSectionTabs.
 *@
 
 <section class="sc-hero">
@@ -76,15 +86,97 @@
                         <strong>@Model.FollowUpCount
                             player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
                         scored consistently below @FiveCRules.FollowUpThreshold.ToString("0")
-                        on at least one of the five C's. The rows are marked below.
+                        on at least one of the five C's. They are marked in the player list.
                     </p>
                 </div>
             </section>
         }
 
-        <section class="sc-section sc-section--last">
+        @*
+            The squad as one, before the individuals. Two of the three levels the player page
+            uses -- across every statement, and per category. The third, statement by
+            statement, is the panel after this one.
+        *@
+        <section class="sc-section" data-tab-panel data-tab-label="Overview">
             <div class="sc-rule"></div>
-            <h2>Players</h2>
+            <h2 data-tab-heading>Team overview</h2>
+
+            @if (Model.Aggregate is { } aggregate)
+            {
+                <p class="sc-lead">
+                    Every number is an average of PLAYERS, not of answers: each player
+                    contributes one number and those are averaged, so somebody who answered
+                    the whole form does not weigh more than somebody who answered half. The
+                    scale is the same 1–5 as everywhere else, after negatively worded
+                    statements have been turned round so a higher bar always means better.
+                </p>
+
+                <partial name="_FiveCTeamOverview" model="aggregate" />
+            }
+            else
+            {
+                <div class="sc-card sc-card--left">
+                    <h3>No team average yet</h3>
+                    <p class="sc-card__meta">@Model.AggregateWithheldReason</p>
+                </div>
+            }
+        </section>
+
+        @*
+            The third level of the same picture, statement by statement. Its own panel
+            because twenty-five rows is most of this page's height, and a coach reading
+            category averages is usually not reading statement averages in the same breath.
+
+            Only when there is an aggregate at all: with none, there is nothing to break
+            down, and a tab leading to an empty table is worse than no tab.
+        *@
+        @if (Model.Aggregate is { } statements)
+        {
+            <section class="sc-section" data-tab-panel data-tab-label="Per statement">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>Per statement</h2>
+
+                <partial name="_FiveCTeamStatements" model="statements" />
+            </section>
+        }
+
+        @if (Model.Trend is { } trend)
+        {
+            <section class="sc-section" data-tab-panel data-tab-label="Over time">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>Over time</h2>
+                <p class="sc-lead">
+                    The squad's own averages per C across the periods they have answered in,
+                    aggregated the same way as above. Only the players' own answers — what
+                    the adults around them thought is a different question, and a line that
+                    mixed it in would move when a coach changed their mind.
+                </p>
+
+                <partial name="_FiveCTrend" model="trend" />
+
+                @if (trend.ThinPeriods.Count > 0)
+                {
+                    <p class="sc-lead sc-small">
+                        No number is shown for
+                        @string.Join(", ", trend.ThinPeriods.Select(p => p.Name)): somebody
+                        answered, but fewer than
+                        @CanViewTeamAggregateRequirement.MinimumResponses players, which is
+                        too few for a team average. That is a gap in the line, not a drop.
+                    </p>
+                }
+            </section>
+        }
+
+        @*
+            data-tab-count puts the squad size on the tab, and data-tab-flag marks it when
+            somebody needs following up -- the notice above says what, the mark says which
+            tab to open for it.
+        *@
+        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Players"
+                 data-tab-count="@Model.Players.Count"
+                 data-tab-flag="@(Model.FollowUpCount > 0 ? "true" : "false")">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Players</h2>
             <p class="sc-lead">
                 A tick means that role has answered in this round. The difference scores are
                 the distance between two sets of answers, paired statement by statement on the
@@ -92,8 +184,39 @@
                 “All” is the average across everyone who answered.
             </p>
 
+            @*
+                Live filtering, over this squad only. Nothing is fetched and nothing leaves
+                the page: every row is already here, and the filter only decides which of
+                them are shown.
+
+                Hidden until survey.js reveals it. A search box that silently does nothing is
+                worse than no search box, and the table is complete without one.
+            *@
+            <div class="sc-filters" data-player-filter hidden>
+                <div class="sc-form-row">
+                    <div class="sc-form-field">
+                        <label class="sc-label" for="team-player-search">
+                            Find a player in @Model.TeamName
+                        </label>
+                        <input class="sc-input" id="team-player-search" type="search"
+                               autocomplete="off" placeholder="TS-08 or striker"
+                               aria-controls="team-player-rows" />
+                    </div>
+                </div>
+
+                <div class="sc-filters__actions">
+                    <button type="button" class="sc-btn sc-btn--secondary"
+                            data-player-filter-clear>Clear</button>
+                    <p class="sc-filters__summary" data-player-filter-summary
+                       role="status" aria-live="polite"></p>
+                </div>
+            </div>
+
+            @* sc-table--squad lets the headings wrap. Ten columns of nowrap headings is
+               most of this table's width, and "Player and guardian" over two lines costs a
+               row of height once instead of pushing the last column off the screen. *@
             <div class="sc-table-wrap">
-                <table class="sc-table">
+                <table class="sc-table sc-table--squad">
                     <thead>
                         <tr>
                             <th scope="col">Code</th>
@@ -108,10 +231,14 @@
                             <th scope="col"></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="team-player-rows">
+                        @* Code and position are what the filter matches on. There are no
+                           names in this system to search by, and none are wanted. *@
                         @foreach (var row in Model.Players)
                         {
-                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")">
+                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")"
+                                data-player-row
+                                data-player-search="@row.Code @row.Position">
                                 <td class="sc-code">@row.Code</td>
                                 <td class="sc-muted sc-small">@(row.Position ?? "–")</td>
 
@@ -154,9 +281,16 @@
                                         }
                                     </td>
                                     <td class="sc-num">
+                                        @* The same badge the player page puts on "Between
+                                           all" -- it is the same number, so it is read on
+                                           the same scale and coloured by the same rule.
+                                           Bold black text made the one column that matters
+                                           most the only one with no colour in it. *@
                                         @if (row.OverallDifference is { } overall)
                                         {
-                                            <strong>@overall.ToString("0.0")</strong>
+                                            <span class="@AgreementLevels.BadgeClass(FiveCRules.LevelOf(overall))">
+                                                @overall.ToString("0.0")
+                                            </span>
                                         }
                                         else
                                         {
@@ -164,11 +298,19 @@
                                         }
                                     </td>
                                     <td>
+                                        @* One badge per C rather than one badge naming them
+                                           all. Badges do not wrap, so four category names on
+                                           a single one made the row wider than the window --
+                                           and the Open link at the end of it unreachable
+                                           without scrolling sideways. *@
                                         @if (row.NeedsFollowUp)
                                         {
-                                            <span class="sc-badge sc-badge--alert">
-                                                @string.Join(", ", row.FollowUp.Select(c => c.CategoryName))
-                                            </span>
+                                            <div class="sc-followup">
+                                                @foreach (var flagged in row.FollowUp)
+                                                {
+                                                    <span class="sc-badge sc-badge--alert">@flagged.CategoryName</span>
+                                                }
+                                            </div>
                                         }
                                         else
                                         {
@@ -187,6 +329,13 @@
                                 </td>
                             </tr>
                         }
+
+                        <tr data-player-filter-empty hidden>
+                            <td colspan="10" class="sc-muted sc-small">
+                                No player in @Model.TeamName matches that. The search covers
+                                player code and position, and only this squad.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
