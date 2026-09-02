@@ -70,6 +70,29 @@ public sealed class ScoreCardTests : IAsyncLifetime
         Assert.Contains("Neither a coach nor a guardian has answered", html);
     }
 
+    [Fact]
+    public async Task The_player_page_is_panelled_like_every_other_page()
+    {
+        await AnswerAsync(RespondentType.Player, StartCompassFactory.PlayerUserId, value: 4);
+
+        var html = await CoachPageAsync();
+
+        // The same component the team page and the form use, so a coach moving between
+        // them does not meet a different navigation on each.
+        Assert.Contains("data-tab-label=\"Differences\"", html);
+        // The apostrophe is encoded; match up to it rather than guess the entity.
+        Assert.Contains("data-tab-label=\"The five C", html);
+        Assert.Contains("data-tab-label=\"Statements\"", html);
+
+        // Both halves of sharing are one panel: two adjacent tabs called "Sharing" and
+        // "Share the form" would be a coin toss every time.
+        Assert.Contains("data-tab-label=\"Sharing\"", html);
+        Assert.DoesNotContain("data-tab-label=\"Share the form\"", html);
+
+        // Nothing is hidden server side. With JavaScript off this is the page it was.
+        Assert.DoesNotContain("sc-tabs", html);
+    }
+
     private async Task<string> CoachPageAsync()
     {
         var response = await _factory

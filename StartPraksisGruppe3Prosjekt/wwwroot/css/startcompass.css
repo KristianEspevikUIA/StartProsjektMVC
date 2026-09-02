@@ -1133,7 +1133,12 @@ body {
     color: var(--sc-foreground);
 }
 
-/* A count beside a label -- "Players 11". Muted, so the word stays the thing you read. */
+/* A count beside a label -- "Players 11", or "3/5" on the form. Muted, so the word stays
+   the thing you read. Empty on every page that sets no count, and then it takes no room. */
+.sc-tabs__count:empty {
+    display: none;
+}
+
 .sc-tabs__count {
     color: var(--sc-muted-foreground);
     font-family: var(--sc-sans);
@@ -1154,6 +1159,22 @@ body {
     height: 7px;
     margin-left: 8px;
     width: 7px;
+}
+
+/*
+    Back and Next inside a form panel. A form is walked through in order; the strip above is
+    for jumping about once you know where you are going.
+*/
+.sc-stepnav {
+    border-top: 1px solid var(--sc-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    /* Next sits on the right, where the eye leaves the last statement. With no Back on the
+       first panel, this keeps it there rather than letting it slide left. */
+    justify-content: flex-end;
+    margin-top: 28px;
+    padding-top: 22px;
 }
 
 /* A panel opens straight below the strip: the section's own top padding would otherwise
