@@ -296,6 +296,26 @@ having developed. A period with too few players behind it is a gap rather than a
 and the page names it: an unexplained hole in a line reads as "nobody answered", and somebody
 did.
 
+### One page, four panels
+
+The team page holds four sections — the squad average, the same thing statement by
+statement, the squad over time, and the players — and stacked in one column that is about
+five screens of scrolling before a coach reaches the player they opened the page for.
+
+`survey.js` turns them into tabs. The strip is **built from the panels that are actually
+there**, not written in the view: a round with no aggregate has nothing to break down and
+gets no "Per statement" tab, and a team with one period gets no trend panel to tab to.
+Nothing in the markup has to be kept in step with what the controller decided.
+
+It is an enhancement, not the structure. With JavaScript off there is no strip and no
+panel is hidden — the page is the column of sections it always was, in the same order. That
+is the same rule the search box follows, and the reason the tabs are not rendered server
+side: a strip that switched nothing would be worse than a long page.
+
+The selected tab is remembered per team and per round in `sessionStorage`, so opening a
+player and coming back returns to the section that was open. A `#sc-panel-…` link wins over
+the remembered one, being the more deliberate of the two.
+
 ### Finding a player in a squad
 
 The player table filters live, on player code and position, over the squad already on the

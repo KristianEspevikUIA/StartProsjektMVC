@@ -18,6 +18,11 @@
     Sorting is by player code. Sorting by the largest disagreement is more useful, but it
     also turns the table into a ranking of minors, so it is a deliberate click rather than
     the default.
+
+    The four sections below are marked as panels and survey.js turns them into tabs, so the
+    page opens on one screen instead of five. With JavaScript off they are what they have
+    always been: sections stacked down the page, in this order. Nothing is hidden server
+    side -- see initSectionTabs.
 *@
 
 <section class="sc-hero">
@@ -81,19 +86,20 @@
                         <strong>@Model.FollowUpCount
                             player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
                         scored consistently below @FiveCRules.FollowUpThreshold.ToString("0")
-                        on at least one of the five C's. The rows are marked below.
+                        on at least one of the five C's. They are marked in the player list.
                     </p>
                 </div>
             </section>
         }
 
         @*
-            The squad as one, above the individuals. Three levels, the same three the player
-            page uses: across every statement, per category, and per statement.
+            The squad as one, before the individuals. Two of the three levels the player page
+            uses -- across every statement, and per category. The third, statement by
+            statement, is the panel after this one.
         *@
-        <section class="sc-section">
+        <section class="sc-section" data-tab-panel data-tab-label="Overview">
             <div class="sc-rule"></div>
-            <h2>Team overview</h2>
+            <h2 data-tab-heading>Team overview</h2>
 
             @if (Model.Aggregate is { } aggregate)
             {
@@ -116,11 +122,29 @@
             }
         </section>
 
+        @*
+            The third level of the same picture, statement by statement. Its own panel
+            because twenty-five rows is most of this page's height, and a coach reading
+            category averages is usually not reading statement averages in the same breath.
+
+            Only when there is an aggregate at all: with none, there is nothing to break
+            down, and a tab leading to an empty table is worse than no tab.
+        *@
+        @if (Model.Aggregate is { } statements)
+        {
+            <section class="sc-section" data-tab-panel data-tab-label="Per statement">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>Per statement</h2>
+
+                <partial name="_FiveCTeamStatements" model="statements" />
+            </section>
+        }
+
         @if (Model.Trend is { } trend)
         {
-            <section class="sc-section">
+            <section class="sc-section" data-tab-panel data-tab-label="Over time">
                 <div class="sc-rule"></div>
-                <h2>Over time</h2>
+                <h2 data-tab-heading>Over time</h2>
                 <p class="sc-lead">
                     The squad's own averages per C across the periods they have answered in,
                     aggregated the same way as above. Only the players' own answers — what
@@ -143,9 +167,16 @@
             </section>
         }
 
-        <section class="sc-section sc-section--last">
+        @*
+            data-tab-count puts the squad size on the tab, and data-tab-flag marks it when
+            somebody needs following up -- the notice above says what, the mark says which
+            tab to open for it.
+        *@
+        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Players"
+                 data-tab-count="@Model.Players.Count"
+                 data-tab-flag="@(Model.FollowUpCount > 0 ? "true" : "false")">
             <div class="sc-rule"></div>
-            <h2>Players</h2>
+            <h2 data-tab-heading>Players</h2>
             <p class="sc-lead">
                 A tick means that role has answered in this round. The difference scores are
                 the distance between two sets of answers, paired statement by statement on the
@@ -181,8 +212,11 @@
                 </div>
             </div>
 
+            @* sc-table--squad lets the headings wrap. Ten columns of nowrap headings is
+               most of this table's width, and "Player and guardian" over two lines costs a
+               row of height once instead of pushing the last column off the screen. *@
             <div class="sc-table-wrap">
-                <table class="sc-table">
+                <table class="sc-table sc-table--squad">
                     <thead>
                         <tr>
                             <th scope="col">Code</th>
@@ -247,9 +281,16 @@
                                         }
                                     </td>
                                     <td class="sc-num">
+                                        @* The same badge the player page puts on "Between
+                                           all" -- it is the same number, so it is read on
+                                           the same scale and coloured by the same rule.
+                                           Bold black text made the one column that matters
+                                           most the only one with no colour in it. *@
                                         @if (row.OverallDifference is { } overall)
                                         {
-                                            <strong>@overall.ToString("0.0")</strong>
+                                            <span class="@AgreementLevels.BadgeClass(FiveCRules.LevelOf(overall))">
+                                                @overall.ToString("0.0")
+                                            </span>
                                         }
                                         else
                                         {
@@ -257,11 +298,19 @@
                                         }
                                     </td>
                                     <td>
+                                        @* One badge per C rather than one badge naming them
+                                           all. Badges do not wrap, so four category names on
+                                           a single one made the row wider than the window --
+                                           and the Open link at the end of it unreachable
+                                           without scrolling sideways. *@
                                         @if (row.NeedsFollowUp)
                                         {
-                                            <span class="sc-badge sc-badge--alert">
-                                                @string.Join(", ", row.FollowUp.Select(c => c.CategoryName))
-                                            </span>
+                                            <div class="sc-followup">
+                                                @foreach (var flagged in row.FollowUp)
+                                                {
+                                                    <span class="sc-badge sc-badge--alert">@flagged.CategoryName</span>
+                                                }
+                                            </div>
                                         }
                                         else
                                         {

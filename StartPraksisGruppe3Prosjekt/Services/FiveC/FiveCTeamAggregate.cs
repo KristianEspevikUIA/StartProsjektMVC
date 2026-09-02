@@ -50,6 +50,9 @@ public sealed record TeamRoleAverage(
 
     /// <summary>Display name for the role, from the one place that decides it.</summary>
     public string RoleName => RespondentGap.DisplayName(Role);
+
+    /// <summary>The same name in the plural, from the same place. "Coaches", not "Coachs".</summary>
+    public string RoleNamePlural => RespondentGap.PluralName(Role);
 }
 
 /// <summary>

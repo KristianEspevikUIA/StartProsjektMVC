@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Models.FiveC;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using Xunit;
 
@@ -48,8 +49,14 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         // with, and it is the half that names nobody.
         Assert.True(
             html.IndexOf("Team overview", StringComparison.Ordinal)
-            < html.IndexOf("<h2>Players</h2>", StringComparison.Ordinal),
+            < html.IndexOf("Players</h2>", StringComparison.Ordinal),
             "The team overview should come before the player list.");
+
+        // English does not pluralise "coach" by adding an s, and the respondent summary
+        // writes the word once for the whole form and once per category. See
+        // RespondentGap.PluralName.
+        Assert.Contains("coaches", html);
+        Assert.DoesNotContain("coachs", html);
     }
 
     [Fact]
@@ -70,6 +77,45 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Each_section_is_marked_as_a_panel_so_the_page_can_become_tabs()
+    {
+        var third = await AddPlayerAsync("TS-TEST-03", "user-third");
+
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 4);
+        await AnswerAsync(_factory.OtherPlayerId, "TS-TEST-02", StartCompassFactory.OtherPlayerUserId, value: 3);
+        await AnswerAsync(third, "TS-TEST-03", "user-third", value: 5);
+
+        var html = await TeamPageAsync();
+
+        // survey.js builds the strip from these, so a missing label is a missing tab.
+        Assert.Contains("data-tab-label=\"Overview\"", html);
+        Assert.Contains("data-tab-label=\"Per statement\"", html);
+        Assert.Contains("data-tab-label=\"Players\"", html);
+
+        // The squad size rides along on the tab.
+        Assert.Contains("data-tab-count=\"3\"", html);
+
+        // Nothing is hidden server side: with JavaScript off this is the page it always
+        // was, one section after another. The tabs are an enhancement, not the structure.
+        Assert.DoesNotContain("sc-tabs", html);
+        Assert.DoesNotContain("<section class=\"sc-section\" hidden", html);
+    }
+
+    [Fact]
+    public async Task A_squad_with_nothing_to_break_down_gets_no_per_statement_panel()
+    {
+        // One answer is under the threshold, so there is no aggregate -- and so nothing to
+        // show statement by statement. A tab onto an empty table is worse than no tab.
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 4);
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("data-tab-label=\"Overview\"", html);
+        Assert.Contains("data-tab-label=\"Players\"", html);
+        Assert.DoesNotContain("data-tab-label=\"Per statement\"", html);
+    }
+
+    [Fact]
     public async Task The_player_list_carries_a_search_scoped_to_this_squad()
     {
         var html = await TeamPageAsync();
@@ -81,6 +127,23 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         // search by, and none are wanted.
         Assert.Contains("data-player-search=\"TS-TEST-01 Midfielder\"", html);
         Assert.Contains("data-player-search=\"TS-TEST-02 Striker\"", html);
+    }
+
+    [Fact]
+    public async Task The_all_column_is_coloured_by_the_same_rule_as_the_player_page()
+    {
+        // Two voices about one player, far enough apart to score a difference at all.
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 5);
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.CoachUserId, value: 1,
+            role: RespondentType.Coach);
+
+        var html = await TeamPageAsync();
+
+        // "All" is the same number the player page shows as "Between all", so it is banded
+        // by the same rule and wears the same badge. It used to be bare bold text -- the one
+        // column that matters most was the only one on the row with no colour in it.
+        Assert.Contains(AgreementLevels.BadgeClass(AgreementLevel.LargeDifference), html);
+        Assert.DoesNotContain("<strong>4.0</strong>", html);
     }
 
     // -----------------------------------------------------------------------------------
@@ -124,7 +187,12 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         return id;
     }
 
-    private Task AnswerAsync(int playerId, string code, string userId, int value) =>
+    private Task AnswerAsync(
+        int playerId,
+        string code,
+        string userId,
+        int value,
+        RespondentType role = RespondentType.Player) =>
         _factory.WithServicesAsync(async services =>
         {
             var store = services.GetRequiredService<ISurveySubmissionStore>();
@@ -135,7 +203,7 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
                 _factory.RoundId,
                 playerId,
                 code,
-                RespondentType.Player,
+                role,
                 userId,
                 value));
         });

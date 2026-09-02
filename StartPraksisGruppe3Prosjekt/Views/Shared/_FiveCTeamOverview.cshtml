@@ -1,7 +1,8 @@
 @model StartPraksisGruppe3Prosjekt.Services.FiveC.TeamFiveCAggregate
 @{
-    // The squad read as one, at the three levels a single player is read at: across every
-    // statement, per category, and per statement.
+    // The squad read as one: across every statement at once, and per category. The third
+    // level -- statement by statement -- is its own panel, in _FiveCTeamStatements,
+    // because twenty-five rows is a page of its own and not a footnote to this one.
     //
     // Every bar here is drawn by _FiveCCategoryChart, the same partial the player page uses,
     // because the three bars mean the same thing one level up -- see IRespondentMeans. The
@@ -14,10 +15,12 @@
 
     var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
 
+    // Singular and plural both come from RespondentGap, because English does not get the
+    // plural right by adding an "s": one coach, eight coaches.
     string RespondentSummary(TeamMeans means) =>
         string.Join(", ", means.Roles.Select(role =>
-            $"{role.Respondents} {role.RoleName.ToLowerInvariant()}" +
-            (role.Respondents == 1 ? "" : "s")));
+            $"{role.Respondents} " +
+            (role.Respondents == 1 ? role.RoleName : role.RoleNamePlural).ToLowerInvariant()));
 }
 
 <div class="sc-legend">
@@ -118,76 +121,3 @@ else if (Model.WeakestCategory is { } weakest
         </article>
     }
 </div>
-
-@*
-    Statement by statement, for the squad.
-
-    Unlike the player page, these numbers are SCORED and not raw. They sit beside the
-    category averages on a "higher is better" scale, and a raw average on a reversed
-    statement would be the one column in the section pointing the other way. The flag stays
-    so a reader can tell which statements were turned round.
-*@
-<h3 class="sc-mt">Per statement</h3>
-<p class="sc-lead">
-    Every statement, averaged across the squad. A dash means too few of that role answered
-    it — it is not a zero. Rows where the squad's own average is under
-    @FiveCRules.FollowUpThreshold.ToString("0") are marked.
-</p>
-
-<div class="sc-table-wrap">
-    <table class="sc-table">
-        <thead>
-            <tr>
-                <th scope="col">#</th>
-                <th scope="col">Statement</th>
-                <th scope="col">Players</th>
-                <th scope="col">Guardians</th>
-                <th scope="col">Coaches</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var category in Model.Categories)
-            {
-                <tr class="sc-row--group">
-                    <th scope="rowgroup" colspan="5">@category.CategoryName</th>
-                </tr>
-
-                @foreach (var question in category.Questions)
-                {
-                    var low = question.Means.PlayerMean < FiveCRules.FollowUpThreshold;
-
-                    <tr class="@(low ? "sc-row--alert" : "")">
-                        <td class="sc-muted sc-small">@question.Number</td>
-                        <td>
-                            @question.Text
-                            @if (question.Reversed)
-                            {
-                                <span class="sc-badge sc-badge--muted">Reversed</span>
-                            }
-                        </td>
-
-                        @foreach (var role in question.Means.Roles)
-                        {
-                            <td class="sc-num">
-                                @if (role.Mean is { } mean)
-                                {
-                                    @mean.ToString("0.0")
-                                }
-                                else
-                                {
-                                    <span class="sc-muted">–</span>
-                                }
-                            </td>
-                        }
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
-</div>
-
-<p class="sc-lead sc-small">
-    “Reversed” marks a negatively worded statement. These averages already account for it,
-    so a high number is good in every row — that is the difference from the per-player table,
-    where the numbers are exactly what each person clicked.
-</p>

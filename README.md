@@ -291,6 +291,13 @@ en laptop.
 på tvers av alle 25 påstandene, per kategori, og per påstand. Samme stolper, samme partial,
 samme 1–5-skala — poenget er at man ikke skal lære seg diagrammet på nytt ett nivå opp.
 
+**Sidene er faner, ikke én lang kolonne.** De fire seksjonene — lagsnitt, per påstand, over
+tid og spillere — lå tidligere under hverandre og ble omtrent fem skjermer med scrolling før
+en trener nådde spilleren de åpnet siden for. `survey.js` bygger fanestripa av de panelene
+som faktisk står på siden, så en runde uten lagsnitt får ingen «Per statement»-fane. Uten
+JavaScript finnes ingen stripe og ingenting er skjult: da er siden den samme kolonnen med
+seksjoner som før. Valgt fane huskes per lag og periode i `sessionStorage`.
+
 **Hvert tall er et snitt av SPILLERE, ikke av svar.** På hvert nivå er lagets tall snittet av
 spillernes tall på det nivået, slik at én spiller teller én gang enten hen svarte på fem
 påstander eller tjuefem. Å slå sammen alle svarene i stedet ville latt den som fylte ut
