@@ -79,6 +79,20 @@ public sealed record RespondentGap(
     };
 
     /// <summary>
+    /// The same name in the plural. English is not regular here -- a coach is not a
+    /// "coachs" -- so the plural is written out beside the singular rather than derived
+    /// from it. Same reason as <see cref="DisplayName"/>: one place, so every count on
+    /// every page reads the same.
+    /// </summary>
+    public static string PluralName(RespondentType respondent) => respondent switch
+    {
+        RespondentType.Player => "Players",
+        RespondentType.Coach => "Coaches",
+        RespondentType.Guardian => "Guardians",
+        _ => respondent.ToString() + "s"
+    };
+
+    /// <summary>
     /// Measures the distance between two sets of scored answers, keyed by question.
     ///
     /// Returns null when the two share no answered statement -- which covers the normal

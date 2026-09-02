@@ -1,6 +1,10 @@
-@model StartPraksisGruppe3Prosjekt.Services.FiveC.PlayerTrend
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.IFiveCTrend
 @{
     // Development over time: one small line per C, plus the change in words.
+    //
+    // One player or one squad -- the same chart either way, which is what IFiveCTrend is
+    // for. Model.Subject is a player code or a team name, and is the only thing that
+    // differs between the two.
     //
     // Inline SVG, like the other charts here. The CSP has no unsafe-inline, so nothing can
     // take its geometry from a style attribute -- but points on a polyline are markup and
@@ -29,9 +33,9 @@
     <div class="sc-card sc-card--left">
         <h3>Not enough periods yet</h3>
         <p class="sc-card__meta">
-            Development needs at least two periods with answers in them. @Model.PlayerCode has
-            answered in fewer than that, so there is a score but no direction yet. New periods
-            are created under Administration.
+            Development needs at least two periods with answers in them. There are answers
+            from fewer than that for @Model.Subject, so there is a score but no direction yet.
+            New periods are created under Administration.
         </p>
     </div>
 }
@@ -110,6 +114,6 @@ else
     <p class="sc-lead sc-small">
         Periods, oldest first: @string.Join(" → ", Model.Periods.Select(p => p.Name)).
         The vertical scale is the full 1–5 in every chart, so the five can be read against
-        each other. A gap in a line is a period @Model.PlayerCode did not answer.
+        each other. A gap in a line is a period with no answers behind it for @Model.Subject.
     </p>
 }

@@ -1,6 +1,11 @@
-@model StartPraksisGruppe3Prosjekt.Services.FiveC.CategoryComparison
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.IRespondentMeans
 @{
-    // One bar per respondent for a single C.
+    // One bar per respondent for one slice of the questionnaire.
+    //
+    // The slice is a single player's C on the player page, and the whole form, a C, or
+    // one statement on the team page. The three bars mean the same thing in all of them,
+    // which is why the model is IRespondentMeans and not one of the records: a coach
+    // should not have to relearn the chart one level up.
     //
     // The labels and the numbers are ordinary HTML -- they select, wrap and scale with the
     // page. Only the bar itself is SVG, because that is the one part whose length varies:
@@ -34,13 +39,13 @@
 
             <svg class="sc-chart" viewBox="0 0 100 12" preserveAspectRatio="none"
                  role="img"
-                 aria-label="@row.Label: @(row.Mean is { } m ? m.ToString("0.0") + " out of 5" : "not answered") for @Model.CategoryName">
+                 aria-label="@row.Label: @(row.Mean is { } m ? m.ToString("0.0") + " out of 5" : "not answered") for @Model.Label">
                 <rect class="sc-chart__track" x="0" y="0" width="100" height="12" />
 
                 @if (row.Mean is { } mean)
                 {
-                    // The player's own bar turns red when the category is flagged, so the
-                    // follow-up signal is in the chart and not only in the badge above it.
+                    // The player bar turns red when the slice is flagged, so the follow-up
+                    // signal is in the chart and not only in the badge above it.
                     var barClass = row.Css == "player" && Model.NeedsFollowUp
                         ? "sc-chart__bar--alert"
                         : $"sc-chart__bar--{row.Css}";

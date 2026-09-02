@@ -215,6 +215,8 @@ public class CoachController : Controller
             Rounds = await RoundOptionsAsync(cancellationToken)
         };
 
+        await AddTeamOverviewAsync(model, team, round, players, comparisons, cancellationToken);
+
         foreach (var player in players)
         {
             var comparison = comparisons[player.Id];
@@ -472,6 +474,71 @@ public class CoachController : Controller
     // -----------------------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Fills in the squad-level half of the team page: the aggregate and the line over time.
+    ///
+    /// This is NOT CanViewPlayer repeated for everyone. An aggregate is a different kind of
+    /// disclosure and has its own policy -- CanViewTeamAggregate -- which is checked once,
+    /// against the real number of players behind the numbers. That count is part of the
+    /// resource on purpose, so the threshold cannot be skipped by a controller forgetting
+    /// to look at it. It applies to administrators as well as coaches; see
+    /// CanViewTeamAggregateHandler.
+    ///
+    /// Reads the round's submissions a second time, after GetForPlayersAsync above. The two
+    /// need different things out of them -- the rows need the raw answers each person gave,
+    /// the aggregate needs them scored -- and one read for the whole squad is cheap next to
+    /// what it saves in the view.
+    /// </summary>
+    private async Task AddTeamOverviewAsync(
+        FiveCTeamViewModel model,
+        Team team,
+        SurveyRound round,
+        IReadOnlyList<Player> players,
+        IReadOnlyDictionary<int, PlayerFiveCComparison> comparisons,
+        CancellationToken cancellationToken)
+    {
+        // How many players anybody has answered about. Not how many submissions there are:
+        // three forms about one player is still one player, and it is the player count that
+        // decides whether an average can be read back to a person.
+        var playersWithAnswers = comparisons.Values.Count(c => c.HasAnyAnswers);
+
+        var allowed = await _authz.AuthorizeAsync(
+            User,
+            new TeamAggregateResource(team, playersWithAnswers),
+            Policies.CanViewTeamAggregate);
+
+        if (!allowed.Succeeded)
+        {
+            model.AggregateWithheldReason = playersWithAnswers == 0
+                ? "Nobody has answered about this team in this period yet, so there is no " +
+                  "team average to show."
+                : $"Only {playersWithAnswers} player{(playersWithAnswers == 1 ? " has" : "s have")} " +
+                  "been answered about in this period. A team average needs at least " +
+                  $"{CanViewTeamAggregateRequirement.MinimumResponses}, or it is close enough " +
+                  "to one player's own answers to be read as them.";
+
+            return;
+        }
+
+        var playerIds = players.Select(p => p.Id).ToList();
+
+        model.Aggregate = await _fiveC.GetForTeamAsync(
+            round.Id,
+            team.Id,
+            team.Name,
+            playerIds,
+            cancellationToken);
+
+        model.Trend = await _fiveC.GetTeamTrendAsync(
+            team.Id,
+            team.Name,
+            playerIds,
+            (await _periods.GetAllAsync(cancellationToken))
+                .Select(r => new TrendPeriod(r.Id, r.Name, r.ClosesAt))
+                .ToList(),
+            cancellationToken);
+    }
 
     /// <summary>
     /// The round to show: the one asked for, otherwise the open one, otherwise the most
