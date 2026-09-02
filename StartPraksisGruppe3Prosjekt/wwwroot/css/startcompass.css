@@ -239,20 +239,32 @@ body {
     padding: 24px 26px;
 }
 
+/* Stacked in normal flow the cards space themselves. Inside .sc-grid the grid gap
+   already does that, and the margin only drops every card but the first by 16px. */
 .sc-card + .sc-card {
     margin-top: 16px;
 }
 
+.sc-grid > .sc-card + .sc-card {
+    margin-top: 0;
+}
+
+/* The accent variants trade the 1px edge for a thick one. The padding gives the
+   difference back, so a --top and a --left card next to each other in a grid start
+   their text on the same line. */
 .sc-card--top {
     border-top: 5px solid var(--sc-blue);
+    padding-top: 20px;
 }
 
 .sc-card--left {
     border-left: 6px solid var(--sc-ink);
+    padding-left: 21px;
 }
 
 .sc-card--alert {
     border-left: 6px solid var(--sc-alert);
+    padding-left: 21px;
 }
 
 .sc-card--dark {
@@ -274,6 +286,20 @@ body {
     display: grid;
     gap: 16px;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* Every card in a row is as tall as the tallest one in it, but the cards do not all hold
+   the same amount of text -- a form that has been answered carries a "submitted" line, a
+   pending one does not. Without this the button row stops wherever its own card's text
+   ran out, and the buttons across a row come out at four different heights. */
+.sc-grid > .sc-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.sc-grid > .sc-card > .sc-actions {
+    margin-top: auto;
+    padding-top: 28px;
 }
 
 .sc-card__meta {
@@ -306,14 +332,18 @@ body {
 
 /* --------------------------------------------------------------- badges ---- */
 
+/* The transparent border is what --muted turns visible. Declaring it here rather than
+   only there keeps every badge the same box: an outlined badge used to come out 2px
+   taller than a filled one, which is enough to nudge the row it sits in. */
 .sc-badge {
     background: var(--sc-muted);
+    border: 1px solid transparent;
     color: var(--sc-muted-foreground);
     display: inline-block;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.1em;
-    padding: 4px 9px;
+    padding: 3px 8px;
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -350,7 +380,7 @@ body {
 
 .sc-badge--muted {
     background: transparent;
-    border: 1px solid var(--sc-border);
+    border-color: var(--sc-border);
 }
 
 /* --------------------------------------------------------------- buttons ---- */
@@ -874,8 +904,12 @@ body {
     margin: 0 0 10px;
 }
 
+/* No score means no meter -- see _FiveCScoreCard.cshtml, where a missing score is
+   deliberately not drawn as a zero. Standing in for the meter's 8px and its 12px margin
+   keeps the band and the note level with the cards either side. */
 .sc-score__value--none {
     color: var(--sc-muted-foreground);
+    margin-bottom: 30px;
 }
 
 .sc-score__scale {
@@ -980,7 +1014,10 @@ body {
 
 /* ------------------------------------------------------- forms and filters ---- */
 
+/* Bottom-aligned, so a label that wraps to two lines grows upwards. Aligned to the top
+   instead, that one field's input would sit a line lower than every input beside it. */
 .sc-form-row {
+    align-items: end;
     display: grid;
     gap: 16px;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -1178,9 +1215,19 @@ body {
         width: 100%;
     }
 
-    /* The form itself. Cards lose their side padding so the 1-5 row gets the full width. */
+    /* The form itself. Cards lose their side padding so the 1-5 row gets the full width.
+       The accent variants keep giving back their extra border width. */
     .sc-card {
         padding: 18px 14px;
+    }
+
+    .sc-card--top {
+        padding-top: 14px;
+    }
+
+    .sc-card--left,
+    .sc-card--alert {
+        padding-left: 9px;
     }
 
     .sc-question {
