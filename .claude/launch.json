@@ -4,8 +4,29 @@
     {
       "name": "speilet",
       "runtimeExecutable": "dotnet",
-      "runtimeArgs": ["run", "--project", "StartPraksisGruppe3Prosjekt", "--launch-profile", "http"],
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "StartPraksisGruppe3Prosjekt",
+        "--launch-profile",
+        "http"
+      ],
       "port": 5026
+    },
+    {
+      "name": "speilet-verify",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "StartPraksisGruppe3Prosjekt",
+        "--no-launch-profile",
+        "--",
+        "--environment=Development",
+        "--urls=http://localhost:5099",
+        "--ConnectionStrings:DefaultConnection=Host=localhost;Port=55432;Database=startcompass;Username=postgres;Password=verify"
+      ],
+      "port": 5099
     }
   ]
 }

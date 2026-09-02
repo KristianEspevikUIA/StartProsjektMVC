@@ -15,8 +15,10 @@ valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på t
 ## Status
 
 **Bygget og i bruk:** 5C-spørreskjemaet (25 påstander, fem kategorier), skjemalisten med
-filtre, treneroversikten med sammenligning og oppfølgingsvarsel, samtaleflyten mellom
-spiller og trener, spiller- og foresattsiden, revisjonsloggen, og admin-siden for perioder.
+filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten med snitt per
+kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
+mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, og admin-siden for
+perioder.
 
 **Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
 `Search` og `ScoringService`), samtykkeskjemaet for foresatte, brukeradministrasjon og
@@ -89,6 +91,15 @@ som gjorde hva.
 | `trener.senior@ikstart.example` | Trener (alle lag) |
 | `spiller.ts0816@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
+| `foresatt.ts1019@example.test` m.fl. | Foresatt |
+
+Spillerkontoen utledes av koden: `TS-08-16` blir `spiller.ts0816@ikstart.example`. De fire
+kontoene som ble seedet for hånd tidligere følger allerede den regelen, så de gjenkjennes og
+ingen må lære seg en ny innlogging. Foresatte følger samme regel — `foresatt.ts1019@example.test`
+— bortsett fra de sju nummererte over, som er navngitt i troppen og beholdes som de er.
+
+To spillere har med vilje **ingen** konto (`TS-08-05`, `TS-11-12`). Det er en egen tilstand
+fra «har ikke svart», og begge skal virke.
 
 Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
 og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
@@ -125,6 +136,10 @@ Det som testes er reglene som ikke tåler å bli feil:
   testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
   oppstart.
 - **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
+- **Lagsnittet** (`TeamAggregateTests`): at det er et snitt av spillere og ikke av svar, at
+  grensen på tre respondenter holder per rolle, at «holdt tilbake» og «ingen har svart» er to
+  ulike tilstander, og at et snitt per påstand er skåret slik at en reversert påstand peker
+  samme vei som resten.
 
 En del av testene går gjennom **hele applikasjonen over HTTP**, med `WebApplicationFactory`
 og `StartCompassFactory`. De svarer på spørsmål ingen enkelttjeneste kan svare på: hva en
@@ -136,7 +151,8 @@ resten.
 Det er der disse ligger, og de kunne ellers bare sjekkes ved å logge inn som fire personer og
 klikke: at en anonym forespørsel avvises, at en foresatt ser sitt eget barn og *ikke* et
 annet, at en trener slipper inn uten samtykke **og** at oppslaget havner i revisjonsloggen,
-at spillerens egne besøk ikke logges, og at trenerens svar er skjult til de er frigitt.
+at spillerens egne besøk ikke logges, at trenerens svar er skjult til de er frigitt, og at
+lagoversikten står **over** spillerlista og sier hvorfor den er tom når for få har svart.
 
 CI ligger i [`.github/workflows/ci.yml`](.github/workflows/ci.yml) og kjører `restore`,
 `build` og `test` på hver push og hver pull request. Den trenger ingen hemmeligheter:
@@ -211,10 +227,15 @@ som er en brukbar periode bor ett sted:
 - **Seeding** i `SeedData.SeedRoundsAsync`, som er idempotent *per periode* — ellers kunne
   en ny periode aldri legges til i en base som allerede var seedet.
 
-Seedingen ligger nå på **én** periode: `Autumn <år>`, åpen. Det er en plassholder til
-klubben har bestemt hva de virkelige periodene er. Spring og Winter ble seedet tidligere og
-fjernes ved oppstart — men **bare hvis de er tomme**. En periode med svar blir stående, for
-sletting tar svarene med seg, og det er ikke en avveining et seed-steg skal gjøre alene.
+Seedingen ligger på **én** periode i alle miljøer: `Autumn <år>`, åpen. Det er en plassholder
+til klubben har bestemt hva de virkelige periodene er. Andre perioder fjernes ved oppstart —
+men **bare hvis de er tomme**. En periode med svar blir stående, for sletting tar svarene med
+seg, og det er ikke en avveining et seed-steg skal gjøre alene.
+
+**I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
+oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
+nettopp fordi de er demodata — uten dem er «over time» en tom side, både for spiller og lag.
+At de overlever oppryddingen over, er fordi de har svar i seg.
 
 ### Valgt periode huskes
 
@@ -264,12 +285,51 @@ endepunktene «Strongly disagree» / «Strongly agree». Trenerens tabeller scro
 sidelengs inne i `.sc-table-wrap` — en trener som sammenligner en tropp sitter uansett på
 en laptop.
 
+### Lagoversikt
+
+Øverst på lagsiden leses hele troppen som én, på de samme tre nivåene som en enkeltspiller:
+på tvers av alle 25 påstandene, per kategori, og per påstand. Samme stolper, samme partial,
+samme 1–5-skala — poenget er at man ikke skal lære seg diagrammet på nytt ett nivå opp.
+
+**Hvert tall er et snitt av SPILLERE, ikke av svar.** På hvert nivå er lagets tall snittet av
+spillernes tall på det nivået, slik at én spiller teller én gang enten hen svarte på fem
+påstander eller tjuefem. Å slå sammen alle svarene i stedet ville latt den som fylte ut
+skjemaet mest fullstendig veie mest, og et lagsnitt skal beskrive den gjennomsnittlige
+spilleren.
+
+Seksjonen avgjøres av `CanViewTeamAggregate` — én gang, mot det faktiske antallet spillere bak
+tallene — og ikke av `CanViewPlayer` gjentatt for alle. Samme grense gjelder **per rolle**:
+har færre enn tre foresatte svart, er «foresattsnittet» de foresattes egne svar med lagets
+navn på. `TeamRoleAverage.From` slipper tallet i stedet for å sende det videre, så ingen
+visning har det å lekke. At noe er holdt tilbake, og at ingen har svart, er to forskjellige
+ting, og siden sier hvilken av dem det er.
+
+Tallene per påstand her er **skårede**, i motsetning til påstandstabellen for én spiller: de
+står ved siden av kategorisnittene på en skala der høyt er bra, og et råsnitt på en reversert
+påstand ville vært den ene kolonnen i seksjonen som pekte motsatt vei.
+
+### Søk i troppen
+
+Spillerlista på lagsiden filtreres levende, på spillerkode og posisjon, over den troppen som
+allerede står på siden. Ingenting hentes og ingen kode forlater nettleseren — hver rad ligger
+i dokumentet, og filteret avgjør bare hvilke som vises. Feltet er `hidden` i markupen og
+avdekkes av `survey.js`, så uten JavaScript står tabellen komplett og det dukker ikke opp en
+søkeboks som ikke gjør noe.
+
+Kode og posisjon, fordi det er det som finnes: systemet har ingen navn.
+
 ### Utvikling over tid
 
 Trenerens spillerside viser spillerens egne snitt per C på tvers av periodene de har svart i,
 med endringen i tall og ord. Kun **spillerens egne** svar: hva en trener mente om dem i mars
 er ikke en del av hvordan spilleren utviklet seg til september, og en linje som blandet inn
 det ville flyttet seg når treneren skiftet mening.
+
+**Lagsiden har den samme grafen for hele troppen**, aggregert på samme måte som lagoversikten:
+for hver periode og hver C, snittet av spillernes egne snitt. Samme partial og samme tidsakse
+— `IFiveCTrend` er det de to deler, og det eneste som skiller dem er hvem linja handler om. En
+periode med for få spillere bak seg blir et hull i linja i stedet for et tegnet punkt, og
+siden navngir perioden: et uforklart hull leses som «ingen svarte», og noen svarte.
 
 Trenger minst to perioder med svar. Med én står det at det finnes en posisjon, men ingen
 retning — nye perioder opprettes under Administration.

@@ -1,0 +1,193 @@
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.TeamFiveCAggregate
+@{
+    // The squad read as one, at the three levels a single player is read at: across every
+    // statement, per category, and per statement.
+    //
+    // Every bar here is drawn by _FiveCCategoryChart, the same partial the player page uses,
+    // because the three bars mean the same thing one level up -- see IRespondentMeans. The
+    // aggregate is the mean of the PLAYERS' numbers, not of their answers: one player counts
+    // once whether they answered five statements or twenty-five.
+    //
+    // A number with fewer than CanViewTeamAggregateRequirement.MinimumResponses people
+    // behind it is not shown at all. That is decided in TeamRoleAverage, so this view never
+    // has the withheld number to leak -- it only knows that there was one.
+
+    var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
+
+    string RespondentSummary(TeamMeans means) =>
+        string.Join(", ", means.Roles.Select(role =>
+            $"{role.Respondents} {role.RoleName.ToLowerInvariant()}" +
+            (role.Respondents == 1 ? "" : "s")));
+}
+
+<div class="sc-legend">
+    <span class="sc-legend__item">
+        <span class="sc-legend__swatch sc-legend__swatch--player"></span> Players
+    </span>
+    <span class="sc-legend__item">
+        <span class="sc-legend__swatch sc-legend__swatch--guardian"></span> Guardians
+    </span>
+    <span class="sc-legend__item">
+        <span class="sc-legend__swatch sc-legend__swatch--coach"></span> Coaches
+    </span>
+</div>
+
+@* Across the whole questionnaire. Measured over all twenty-five statements at once rather
+   than by averaging the five C's below, so a player who answered one category does not
+   weigh as much here as one who answered the whole form. *@
+<article class="sc-compare__card @(Model.Overall.NeedsFollowUp ? "sc-compare__card--alert" : "")">
+    <div class="sc-compare__head">
+        <h3>All statements</h3>
+        <span class="sc-badge sc-badge--muted">
+            @Model.PlayersWithAnswers of @Model.SquadSize players answered about
+        </span>
+    </div>
+
+    <p class="sc-compare__desc">
+        The squad average across all @Model.Categories.Sum(c => c.Questions.Count) statements,
+        on the 1–5 scale after negatively worded ones have been turned round. Built from
+        @RespondentSummary(Model.Overall) — one number per person, then averaged, so a player
+        who answered everything does not count for more than one who answered half.
+    </p>
+
+    <partial name="_FiveCCategoryChart" model="Model.Overall" />
+</article>
+
+@if (Model.NeedsFollowUp)
+{
+    <div class="sc-notice sc-notice--warn sc-mt" role="status">
+        <p>
+            <strong>The squad averages below @FiveCRules.FollowUpThreshold.ToString("0")</strong>
+            on @string.Join(", ", Model.FollowUp.Select(c => c.CategoryName)). That is the team
+            as a whole disagreeing with the positive statements in a category, not one player
+            having a bad week — the individual rows below say who it is.
+        </p>
+    </div>
+}
+else if (Model.WeakestCategory is { } weakest
+         && Model.StrongestCategory is { } strongest
+         && weakest.CategoryKey != strongest.CategoryKey)
+{
+    <p class="sc-lead sc-small sc-mt">
+        The squad's own answers are highest in <strong>@strongest.CategoryName</strong>
+        (@strongest.Means.PlayerMean!.Value.ToString("0.0")) and lowest in
+        <strong>@weakest.CategoryName</strong>
+        (@weakest.Means.PlayerMean!.Value.ToString("0.0")). Every squad has a lowest C; it is
+        a place to start, not a problem on its own.
+    </p>
+}
+
+<h3 class="sc-mt">Per category</h3>
+<p class="sc-lead">
+    The same five C's the player page shows, one step up. A bar is missing when fewer than
+    @minimum people of that role answered the category — with fewer, an average is close
+    enough to one person's answers to be read as theirs.
+</p>
+
+<div class="sc-compare">
+    @foreach (var category in Model.Categories)
+    {
+        <article class="sc-compare__card @(category.Means.NeedsFollowUp ? "sc-compare__card--alert" : "")">
+            <div class="sc-compare__head">
+                <h3>@category.CategoryName</h3>
+                @if (category.Means.NeedsFollowUp)
+                {
+                    <span class="sc-badge sc-badge--alert">Follow up</span>
+                }
+            </div>
+
+            <p class="sc-compare__desc">
+                @if (category.Means.HasAnyMeans)
+                {
+                    <text>Averaged over @RespondentSummary(category.Means).</text>
+                }
+                else if (category.Means.AnythingWithheld)
+                {
+                    <text>
+                        Somebody answered, but fewer than @minimum of any one role, so there
+                        is no average to show yet.
+                    </text>
+                }
+                else
+                {
+                    <text>Nobody has answered this category for the squad.</text>
+                }
+            </p>
+
+            <partial name="_FiveCCategoryChart" model="category.Means" />
+        </article>
+    }
+</div>
+
+@*
+    Statement by statement, for the squad.
+
+    Unlike the player page, these numbers are SCORED and not raw. They sit beside the
+    category averages on a "higher is better" scale, and a raw average on a reversed
+    statement would be the one column in the section pointing the other way. The flag stays
+    so a reader can tell which statements were turned round.
+*@
+<h3 class="sc-mt">Per statement</h3>
+<p class="sc-lead">
+    Every statement, averaged across the squad. A dash means too few of that role answered
+    it — it is not a zero. Rows where the squad's own average is under
+    @FiveCRules.FollowUpThreshold.ToString("0") are marked.
+</p>
+
+<div class="sc-table-wrap">
+    <table class="sc-table">
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Statement</th>
+                <th scope="col">Players</th>
+                <th scope="col">Guardians</th>
+                <th scope="col">Coaches</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var category in Model.Categories)
+            {
+                <tr class="sc-row--group">
+                    <th scope="rowgroup" colspan="5">@category.CategoryName</th>
+                </tr>
+
+                @foreach (var question in category.Questions)
+                {
+                    var low = question.Means.PlayerMean < FiveCRules.FollowUpThreshold;
+
+                    <tr class="@(low ? "sc-row--alert" : "")">
+                        <td class="sc-muted sc-small">@question.Number</td>
+                        <td>
+                            @question.Text
+                            @if (question.Reversed)
+                            {
+                                <span class="sc-badge sc-badge--muted">Reversed</span>
+                            }
+                        </td>
+
+                        @foreach (var role in question.Means.Roles)
+                        {
+                            <td class="sc-num">
+                                @if (role.Mean is { } mean)
+                                {
+                                    @mean.ToString("0.0")
+                                }
+                                else
+                                {
+                                    <span class="sc-muted">–</span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+<p class="sc-lead sc-small">
+    “Reversed” marks a negatively worded statement. These averages already account for it,
+    so a high number is good in every row — that is the difference from the per-player table,
+    where the numbers are exactly what each person clicked.
+</p>

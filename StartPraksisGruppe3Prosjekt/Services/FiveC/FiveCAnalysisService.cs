@@ -88,6 +88,209 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
         return new PlayerTrend(playerId, playerCode, ordered, categories);
     }
 
+    /// <inheritdoc />
+    public async Task<TeamFiveCAggregate> GetForTeamAsync(
+        int roundId,
+        int teamId,
+        string teamName,
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken = default)
+    {
+        // One read for the whole squad -- the same call the team overview already makes,
+        // for the same reason: one per player would be N+1 round trips.
+        var submissions = await _store.GetForPlayersAsync(roundId, playerIds, cancellationToken);
+
+        var squad = ScoredSquad(submissions);
+
+        var number = 0;
+
+        var categories = _catalog.Questions.Categories
+            .Select(category => new TeamCategoryAverage(
+                CategoryKey: category.Key,
+                Means: MeansOf(squad, category.Name, scores => MeanIn(scores, category.Key)),
+                Questions: category.Questions
+                    .Select(question => new TeamQuestionAverage(
+                        QuestionKey: question.Key,
+                        // The same running number the form used, so a statement is called
+                        // the same thing here as it was when it was answered.
+                        Number: ++number,
+                        Text: question.Text,
+                        Reversed: question.Reversed,
+                        Means: MeansOf(
+                            squad,
+                            question.Text,
+                            scores => ScoreOf(scores, category.Key, question.Key))))
+                    .ToList()))
+            .ToList();
+
+        return new TeamFiveCAggregate(
+            TeamId: teamId,
+            TeamName: teamName,
+            RoundId: roundId,
+            SquadSize: playerIds.Count,
+            PlayersWithAnswers: squad.Select(entry => entry.PlayerId).Distinct().Count(),
+            // Across all twenty-five statements at once, not the mean of the five category
+            // means: a player who answered one category would otherwise weigh as much in
+            // "overall" as one who answered the whole form.
+            Overall: MeansOf(squad, "All statements", MeanOfEverything),
+            Categories: categories);
+    }
+
+    /// <inheritdoc />
+    public async Task<TeamTrend> GetTeamTrendAsync(
+        int teamId,
+        string teamName,
+        IReadOnlyCollection<int> playerIds,
+        IReadOnlyList<TrendPeriod> periods,
+        CancellationToken cancellationToken = default)
+    {
+        var ordered = periods.OrderBy(p => p.ClosesAt).ToList();
+
+        var meansPerPeriod = new List<Dictionary<string, double?>>(ordered.Count);
+        var playersPerPeriod = new List<int>(ordered.Count);
+
+        foreach (var period in ordered)
+        {
+            var submissions = await _store.GetForPlayersAsync(
+                period.RoundId,
+                playerIds,
+                cancellationToken);
+
+            // The players' own answers only, exactly as the individual trend does it: a
+            // squad line that moved when a coach changed their mind would be read as the
+            // squad having developed.
+            var own = ScoredSquad(submissions)
+                .Where(entry => entry.Role == RespondentType.Player)
+                .ToList();
+
+            playersPerPeriod.Add(own.Count);
+
+            meansPerPeriod.Add(_catalog.Questions.Categories.ToDictionary(
+                category => category.Key,
+                category => AverageOfPlayers(
+                    own,
+                    RespondentType.Player,
+                    scores => MeanIn(scores, category.Key)).Mean));
+        }
+
+        var categories = _catalog.Questions.Categories
+            .Select(category => new CategoryTrend(
+                CategoryKey: category.Key,
+                CategoryName: category.Name,
+                Means: meansPerPeriod
+                    .Select(period => period.TryGetValue(category.Key, out var mean) ? mean : null)
+                    .ToList()))
+            .ToList();
+
+        return new TeamTrend(teamId, teamName, ordered, categories, playersPerPeriod);
+    }
+
+    /// <summary>
+    /// One person's scored answers about one player: who they are, who they answered about,
+    /// and every usable answer keyed by category and question.
+    ///
+    /// The squad aggregate is built from these rather than from
+    /// <see cref="PlayerFiveCComparison"/> because it needs the SCORED value per statement,
+    /// and a comparison carries the raw one. Building thirty comparisons -- difference
+    /// scores and all -- to read one number out of each would also be most of the work
+    /// thrown away.
+    /// </summary>
+    private sealed record ScoredAnswers(
+        RespondentType Role,
+        int PlayerId,
+        IReadOnlyDictionary<string, Dictionary<string, int>> ByCategory);
+
+    /// <summary>
+    /// Every submission in the squad, scored, with one entry per player and role.
+    ///
+    /// At most one submission per (player, role) is expected -- the store replaces rather
+    /// than appends -- and a stray duplicate resolves to the most recent, the same rule
+    /// <see cref="Build"/> follows. An entry with nothing usable in it is dropped, so a
+    /// respondent count is a count of people who actually answered something.
+    /// </summary>
+    private List<ScoredAnswers> ScoredSquad(IReadOnlyList<SurveySubmission> submissions) =>
+        submissions
+            .Select(submission => (Submission: submission, Role: SafeRole(submission.RespondentRole)))
+            .Where(entry => entry.Role.HasValue)
+            .GroupBy(entry => (entry.Submission.PlayerId, Role: entry.Role!.Value))
+            .Select(group => new ScoredAnswers(
+                group.Key.Role,
+                group.Key.PlayerId,
+                ScoresByCategory(
+                    group.OrderByDescending(entry => entry.Submission.SubmittedAt)
+                         .First()
+                         .Submission)))
+            .Where(entry => entry.ByCategory.Count > 0)
+            .ToList();
+
+    /// <summary>
+    /// The three team averages for one slice of the questionnaire.
+    /// </summary>
+    /// <param name="squad">Every scored submission on the team.</param>
+    /// <param name="name">What the slice is called.</param>
+    /// <param name="perPlayer">One player's number for the slice, or null if they have none.</param>
+    private static TeamMeans MeansOf(
+        IReadOnlyList<ScoredAnswers> squad,
+        string name,
+        Func<IReadOnlyDictionary<string, Dictionary<string, int>>, double?> perPlayer) =>
+        new(
+            Name: name,
+            Player: AverageOfPlayers(squad, RespondentType.Player, perPlayer),
+            Guardian: AverageOfPlayers(squad, RespondentType.Guardian, perPlayer),
+            Coach: AverageOfPlayers(squad, RespondentType.Coach, perPlayer));
+
+    /// <summary>
+    /// One role's team average: the mean of the per-player numbers, and how many players
+    /// are behind it.
+    ///
+    /// The mean of MEANS, not of answers. One player counts once whether they answered five
+    /// statements or twenty-five -- see <see cref="TeamFiveCAggregate"/>. Players with
+    /// nothing to contribute to this slice are left out rather than counted as a gap.
+    /// </summary>
+    private static TeamRoleAverage AverageOfPlayers(
+        IReadOnlyList<ScoredAnswers> squad,
+        RespondentType role,
+        Func<IReadOnlyDictionary<string, Dictionary<string, int>>, double?> perPlayer)
+    {
+        var means = squad
+            .Where(entry => entry.Role == role)
+            .Select(entry => perPlayer(entry.ByCategory))
+            .Where(mean => mean.HasValue)
+            .Select(mean => mean!.Value)
+            .ToList();
+
+        return means.Count == 0
+            ? TeamRoleAverage.None(role)
+            : TeamRoleAverage.From(role, means.Average(), means.Count);
+    }
+
+    /// <summary>One respondent's mean across every statement they answered, or null.</summary>
+    private static double? MeanOfEverything(
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores)
+    {
+        var all = scores.Values.SelectMany(category => category.Values).ToList();
+
+        return all.Count == 0 ? null : all.Average();
+    }
+
+    /// <summary>One respondent's mean within a single category, or null.</summary>
+    private static double? MeanIn(
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores,
+        string categoryKey) =>
+        scores.TryGetValue(categoryKey, out var inCategory) && inCategory.Count > 0
+            ? inCategory.Values.Average()
+            : null;
+
+    /// <summary>One respondent's score for a single statement, or null if they skipped it.</summary>
+    private static double? ScoreOf(
+        IReadOnlyDictionary<string, Dictionary<string, int>> scores,
+        string categoryKey,
+        string questionKey) =>
+        scores.TryGetValue(categoryKey, out var inCategory)
+        && inCategory.TryGetValue(questionKey, out var score)
+            ? score
+            : null;
+
     /// <summary>
     /// Folds a player's submissions into one comparison, one row per category.
     /// </summary>

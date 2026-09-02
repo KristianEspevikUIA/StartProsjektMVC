@@ -29,6 +29,35 @@ public class FiveCTeamViewModel
     /// <summary>Every round, for the picker at the top. A coach compares rounds often.</summary>
     public IReadOnlyList<RoundOption> Rounds { get; set; } = Array.Empty<RoundOption>();
 
+    /// <summary>
+    /// The squad read as one: across every statement, per category and per statement.
+    ///
+    /// Sits ABOVE the player rows because it is the question a coach opens the page with --
+    /// how is the team doing -- and because it is the part of the page that names nobody.
+    /// The rows below are about individuals and are decided one at a time by CanViewPlayer;
+    /// this is decided once, by CanViewTeamAggregate.
+    ///
+    /// Null when that policy said no, and <see cref="AggregateWithheldReason"/> then says
+    /// why in words. Null is not "the team has not answered".
+    /// </summary>
+    public TeamFiveCAggregate? Aggregate { get; set; }
+
+    /// <summary>
+    /// Why there is no aggregate, for the reader. Null whenever there is one.
+    ///
+    /// Written out rather than left as an empty space: a section that silently disappears
+    /// looks like a bug, and "too few answers behind the average" is a fact about the round
+    /// that a coach can do something about.
+    /// </summary>
+    public string? AggregateWithheldReason { get; set; }
+
+    /// <summary>
+    /// The squad's own averages across every period, oldest first. Null when the aggregate
+    /// is withheld -- development over time is the same aggregate, measured repeatedly, and
+    /// showing it would be the number the aggregate was withheld to avoid.
+    /// </summary>
+    public TeamTrend? Trend { get; set; }
+
     public List<PlayerRow> Players { get; set; } = new();
 
     /// <summary>

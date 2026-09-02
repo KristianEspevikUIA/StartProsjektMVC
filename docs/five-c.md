@@ -259,6 +259,52 @@ request — the same rule the ten-statement gap follows, and for the same reason
 judgement about a minor outlives the answers behind it, the consent that allowed it and the
 round it belonged to.
 
+### The team overview
+
+Above the player rows on `/Coach/FiveCTeam/{id}` the squad is read as one, at the same three
+levels a single player is read at: across all twenty-five statements, per category, and per
+statement. Same bars, same partial (`_FiveCCategoryChart`), same 1–5 scale — which is the
+point. A coach should not have to relearn the chart one level up.
+
+**Every number is an average of players, not of answers.** At each level the squad value is
+the mean of the per-player values at that level, so one player counts once whether they
+answered five statements or twenty-five. Pooling every answer instead would let whoever
+filled the form in most completely quietly weigh the most, and a team average is meant to
+describe the average player.
+
+Two things separate it from the rows below it:
+
+- It is decided by **`CanViewTeamAggregate`**, once, against the real number of players
+  behind the numbers — not by `CanViewPlayer` repeated for everyone. The count is part of
+  the resource so that a controller cannot skip the threshold by forgetting to look at it.
+- **A single role's line is withheld on the same threshold.** Fewer than
+  `CanViewTeamAggregateRequirement.MinimumResponses` guardians answering makes the guardian
+  average those guardians' answers with a team's name on it. `TeamRoleAverage.From` drops
+  the number rather than passing it on, so no view has it to leak — and `Withheld` keeps
+  "too few answered" apart from "nobody answered", which are different facts about a round.
+
+The per-statement numbers here are **scored, not raw** — the opposite of the per-player
+statement table. They sit beside category averages on a "higher is better" scale, and a raw
+average on a reversed statement would be the one column in the section pointing the other
+way. The statements are still marked `Reversed` so a reader can tell which ones were turned
+round.
+
+**Over time** is the same aggregate measured repeatedly: for each period and each C, the mean
+of the players' own means. Only the players' answers, for the reason the individual line
+gives — a squad line that moved when a coach changed their mind would be read as the squad
+having developed. A period with too few players behind it is a gap rather than a drawn point,
+and the page names it: an unexplained hole in a line reads as "nobody answered", and somebody
+did.
+
+### Finding a player in a squad
+
+The player table filters live, on player code and position, over the squad already on the
+page. Nothing is fetched and no code leaves the browser — every row is in the document, and
+the filter only decides which are shown. The control is `hidden` in the markup and revealed
+by `survey.js`, so with JavaScript off the table is complete and no dead search box appears.
+
+Codes and positions, because those are the only things there are: this system holds no names.
+
 ### What the coach does and does not see
 
 - **Nothing is withheld from a coach any more.** A coach sees every player and every number.
@@ -303,9 +349,11 @@ round it belonged to.
 - **`ConsentService.GetCurrentLevelsAsync` was implemented here** (it was one of Brage's
   TODOs) because the team overview lists a whole squad and would otherwise do one query per
   player. Same rule as the single-player version. The rest of that service is untouched.
-- **No team-level 5C average.** `CanViewTeamAggregate` and its 3-response threshold are
-  already wired for the ten-statement form; a 5C aggregate should go through the same policy.
-- **No comparison across rounds.** "Commitment went from 2.1 to 3.4" is probably what a coach
-  actually wants. Every round is currently read on its own.
+- **The ten-statement form still has no team aggregate.** `CoachController.Team` remains a
+  TODO. The 5C side now goes through `CanViewTeamAggregate` and its 3-response threshold, so
+  the older form has a worked example to follow rather than a policy nobody calls.
+- **A team average cannot be compared against another team's.** Each squad is read on its
+  own, which is deliberate for now: a league table of squads of minors is a different
+  product decision and nobody has asked for it.
 - **`Coach/Index` was implemented** to make the 5C pages reachable. The richer version, with
   gap figures for the ten-statement form, is still Taavi's.

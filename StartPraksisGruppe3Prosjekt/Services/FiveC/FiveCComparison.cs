@@ -104,8 +104,15 @@ public sealed record CategoryComparison(
     double? CoachMean,
     int CoachAnswered,
     DifferenceScores Differences,
-    IReadOnlyList<QuestionComparison> Questions)
+    IReadOnlyList<QuestionComparison> Questions) : IRespondentMeans
 {
+    /// <summary>
+    /// The heading the bar chart labels itself with. The same three bars are drawn for a
+    /// team, where the slice is not always a category, so the shared interface asks for a
+    /// neutral name -- see <see cref="IRespondentMeans"/>.
+    /// </summary>
+    public string Label => CategoryName;
+
     /// <summary>
     /// The player scores low across this category and should be followed up.
     ///

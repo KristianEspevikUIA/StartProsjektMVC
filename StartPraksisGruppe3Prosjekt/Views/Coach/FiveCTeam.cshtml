@@ -7,6 +7,11 @@
 @*
     The 5C team overview.
 
+    Two halves, and they are governed differently. The squad aggregate at the top names
+    nobody and is decided once by CanViewTeamAggregate; the rows below are about individuals
+    and are decided one at a time by CanViewPlayer. The aggregate comes first because it is
+    the question a coach opens the page with.
+
     Two states that easily collapse into the same grey row are kept apart here: "not
     allowed to see" and "has not answered". The cell says which one it is, in words.
 
@@ -82,6 +87,62 @@
             </section>
         }
 
+        @*
+            The squad as one, above the individuals. Three levels, the same three the player
+            page uses: across every statement, per category, and per statement.
+        *@
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Team overview</h2>
+
+            @if (Model.Aggregate is { } aggregate)
+            {
+                <p class="sc-lead">
+                    Every number is an average of PLAYERS, not of answers: each player
+                    contributes one number and those are averaged, so somebody who answered
+                    the whole form does not weigh more than somebody who answered half. The
+                    scale is the same 1–5 as everywhere else, after negatively worded
+                    statements have been turned round so a higher bar always means better.
+                </p>
+
+                <partial name="_FiveCTeamOverview" model="aggregate" />
+            }
+            else
+            {
+                <div class="sc-card sc-card--left">
+                    <h3>No team average yet</h3>
+                    <p class="sc-card__meta">@Model.AggregateWithheldReason</p>
+                </div>
+            }
+        </section>
+
+        @if (Model.Trend is { } trend)
+        {
+            <section class="sc-section">
+                <div class="sc-rule"></div>
+                <h2>Over time</h2>
+                <p class="sc-lead">
+                    The squad's own averages per C across the periods they have answered in,
+                    aggregated the same way as above. Only the players' own answers — what
+                    the adults around them thought is a different question, and a line that
+                    mixed it in would move when a coach changed their mind.
+                </p>
+
+                <partial name="_FiveCTrend" model="trend" />
+
+                @if (trend.ThinPeriods.Count > 0)
+                {
+                    <p class="sc-lead sc-small">
+                        No number is shown for
+                        @string.Join(", ", trend.ThinPeriods.Select(p => p.Name)): somebody
+                        answered, but fewer than
+                        @CanViewTeamAggregateRequirement.MinimumResponses players, which is
+                        too few for a team average. That is a gap in the line, not a drop.
+                    </p>
+                }
+            </section>
+        }
+
         <section class="sc-section sc-section--last">
             <div class="sc-rule"></div>
             <h2>Players</h2>
@@ -91,6 +152,34 @@
                 1–5 scale: 0 is the same answer every time, and higher means further apart.
                 “All” is the average across everyone who answered.
             </p>
+
+            @*
+                Live filtering, over this squad only. Nothing is fetched and nothing leaves
+                the page: every row is already here, and the filter only decides which of
+                them are shown.
+
+                Hidden until survey.js reveals it. A search box that silently does nothing is
+                worse than no search box, and the table is complete without one.
+            *@
+            <div class="sc-filters" data-player-filter hidden>
+                <div class="sc-form-row">
+                    <div class="sc-form-field">
+                        <label class="sc-label" for="team-player-search">
+                            Find a player in @Model.TeamName
+                        </label>
+                        <input class="sc-input" id="team-player-search" type="search"
+                               autocomplete="off" placeholder="TS-08 or striker"
+                               aria-controls="team-player-rows" />
+                    </div>
+                </div>
+
+                <div class="sc-filters__actions">
+                    <button type="button" class="sc-btn sc-btn--secondary"
+                            data-player-filter-clear>Clear</button>
+                    <p class="sc-filters__summary" data-player-filter-summary
+                       role="status" aria-live="polite"></p>
+                </div>
+            </div>
 
             <div class="sc-table-wrap">
                 <table class="sc-table">
@@ -108,10 +197,14 @@
                             <th scope="col"></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="team-player-rows">
+                        @* Code and position are what the filter matches on. There are no
+                           names in this system to search by, and none are wanted. *@
                         @foreach (var row in Model.Players)
                         {
-                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")">
+                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")"
+                                data-player-row
+                                data-player-search="@row.Code @row.Position">
                                 <td class="sc-code">@row.Code</td>
                                 <td class="sc-muted sc-small">@(row.Position ?? "–")</td>
 
@@ -187,6 +280,13 @@
                                 </td>
                             </tr>
                         }
+
+                        <tr data-player-filter-empty hidden>
+                            <td colspan="10" class="sc-muted sc-small">
+                                No player in @Model.TeamName matches that. The search covers
+                                player code and position, and only this squad.
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

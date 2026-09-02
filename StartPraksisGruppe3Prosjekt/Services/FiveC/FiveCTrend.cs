@@ -1,6 +1,34 @@
 namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 
 /// <summary>
+/// Scores across several periods, whoever they belong to.
+///
+/// It exists so that <c>_FiveCTrend</c> is written once: a player's development and a
+/// squad's are the same chart, with the same time axis and the same full 1-5 vertical
+/// scale. The only thing that differs is who the line is about -- <see cref="Subject"/>.
+/// </summary>
+public interface IFiveCTrend
+{
+    /// <summary>
+    /// Who the line is about, written as the page should write it: a player code, or a
+    /// team name. Codes for people, names for teams.
+    /// </summary>
+    string Subject { get; }
+
+    /// <summary>The periods, oldest first. Every category lines up with this list.</summary>
+    IReadOnlyList<TrendPeriod> Periods { get; }
+
+    /// <summary>One line per C.</summary>
+    IReadOnlyList<CategoryTrend> Categories { get; }
+
+    /// <summary>
+    /// True when more than one period has an answer in it. With one there is a score but no
+    /// development, and the page says so rather than draw a flat line.
+    /// </summary>
+    bool HasComparablePeriods { get; }
+}
+
+/// <summary>
 /// One player's own scores across several periods -- "Commitment went from 2.1 to 3.4".
 ///
 /// Only the PLAYER's own answers are tracked here, not the coach's and not the guardian's.
@@ -19,8 +47,11 @@ public sealed record PlayerTrend(
     int PlayerId,
     string PlayerCode,
     IReadOnlyList<TrendPeriod> Periods,
-    IReadOnlyList<CategoryTrend> Categories)
+    IReadOnlyList<CategoryTrend> Categories) : IFiveCTrend
 {
+    /// <inheritdoc />
+    public string Subject => PlayerCode;
+
     /// <summary>
     /// True when there is more than one period with answers in it. With one, there is a
     /// score but no development, and the page should say so rather than draw a flat line.
@@ -86,4 +117,64 @@ public sealed record CategoryTrend(
         Means.Select((mean, index) => (Index: index, Mean: mean))
              .Where(p => p.Mean.HasValue)
              .Select(p => (p.Index, p.Mean!.Value));
+}
+
+/// <summary>
+/// A squad's own scores across several periods -- the team line under
+/// <see cref="PlayerTrend"/>'s individual one.
+///
+/// Aggregated the same way <see cref="TeamFiveCAggregate"/> is: for each period and each C,
+/// the mean of the per-player means, so one player counts once however much they answered.
+/// It is a line for the squad, not the line of whichever player happened to answer most.
+///
+/// Only the PLAYERS' own answers, for the reason <see cref="PlayerTrend"/> gives: a line
+/// that mixed in what the adults thought would move when a coach changed their mind, and be
+/// read as the squad having developed.
+///
+/// A period with fewer than
+/// <see cref="Authorization.CanViewTeamAggregateRequirement.MinimumResponses"/> players
+/// behind it is left as a gap rather than drawn -- the same rule
+/// <see cref="TeamRoleAverage"/> applies everywhere else, and it is why
+/// <see cref="PlayersPerPeriod"/> is carried: the page can say a period is thin instead of
+/// leaving a hole nobody can account for.
+/// </summary>
+/// <param name="TeamId">The team.</param>
+/// <param name="TeamName">Team name, e.g. "G16".</param>
+/// <param name="Periods">The periods, oldest first. Every category lines up with this list.</param>
+/// <param name="Categories">One line per C.</param>
+/// <param name="PlayersPerPeriod">
+/// How many players answered in each period, aligned with <paramref name="Periods"/>.
+/// Counted before the threshold, so a gap can be told apart from an empty period.
+/// </param>
+public sealed record TeamTrend(
+    int TeamId,
+    string TeamName,
+    IReadOnlyList<TrendPeriod> Periods,
+    IReadOnlyList<CategoryTrend> Categories,
+    IReadOnlyList<int> PlayersPerPeriod) : IFiveCTrend
+{
+    /// <inheritdoc />
+    public string Subject => TeamName;
+
+    /// <inheritdoc />
+    public bool HasComparablePeriods =>
+        Categories.Any(c => c.Means.Count(m => m.HasValue) > 1);
+
+    /// <summary>The categories that moved most, largest change first. Empty when nothing moved.</summary>
+    public IReadOnlyList<CategoryTrend> BiggestMovers =>
+        Categories
+            .Where(c => c.Change.HasValue)
+            .OrderByDescending(c => Math.Abs(c.Change!.Value))
+            .ToList();
+
+    /// <summary>
+    /// Periods where somebody answered but too few did to show a number. Named on the page,
+    /// because an unexplained gap in a line reads as "nobody answered".
+    /// </summary>
+    public IReadOnlyList<TrendPeriod> ThinPeriods =>
+        Periods
+            .Where((_, index) =>
+                PlayersPerPeriod[index] > 0
+                && PlayersPerPeriod[index] < Authorization.CanViewTeamAggregateRequirement.MinimumResponses)
+            .ToList();
 }
