@@ -14,41 +14,88 @@
     "  * 'reversed' marks a negatively worded statement. It is scored as (6 - value) so",
     "    that a high score always means 'good'. Do not flip the scale in the form to",
     "    compensate -- that reverses it twice.",
-    "  * 'textAboutPlayer' is optional. Leave it null and every role sees 'text'. Fill it",
-    "    in and coaches and guardians see that wording instead, while the player still",
-    "    sees 'text'. Both are answered on the same scale and stored the same way.",
+    "  * Three wordings per question, one per reader, all optional except 'text':",
+    "        text            -- the player, about themselves: 'I keep working ...'",
+    "        textAboutPlayer -- the coach, about a player:    'The player keeps ...'",
+    "        textForGuardian -- the guardian, about a child:  'My child keeps ...'",
+    "    Each falls back to the one above it, so filling in only 'text' still works for",
+    "    everybody. It is the same statement, the same 1-5 scale, and the answer is",
+    "    stored identically whichever wording produced it -- only the grammar changes.",
+    "    Keep the three in step: they should differ in person, not in meaning.",
     "",
     "The app validates this file at startup and refuses to start with a clear error if",
     "it is malformed, so a typo shows up immediately instead of halfway through a round."
   ],
-
-  "version": "placeholder-2026-08-26",
-
+  "version": "placeholder-2026-09-02",
   "scale": {
     "min": 1,
     "max": 5,
     "allowDontKnow": false,
     "dontKnowLabel": "Don't know",
     "options": [
-      { "value": 1, "label": "Strongly disagree" },
-      { "value": 2, "label": "Disagree" },
-      { "value": 3, "label": "Neutral" },
-      { "value": 4, "label": "Agree" },
-      { "value": 5, "label": "Strongly agree" }
+      {
+        "value": 1,
+        "label": "Strongly disagree"
+      },
+      {
+        "value": 2,
+        "label": "Disagree"
+      },
+      {
+        "value": 3,
+        "label": "Neutral"
+      },
+      {
+        "value": 4,
+        "label": "Agree"
+      },
+      {
+        "value": 5,
+        "label": "Strongly agree"
+      }
     ]
   },
-
   "categories": [
     {
       "key": "commitment",
       "name": "Commitment",
       "description": "Drive, and the ability to keep working at long-term development.",
       "questions": [
-        { "key": "commitment-1", "text": "I keep working on my development even when progress is slow.", "reversed": false, "textAboutPlayer": null },
-        { "key": "commitment-2", "text": "I arrive prepared for training and matches.", "reversed": false, "textAboutPlayer": null },
-        { "key": "commitment-3", "text": "I have goals for my own development that I work towards.", "reversed": false, "textAboutPlayer": null },
-        { "key": "commitment-4", "text": "I lose motivation when things do not go my way.", "reversed": true, "textAboutPlayer": null },
-        { "key": "commitment-5", "text": "I put in the extra work that development requires.", "reversed": false, "textAboutPlayer": null }
+        {
+          "key": "commitment-1",
+          "text": "I keep working on my development even when progress is slow.",
+          "textAboutPlayer": "The player keeps working on their development even when progress is slow.",
+          "textForGuardian": "My child keeps working on their development even when progress is slow.",
+          "reversed": false
+        },
+        {
+          "key": "commitment-2",
+          "text": "I arrive prepared for training and matches.",
+          "textAboutPlayer": "The player arrives prepared for training and matches.",
+          "textForGuardian": "My child arrives prepared for training and matches.",
+          "reversed": false
+        },
+        {
+          "key": "commitment-3",
+          "text": "I have goals for my own development that I work towards.",
+          "textAboutPlayer": "The player has goals for their own development that they work towards.",
+          "textForGuardian": "My child has goals for their own development that they work towards.",
+          "reversed": false
+        },
+        {
+          "key": "commitment-4",
+          "text": "I lose motivation when things do not go my way.",
+          "textAboutPlayer": "The player loses motivation when things do not go their way.",
+          "textForGuardian": "My child loses motivation when things do not go their way.",
+          "reversed": true
+        },
+        {
+          "key": "commitment-5",
+          "text": "I put in the extra work that development requires.",
+          "textAboutPlayer": "The player puts in the extra work that development requires.",
+          "textForGuardian": "My child puts in the extra work that development requires.",
+          "reversed": false
+        }
       ]
     },
     {
@@ -56,11 +103,41 @@
       "name": "Communication",
       "description": "Communication with team-mates, opponents, the coaching staff and the support team.",
       "questions": [
-        { "key": "communication-1", "text": "I speak up to my team-mates during training and matches.", "reversed": false, "textAboutPlayer": null },
-        { "key": "communication-2", "text": "I can tell the coach when something is difficult.", "reversed": false, "textAboutPlayer": null },
-        { "key": "communication-3", "text": "I listen to feedback without becoming defensive.", "reversed": false, "textAboutPlayer": null },
-        { "key": "communication-4", "text": "I find it hard to make myself understood on the pitch.", "reversed": true, "textAboutPlayer": null },
-        { "key": "communication-5", "text": "I help team-mates by telling them what I see.", "reversed": false, "textAboutPlayer": null }
+        {
+          "key": "communication-1",
+          "text": "I speak up to my team-mates during training and matches.",
+          "textAboutPlayer": "The player speaks up to team-mates during training and matches.",
+          "textForGuardian": "My child speaks up to team-mates during training and matches.",
+          "reversed": false
+        },
+        {
+          "key": "communication-2",
+          "text": "I can tell the coach when something is difficult.",
+          "textAboutPlayer": "The player can tell the coach when something is difficult.",
+          "textForGuardian": "My child can tell the coach when something is difficult.",
+          "reversed": false
+        },
+        {
+          "key": "communication-3",
+          "text": "I listen to feedback without becoming defensive.",
+          "textAboutPlayer": "The player listens to feedback without becoming defensive.",
+          "textForGuardian": "My child listens to feedback without becoming defensive.",
+          "reversed": false
+        },
+        {
+          "key": "communication-4",
+          "text": "I find it hard to make myself understood on the pitch.",
+          "textAboutPlayer": "The player finds it hard to make themselves understood on the pitch.",
+          "textForGuardian": "My child finds it hard to make themselves understood on the pitch.",
+          "reversed": true
+        },
+        {
+          "key": "communication-5",
+          "text": "I help team-mates by telling them what I see.",
+          "textAboutPlayer": "The player helps team-mates by telling them what they see.",
+          "textForGuardian": "My child helps team-mates by telling them what they see.",
+          "reversed": false
+        }
       ]
     },
     {
@@ -68,11 +145,41 @@
       "name": "Concentration",
       "description": "Holding focus through a full session or match.",
       "questions": [
-        { "key": "concentration-1", "text": "I stay focused through a whole training session.", "reversed": false, "textAboutPlayer": null },
-        { "key": "concentration-2", "text": "I get back into the match quickly after a mistake.", "reversed": false, "textAboutPlayer": null },
-        { "key": "concentration-3", "text": "I am easily distracted by what happens around me.", "reversed": true, "textAboutPlayer": null },
-        { "key": "concentration-4", "text": "I know what I am supposed to be paying attention to in a given situation.", "reversed": false, "textAboutPlayer": null },
-        { "key": "concentration-5", "text": "I keep my focus through the closing minutes of a match.", "reversed": false, "textAboutPlayer": null }
+        {
+          "key": "concentration-1",
+          "text": "I stay focused through a whole training session.",
+          "textAboutPlayer": "The player stays focused through a whole training session.",
+          "textForGuardian": "My child stays focused through a whole training session.",
+          "reversed": false
+        },
+        {
+          "key": "concentration-2",
+          "text": "I get back into the match quickly after a mistake.",
+          "textAboutPlayer": "The player gets back into the match quickly after a mistake.",
+          "textForGuardian": "My child gets back into the match quickly after a mistake.",
+          "reversed": false
+        },
+        {
+          "key": "concentration-3",
+          "text": "I am easily distracted by what happens around me.",
+          "textAboutPlayer": "The player is easily distracted by what happens around them.",
+          "textForGuardian": "My child is easily distracted by what happens around them.",
+          "reversed": true
+        },
+        {
+          "key": "concentration-4",
+          "text": "I know what I am supposed to be paying attention to in a given situation.",
+          "textAboutPlayer": "The player knows what they are supposed to be paying attention to in a given situation.",
+          "textForGuardian": "My child knows what they are supposed to be paying attention to in a given situation.",
+          "reversed": false
+        },
+        {
+          "key": "concentration-5",
+          "text": "I keep my focus through the closing minutes of a match.",
+          "textAboutPlayer": "The player keeps their focus through the closing minutes of a match.",
+          "textForGuardian": "My child keeps their focus through the closing minutes of a match.",
+          "reversed": false
+        }
       ]
     },
     {
@@ -80,11 +187,41 @@
       "name": "Control",
       "description": "Self-control and emotional regulation under pressure.",
       "questions": [
-        { "key": "control-1", "text": "I stay calm when the match gets tight.", "reversed": false, "textAboutPlayer": null },
-        { "key": "control-2", "text": "I handle decisions I disagree with without losing my head.", "reversed": false, "textAboutPlayer": null },
-        { "key": "control-3", "text": "I get angry with myself when I make a mistake.", "reversed": true, "textAboutPlayer": null },
-        { "key": "control-4", "text": "I keep my body language steady when things go against me.", "reversed": false, "textAboutPlayer": null },
-        { "key": "control-5", "text": "I can settle myself down when I notice I am getting stressed.", "reversed": false, "textAboutPlayer": null }
+        {
+          "key": "control-1",
+          "text": "I stay calm when the match gets tight.",
+          "textAboutPlayer": "The player stays calm when the match gets tight.",
+          "textForGuardian": "My child stays calm when the match gets tight.",
+          "reversed": false
+        },
+        {
+          "key": "control-2",
+          "text": "I handle decisions I disagree with without losing my head.",
+          "textAboutPlayer": "The player handles decisions they disagree with without losing their head.",
+          "textForGuardian": "My child handles decisions they disagree with without losing their head.",
+          "reversed": false
+        },
+        {
+          "key": "control-3",
+          "text": "I get angry with myself when I make a mistake.",
+          "textAboutPlayer": "The player gets angry with themselves when they make a mistake.",
+          "textForGuardian": "My child gets angry with themselves when they make a mistake.",
+          "reversed": true
+        },
+        {
+          "key": "control-4",
+          "text": "I keep my body language steady when things go against me.",
+          "textAboutPlayer": "The player keeps their body language steady when things go against them.",
+          "textForGuardian": "My child keeps their body language steady when things go against them.",
+          "reversed": false
+        },
+        {
+          "key": "control-5",
+          "text": "I can settle myself down when I notice I am getting stressed.",
+          "textAboutPlayer": "The player can settle themselves down when they notice they are getting stressed.",
+          "textForGuardian": "My child can settle themselves down when they notice they are getting stressed.",
+          "reversed": false
+        }
       ]
     },
     {
@@ -92,11 +229,41 @@
       "name": "Confidence",
       "description": "Self-belief and trust in one's own ability in training and matches.",
       "questions": [
-        { "key": "confidence-1", "text": "I trust my own ability in a match.", "reversed": false, "textAboutPlayer": null },
-        { "key": "confidence-2", "text": "I dare to try new things in training even if I might fail.", "reversed": false, "textAboutPlayer": null },
-        { "key": "confidence-3", "text": "I am afraid of making mistakes in front of the others on the team.", "reversed": true, "textAboutPlayer": null },
-        { "key": "confidence-4", "text": "I believe I will reach the goals I have set for myself.", "reversed": false, "textAboutPlayer": null },
-        { "key": "confidence-5", "text": "I ask for the ball in situations that matter.", "reversed": false, "textAboutPlayer": null }
+        {
+          "key": "confidence-1",
+          "text": "I trust my own ability in a match.",
+          "textAboutPlayer": "The player trusts their own ability in a match.",
+          "textForGuardian": "My child trusts their own ability in a match.",
+          "reversed": false
+        },
+        {
+          "key": "confidence-2",
+          "text": "I dare to try new things in training even if I might fail.",
+          "textAboutPlayer": "The player dares to try new things in training even if they might fail.",
+          "textForGuardian": "My child dares to try new things in training even if they might fail.",
+          "reversed": false
+        },
+        {
+          "key": "confidence-3",
+          "text": "I am afraid of making mistakes in front of the others on the team.",
+          "textAboutPlayer": "The player is afraid of making mistakes in front of the others on the team.",
+          "textForGuardian": "My child is afraid of making mistakes in front of the others on the team.",
+          "reversed": true
+        },
+        {
+          "key": "confidence-4",
+          "text": "I believe I will reach the goals I have set for myself.",
+          "textAboutPlayer": "The player believes they will reach the goals they have set for themselves.",
+          "textForGuardian": "My child believes they will reach the goals they have set for themselves.",
+          "reversed": false
+        },
+        {
+          "key": "confidence-5",
+          "text": "I ask for the ball in situations that matter.",
+          "textAboutPlayer": "The player asks for the ball in situations that matter.",
+          "textForGuardian": "My child asks for the ball in situations that matter.",
+          "reversed": false
+        }
       ]
     }
   ]

@@ -324,6 +324,16 @@ if (app.Environment.IsDevelopment())
 // man må gjette på.
 using (var scope = app.Services.CreateScope())
 {
+    // Tving fram spørsmålskatalogen her, ikke ved første forespørsel.
+    //
+    // QuestionCatalog validerer fila i konstruktøren, og hele poenget er at en feil i den
+    // stopper oppstarten framfor å dukke opp som et halvtomt skjema midt i en runde. Den er
+    // en singleton, så den bygges først når noen ber om den — og det gjorde minnelageret,
+    // helt til EF-lageret ble standard. Da sluttet valideringen stille å skje ved oppstart.
+    // Resultatet brukes ikke med vilje: det er selve oppslaget som er poenget, fordi
+    // konstruktøren validerer og logger. Ikke fjern linjen fordi den ser ubrukt ut.
+    _ = scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
+
     var store = scope.ServiceProvider.GetRequiredService<ISurveySubmissionStore>();
 
     app.Logger.LogInformation("5C submissions are stored in: {Store}.", store.Description);
@@ -338,3 +348,11 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+/// <summary>
+/// Gjør den genererte Program-klassen synlig for testprosjektet.
+///
+/// Med top-level statements er den internal, og WebApplicationFactory&lt;Program&gt; kommer
+/// ikke til den. Dette er hele grunnen til at linjen står her — den endrer ingen oppførsel.
+/// </summary>
+public partial class Program { }

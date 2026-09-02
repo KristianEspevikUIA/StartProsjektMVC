@@ -75,6 +75,15 @@ public class FiveCPlayerViewModel
     };
 
     /// <summary>
+    /// The player's own scores across every period, oldest first.
+    ///
+    /// Development over time is what the club asked the system for. It is deliberately the
+    /// player's own line only: what a coach thought of them in March is not part of how the
+    /// player developed by September.
+    /// </summary>
+    public PlayerTrend? Trend { get; set; }
+
+    /// <summary>
     /// Whether the coach has shared their own answers with the player and guardian.
     ///
     /// The coach always sees everything on this page. Releasing decides whether the PLAYER

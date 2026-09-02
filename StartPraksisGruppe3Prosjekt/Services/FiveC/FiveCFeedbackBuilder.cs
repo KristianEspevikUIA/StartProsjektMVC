@@ -26,13 +26,16 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
 {
     private readonly IFiveCAnalysisService _analysis;
     private readonly Services.IFeedbackReleaseService _releases;
+    private readonly Services.IPlayerAccessLog _accessLog;
 
     public FiveCFeedbackBuilder(
         IFiveCAnalysisService analysis,
-        Services.IFeedbackReleaseService releases)
+        Services.IFeedbackReleaseService releases,
+        Services.IPlayerAccessLog accessLog)
     {
         _analysis = analysis;
         _releases = releases;
+        _accessLog = accessLog;
     }
 
     /// <inheritdoc />
@@ -50,6 +53,10 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
             cancellationToken);
 
         var released = await _releases.IsReleasedAsync(round.Id, player.Id, cancellationToken);
+
+        // The audit log, shown to the person it is about. Roles and dates only -- see
+        // FiveCFeedbackViewModel.RecentAccess.
+        var access = await _accessLog.GetForPlayerAsync(player.Id, take: 20, cancellationToken);
 
         return new FiveCFeedbackViewModel
         {
@@ -80,7 +87,14 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
             // you answered" is a different question depending on who is looking.
             ViewerHasAnswered = viewerIsGuardian
                 ? comparison.GuardianHasAnswered
-                : comparison.PlayerHasAnswered
+                : comparison.PlayerHasAnswered,
+
+            // The conversation follows the player, whoever is looking. See Stage.
+            PlayerHasAnswered = comparison.PlayerHasAnswered,
+
+            RecentAccess = access
+                .Select(a => new FiveCFeedbackViewModel.AccessEntry(a.ViewedByRole, a.OccurredAt))
+                .ToList()
         };
     }
 }

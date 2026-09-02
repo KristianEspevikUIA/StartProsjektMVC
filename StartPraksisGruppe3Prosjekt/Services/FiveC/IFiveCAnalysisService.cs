@@ -32,4 +32,18 @@ public interface IFiveCAnalysisService
         int roundId,
         IReadOnlyDictionary<int, string> playerCodesById,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// One player's own averages across several periods -- development over time, which is
+    /// what the club asked the system for in the first place.
+    ///
+    /// Only the player's own answers. What a coach thought of them in March is not part of
+    /// how the player developed by September.
+    /// </summary>
+    /// <param name="periods">The periods to include. Ordered oldest first by the service.</param>
+    Task<PlayerTrend> GetTrendAsync(
+        int playerId,
+        string playerCode,
+        IReadOnlyList<TrendPeriod> periods,
+        CancellationToken cancellationToken = default);
 }
