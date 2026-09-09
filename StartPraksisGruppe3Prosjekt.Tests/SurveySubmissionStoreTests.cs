@@ -42,6 +42,47 @@ public class SurveySubmissionStoreTests
     }
 
     [Fact]
+    public async Task Losing_the_race_to_write_a_submission_corrects_the_row_that_won()
+    {
+        using var database = new TestDatabase();
+        var player = await database.AddPlayerAsync();
+        var round = await database.AddOpenRoundAsync();
+        var catalog = TestCatalog.Load();
+
+        // The other request. It saves the same respondent's form after this store has looked
+        // and found nothing, but before this store's own insert reaches the database -- the
+        // second of two open tabs, or a submit button pressed twice.
+        async Task TheOtherTab()
+        {
+            await using var other = database.NewContext();
+
+            await new EfSurveySubmissionStore(other).SaveAsync(Submissions.Filled(
+                catalog, round.Id, player.Id, player.Code, RespondentType.Player, "player-1",
+                value: 2));
+        }
+
+        await using var context = database.NewContext(new WritesOnceMidSave(TheOtherTab));
+
+        // The unique index refuses this insert. Recovering means correcting the row that got
+        // there first, not throwing at someone who answered the form perfectly well.
+        await new EfSurveySubmissionStore(context).SaveAsync(Submissions.Filled(
+            catalog, round.Id, player.Id, player.Code, RespondentType.Player, "player-1",
+            value: 5));
+
+        await using var assert = database.NewContext();
+
+        var stored = Assert.Single(
+            await assert.FiveCSubmissions.Include(s => s.Answers).ToListAsync());
+
+        // The answer that arrived last is the one that stands, and the losing attempt left
+        // no answers of its own behind.
+        Assert.All(stored.Answers, answer => Assert.Equal(5, answer.Value));
+        Assert.Equal(
+            catalog.Questions.AllQuestions.Count(),
+            await assert.FiveCAnswers.CountAsync());
+    }
+
+    [Fact]
     public async Task Three_respondents_about_one_player_are_three_submissions()
     {
         using var database = new TestDatabase();

@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
@@ -32,13 +33,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         SurveySubmission submission,
         CancellationToken cancellationToken = default)
     {
-        var candidate = await _db.FiveCSubmissions
-            .Include(s => s.Answers)
-            .FirstOrDefaultAsync(
-                s => s.RoundId == submission.RoundId
-                     && s.PlayerId == submission.PlayerId
-                     && s.RespondentUserId == submission.RespondentUserId,
-                cancellationToken);
+        var candidate = await FindRowAsync(submission, cancellationToken);
 
         var toPersist = candidate ?? new FiveCSubmission
         {
@@ -51,26 +46,8 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         {
             _db.FiveCSubmissions.Add(toPersist);
         }
-        else
-        {
-            _db.FiveCAnswers.RemoveRange(candidate.Answers);
-            candidate.Answers.Clear();
-        }
 
-        toPersist.PlayerCode = submission.PlayerCode;
-        toPersist.RespondentRole = submission.RespondentRole;
-        toPersist.QuestionSetVersion = submission.QuestionSetVersion;
-        toPersist.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
-
-        foreach (var answer in submission.Answers)
-        {
-            toPersist.Answers.Add(new FiveCAnswer
-            {
-                QuestionKey = answer.QuestionKey,
-                CategoryKey = answer.CategoryKey,
-                Value = answer.Value
-            });
-        }
+        Apply(submission, toPersist);
 
         try
         {
@@ -78,43 +55,88 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         }
         catch (DbUpdateException ex) when (IsUniqueConstraintViolation(ex))
         {
-            var retry = await _db.FiveCSubmissions
-                .Include(s => s.Answers)
-                .FirstOrDefaultAsync(
-                    s => s.RoundId == submission.RoundId
-                         && s.PlayerId == submission.PlayerId
-                         && s.RespondentUserId == submission.RespondentUserId,
-                    cancellationToken);
+            // Someone else wrote this respondent's submission between the lookup above and
+            // this save -- two open tabs, or a submit button pressed twice. The index did
+            // its job; the row that won the race is the one to correct.
+            //
+            // What was staged for the insert has to go first. A failed SaveChangesAsync
+            // leaves the new submission and its answers in the change tracker as Added, and
+            // saving again would insert them a second time -- into the same index, for the
+            // same failure. Nothing reached the database, so clearing loses nothing.
+            _db.ChangeTracker.Clear();
 
-            if (retry is null)
+            var winner = await FindRowAsync(submission, cancellationToken);
+
+            if (winner is null)
             {
+                // No row to correct, so this was some other unique index refusing. Let it
+                // be seen rather than retried into a second identical failure.
                 throw;
             }
 
-            _db.FiveCAnswers.RemoveRange(retry.Answers);
-            retry.Answers.Clear();
-            retry.PlayerCode = submission.PlayerCode;
-            retry.RespondentRole = submission.RespondentRole;
-            retry.QuestionSetVersion = submission.QuestionSetVersion;
-            retry.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
-
-            foreach (var answer in submission.Answers)
-            {
-                retry.Answers.Add(new FiveCAnswer
-                {
-                    QuestionKey = answer.QuestionKey,
-                    CategoryKey = answer.CategoryKey,
-                    Value = answer.Value
-                });
-            }
+            Apply(submission, winner);
 
             await _db.SaveChangesAsync(cancellationToken);
         }
     }
 
+    /// <summary>This respondent's submission for this player in this round, answers and all.</summary>
+    private Task<FiveCSubmission?> FindRowAsync(
+        SurveySubmission submission,
+        CancellationToken cancellationToken) =>
+        _db.FiveCSubmissions
+            .Include(s => s.Answers)
+            .FirstOrDefaultAsync(
+                s => s.RoundId == submission.RoundId
+                     && s.PlayerId == submission.PlayerId
+                     && s.RespondentUserId == submission.RespondentUserId,
+                cancellationToken);
+
+    /// <summary>
+    /// Writes the submitted form onto a row, whether that row is a new one or the one
+    /// already in the database. One place, so a first attempt and its retry cannot come to
+    /// disagree about what a saved submission contains.
+    /// </summary>
+    private void Apply(SurveySubmission submission, FiveCSubmission row)
+    {
+        // Answering again is a correction, not a second opinion: the previous answers go
+        // rather than being added to. On a new row there are none, and this does nothing.
+        _db.FiveCAnswers.RemoveRange(row.Answers);
+        row.Answers.Clear();
+
+        row.PlayerCode = submission.PlayerCode;
+        row.RespondentRole = submission.RespondentRole;
+        row.QuestionSetVersion = submission.QuestionSetVersion;
+        row.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
+
+        foreach (var answer in submission.Answers)
+        {
+            row.Answers.Add(new FiveCAnswer
+            {
+                QuestionKey = answer.QuestionKey,
+                CategoryKey = answer.CategoryKey,
+                Value = answer.Value
+            });
+        }
+    }
+
+    /// <summary>SQLITE_CONSTRAINT_UNIQUE. Microsoft.Data.Sqlite names no constant for it.</summary>
+    private const int SqliteUniqueViolation = 2067;
+
+    /// <summary>
+    /// Was that a unique index refusing the row? Postgres is what production runs on and
+    /// says so in the SQLSTATE; SQLite, which the tests run on, leaves SqlState null and
+    /// reports the same refusal as an extended result code.
+    /// </summary>
     private static bool IsUniqueConstraintViolation(DbUpdateException exception) =>
-        exception.InnerException is PostgresException postgres &&
-        postgres.SqlState == PostgresErrorCodes.UniqueViolation;
+        exception.InnerException switch
+        {
+            PostgresException postgres =>
+                postgres.SqlState == PostgresErrorCodes.UniqueViolation,
+            SqliteException sqlite =>
+                sqlite.SqliteExtendedErrorCode == SqliteUniqueViolation,
+            _ => false
+        };
 
     /// <inheritdoc />
     public async Task<SurveySubmission?> FindAsync(
