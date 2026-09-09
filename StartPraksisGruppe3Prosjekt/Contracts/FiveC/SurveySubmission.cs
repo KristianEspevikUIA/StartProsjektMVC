@@ -26,10 +26,6 @@ namespace StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 ///   "submitted_at": "2026-08-26T07:30:00+00:00",
 ///   "answers": [
 ///     { "question_key": "commitment-1", "category_key": "commitment", "value": 4 }
-///   ],
-///   "reflection": [
-///     { "question_key": "reflection-strength", "value": "confidence" },
-///     { "question_key": "reflection-strength-example", "value": "Took the last penalty ..." }
 ///   ]
 /// }
 /// </summary>
@@ -77,18 +73,6 @@ public sealed record SurveySubmission
     /// <summary>One entry per answered question, in the order the form showed them.</summary>
     [JsonPropertyName("answers")]
     public required IReadOnlyList<SurveyAnswer> Answers { get; init; }
-
-    /// <summary>
-    /// The end-of-period reflection: the strongest C, the one to work on next, and what was
-    /// written about them. Empty when the question set has no reflection section, or when
-    /// the respondent left all of it blank.
-    ///
-    /// Not required, unlike <see cref="Answers"/>: a question set without a reflection is a
-    /// valid question set, and this way a caller written before the section existed still
-    /// compiles and still stores what it always did.
-    /// </summary>
-    [JsonPropertyName("reflection")]
-    public IReadOnlyList<ReflectionAnswer> Reflection { get; init; } = Array.Empty<ReflectionAnswer>();
 
     /// <summary>
     /// The three role strings used on the wire. Lower-case so they can be a Postgres enum
@@ -149,41 +133,4 @@ public sealed record SurveyAnswer
     /// </summary>
     [JsonPropertyName("value")]
     public required int? Value { get; init; }
-}
-
-/// <summary>
-/// One answer to a reflection question -- the part of the form that is words rather than
-/// numbers.
-///
-/// Kept apart from <see cref="SurveyAnswer"/> and stored in its own table, for two reasons
-/// that both matter more than the saved join:
-///
-///   * It is not scored. Nothing here goes into a mean, a difference or a trend, and an
-///     answer that cannot be scored has no business in the table the scoring reads.
-///   * It is free text about a child. The numbers are pseudonymous by construction; a
-///     sentence is only as pseudonymous as whoever typed it. Keeping it in one named place
-///     is what makes it findable for an access request and reviewable on its own.
-/// </summary>
-public sealed record ReflectionAnswer
-{
-    /// <summary>
-    /// The stable key from the question set file, e.g. "reflection-strength".
-    /// See <see cref="SurveyAnswer.QuestionKey"/> -- the same rule applies.
-    /// </summary>
-    [JsonPropertyName("question_key")]
-    public required string QuestionKey { get; init; }
-
-    /// <summary>
-    /// What was answered.
-    ///
-    /// For a question of type "category" this is a category key -- "confidence", not
-    /// "Confidence" -- so the choice can be counted and compared without matching on a
-    /// heading that is expected to be rewritten. For a question of type "text" it is what
-    /// the respondent wrote, trimmed.
-    ///
-    /// Null means the question was left blank. A blank is not an answer, and it is not
-    /// stored as an empty string.
-    /// </summary>
-    [JsonPropertyName("value")]
-    public required string? Value { get; init; }
 }

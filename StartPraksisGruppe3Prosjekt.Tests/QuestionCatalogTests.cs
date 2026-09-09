@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using StartPraksisGruppe3Prosjekt.Models.FiveC;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using Xunit;
 
@@ -87,104 +86,6 @@ public class QuestionCatalogTests
         var error = Assert.Throws<InvalidOperationException>(() => Load(content.Root));
 
         Assert.Contains("scale.options", error.Message);
-    }
-
-    [Fact]
-    public void The_shipped_reflection_loads_and_every_question_is_findable()
-    {
-        var catalog = Load(AppContext.BaseDirectory);
-
-        // The section is optional in the format but present in the file we ship, and the
-        // form is built from it -- so an edit that drops it should fail here, not quietly
-        // remove five questions from the end of the questionnaire.
-        Assert.NotNull(catalog.Questions.Reflection);
-        Assert.NotEmpty(catalog.Questions.ReflectionQuestions);
-
-        foreach (var question in catalog.Questions.ReflectionQuestions)
-        {
-            Assert.NotNull(catalog.FindReflectionQuestion(question.Key));
-
-            // The two kinds are answered by different controls and validated differently.
-            // Anything else has no meaning on the page.
-            Assert.True(ReflectionQuestionTypes.IsKnown(question.Type));
-        }
-
-        // A C to pick has to be a C that was asked about. The choices are built from the
-        // categories, so this holds by construction -- and stops holding the moment somebody
-        // hard-codes a list somewhere.
-        Assert.Contains(catalog.Questions.ReflectionQuestions, q => q.IsCategoryChoice);
-    }
-
-    [Fact]
-    public void A_reflection_question_with_an_unknown_type_is_rejected()
-    {
-        using var content = new TemporaryQuestionSet("""
-        {
-          "version": "test",
-          "scale": { "min": 1, "max": 2, "options": [
-            { "value": 1, "label": "Low" }, { "value": 2, "label": "High" } ] },
-          "categories": [
-            { "key": "commitment", "name": "Commitment", "questions": [
-              { "key": "commitment-1", "text": "One" } ] }
-          ],
-          "reflection": { "title": "End of period", "questions": [
-            { "key": "reflection-strength", "type": "dropdown", "text": "Which C?" } ] }
-        }
-        """);
-
-        var error = Assert.Throws<InvalidOperationException>(() => Load(content.Root));
-
-        // The key and the typo both, because the person reading this is editing JSON.
-        Assert.Contains("reflection-strength", error.Message);
-        Assert.Contains("dropdown", error.Message);
-    }
-
-    [Fact]
-    public void A_reflection_key_that_repeats_a_statement_key_is_rejected()
-    {
-        using var content = new TemporaryQuestionSet("""
-        {
-          "version": "test",
-          "scale": { "min": 1, "max": 2, "options": [
-            { "value": 1, "label": "Low" }, { "value": 2, "label": "High" } ] },
-          "categories": [
-            { "key": "commitment", "name": "Commitment", "questions": [
-              { "key": "commitment-1", "text": "One" } ] }
-          ],
-          "reflection": { "title": "End of period", "questions": [
-            { "key": "commitment-1", "type": "text", "text": "Say more." } ] }
-        }
-        """);
-
-        var error = Assert.Throws<InvalidOperationException>(() => Load(content.Root));
-
-        // Two answers, two tables, one key. Whichever way that is read afterwards, one of
-        // the two questions is being reported as the other.
-        Assert.Contains("commitment-1", error.Message);
-    }
-
-    [Fact]
-    public void A_written_answer_may_not_ask_for_more_room_than_the_column_has()
-    {
-        using var content = new TemporaryQuestionSet("""
-        {
-          "version": "test",
-          "scale": { "min": 1, "max": 2, "options": [
-            { "value": 1, "label": "Low" }, { "value": 2, "label": "High" } ] },
-          "categories": [
-            { "key": "commitment", "name": "Commitment", "questions": [
-              { "key": "commitment-1", "text": "One" } ] }
-          ],
-          "reflection": { "title": "End of period", "questions": [
-            { "key": "reflection-support", "type": "text", "maxLength": 9000,
-              "text": "What would help?" } ] }
-        }
-        """);
-
-        var error = Assert.Throws<InvalidOperationException>(() => Load(content.Root));
-
-        Assert.Contains("reflection-support", error.Message);
-        Assert.Contains(FiveCRules.ReflectionTextLimit.ToString(), error.Message);
     }
 
     [Fact]

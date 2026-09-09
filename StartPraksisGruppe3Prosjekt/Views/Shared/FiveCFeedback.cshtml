@@ -208,37 +208,6 @@
     }
 
     @*
-        The reflection.
-
-        Their own words back, and the coach's once the coach has shared — the same rule the
-        numbers follow, and for a stronger reason: a sentence about a fourteen-year-old is
-        sharper than an average, not milder. What the coach wrote is not in this model at
-        all until then; FiveCFeedbackBuilder redacts it, and the note below is all that is
-        left in its place.
-    *@
-    @if (comparison is { Reflection.Count: > 0 } && comparison.PlayerHasAnswered)
-    {
-        <section class="sc-section" data-tab-panel data-tab-label="Reflection">
-            <div class="sc-rule"></div>
-            <h2 data-tab-heading>End of period</h2>
-            <p class="sc-lead">
-                The short questions after the statements: the strongest C, the one worth
-                working on next, and what would help. Nothing here is a score.
-            </p>
-
-            <partial name="_FiveCReflection" model="@(new FiveCReflectionViewModel(
-                comparison.Reflection,
-                PlayerLabel: Model.ViewerIsGuardian ? "Your child" : "You",
-                GuardianLabel: Model.ViewerIsGuardian ? "You" : "Your guardian",
-                CoachLabel: "Coach",
-                CoachWithheld: Model.CoachWroteReflection && !Model.CoachAnswersReleased
-                    ? "Your coach has written their part of this. They will go through it "
-                      + "with " + who + " before sharing it here."
-                    : null))" />
-        </section>
-    }
-
-    @*
         The audit log, shown to the person it is about.
 
         Coaches no longer need consent to open a player's answers. This is the other half of

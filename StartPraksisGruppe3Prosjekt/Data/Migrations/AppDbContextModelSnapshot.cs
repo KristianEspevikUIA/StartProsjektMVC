@@ -368,34 +368,6 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.ToTable("FiveCAnswers");
                 });
 
-            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCReflectionAnswer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("QuestionKey")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int>("SubmissionId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Value")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SubmissionId", "QuestionKey")
-                        .IsUnique();
-
-                    b.ToTable("FiveCReflectionAnswers");
-                });
-
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
                 {
                     b.Property<int>("Id")
@@ -808,17 +780,6 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Submission");
                 });
 
-            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCReflectionAnswer", b =>
-                {
-                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", "Submission")
-                        .WithMany("Reflection")
-                        .HasForeignKey("SubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Submission");
-                });
-
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
                 {
                     b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
@@ -900,8 +861,6 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
                 {
                     b.Navigation("Answers");
-
-                    b.Navigation("Reflection");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Item", b =>

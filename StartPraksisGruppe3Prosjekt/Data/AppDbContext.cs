@@ -43,13 +43,6 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
     public DbSet<FiveCAnswer> FiveCAnswers => Set<FiveCAnswer>();
 
-    /// <summary>
-    /// Refleksjonen på slutten av perioden — fritekst og valgt C. Egen tabell fordi ingenting
-    /// her regnes med i et snitt, og fordi fritekst om et barn skal ligge ett navngitt sted.
-    /// Se FiveCReflectionAnswer.
-    /// </summary>
-    public DbSet<FiveCReflectionAnswer> FiveCReflectionAnswers => Set<FiveCReflectionAnswer>();
-
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -174,18 +167,6 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .WithMany(s => s.Answers)
              .HasForeignKey(a => a.SubmissionId)
              .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<FiveCReflectionAnswer>(e =>
-        {
-            // Samme regel som for svarene: ett svar per spørsmål i én innsending. Retting
-            // skriver over raden i stedet for å legge til en ny.
-            e.HasIndex(a => new { a.SubmissionId, a.QuestionKey }).IsUnique();
-
-            e.HasOne(a => a.Submission)
-             .WithMany(s => s.Reflection)
-             .HasForeignKey(a => a.SubmissionId)
-             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller når hit gjennom innsendingen
         });
 
         builder.Entity<PlayerDeletionEvent>(e =>

@@ -19,14 +19,6 @@ namespace StartPraksisGruppe3Prosjekt.Tests;
 /// </summary>
 public sealed class FeedbackReleaseTests : IAsyncLifetime
 {
-    /// <summary>
-    /// What each of them wrote in the reflection. Sentences rather than keys, so a test can
-    /// look for them in the rendered page and a failure names which one leaked.
-    /// </summary>
-    private const string PlayerReflection = "I spoke up more in the last three matches.";
-
-    private const string CoachReflection = "Needs to ask for the ball far more often.";
-
     private readonly StartCompassFactory _factory = new();
 
     public async Task InitializeAsync()
@@ -90,55 +82,6 @@ public sealed class FeedbackReleaseTests : IAsyncLifetime
         Assert.Contains("The coach has shared their answers", html);
     }
 
-    [Fact]
-    public async Task What_the_coach_wrote_is_not_on_the_page_before_they_share()
-    {
-        var html = await PlayerPageAsync();
-
-        // Their own words are theirs to read at any point.
-        Assert.Contains(PlayerReflection, html);
-
-        // The coach's are not, and the page says so rather than leaving a silent gap.
-        Assert.DoesNotContain(CoachReflection, html);
-        Assert.Contains("Your coach has written their part of this", html);
-    }
-
-    [Fact]
-    public async Task What_the_coach_wrote_appears_once_they_share()
-    {
-        await ReleaseAsync(release: true);
-
-        var html = await PlayerPageAsync();
-
-        Assert.Contains(CoachReflection, html);
-        Assert.DoesNotContain("Your coach has written their part of this", html);
-    }
-
-    [Fact]
-    public async Task Withdrawing_hides_what_the_coach_wrote_again()
-    {
-        await ReleaseAsync(release: true);
-        await ReleaseAsync(release: false);
-
-        Assert.DoesNotContain(CoachReflection, await PlayerPageAsync());
-    }
-
-    [Fact]
-    public async Task The_coach_reads_all_three_reflections_without_sharing_anything()
-    {
-        var response = await _factory
-            .ClientAs(StartCompassFactory.CoachUserId, Roles.Coach)
-            .GetAsync($"/Coach/FiveCPlayer/{_factory.PlayerId}?roundId={_factory.RoundId}");
-
-        response.EnsureSuccessStatusCode();
-        var html = await response.Content.ReadAsStringAsync();
-
-        // Sharing decides what the PLAYER sees. The coach sees everything on their own page
-        // from the moment it is written -- that is what they are being asked to talk about.
-        Assert.Contains(PlayerReflection, html);
-        Assert.Contains(CoachReflection, html);
-    }
-
     private async Task<string> PlayerPageAsync()
     {
         var response = await _factory
@@ -178,18 +121,15 @@ public sealed class FeedbackReleaseTests : IAsyncLifetime
             var store = services.GetRequiredService<ISurveySubmissionStore>();
             var catalog = services.GetRequiredService<IQuestionCatalog>();
 
-            await store.SaveAsync(Build(
-                catalog, RespondentType.Player, StartCompassFactory.PlayerUserId, 4, PlayerReflection));
-            await store.SaveAsync(Build(
-                catalog, RespondentType.Coach, StartCompassFactory.CoachUserId, 2, CoachReflection));
+            await store.SaveAsync(Build(catalog, RespondentType.Player, StartCompassFactory.PlayerUserId, 4));
+            await store.SaveAsync(Build(catalog, RespondentType.Coach, StartCompassFactory.CoachUserId, 2));
         });
 
     private SurveySubmission Build(
         IQuestionCatalog catalog,
         RespondentType respondent,
         string userId,
-        int value,
-        string? reflection = null) => new()
+        int value) => new()
     {
         RoundId = _factory.RoundId,
         PlayerId = _factory.PlayerId,
@@ -205,18 +145,6 @@ public sealed class FeedbackReleaseTests : IAsyncLifetime
                 CategoryKey = c.Key,
                 Value = value
             }))
-            .ToList(),
-        Reflection = reflection is null
-            ? Array.Empty<ReflectionAnswer>()
-            : new[]
-            {
-                new ReflectionAnswer
-                {
-                    QuestionKey = catalog.Questions.ReflectionQuestions
-                        .First(q => !q.IsCategoryChoice)
-                        .Key,
-                    Value = reflection
-                }
-            }
+            .ToList()
     };
 }
