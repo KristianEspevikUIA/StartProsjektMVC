@@ -35,23 +35,23 @@
     "options": [
       {
         "value": 1,
-        "label": "Strongly disagree"
+        "label": "Never"
       },
       {
         "value": 2,
-        "label": "Disagree"
+        "label": "Rarely"
       },
       {
         "value": 3,
-        "label": "Neutral"
+        "label": "Sometimes"
       },
       {
         "value": 4,
-        "label": "Agree"
+        "label": "Often"
       },
       {
         "value": 5,
-        "label": "Strongly agree"
+        "label": "Always"
       }
     ]
   },
@@ -63,37 +63,37 @@
       "questions": [
         {
           "key": "commitment-1",
-          "text": "I keep working on my development even when progress is slow.",
-          "textAboutPlayer": "The player keeps working on their development even when progress is slow.",
-          "textForGuardian": "My child keeps working on their development even when progress is slow.",
+          "text": "I give high effort throughout training and matches.",
+          "textAboutPlayer": "The player gives high effort throughout training and matches.",
+          "textForGuardian": "My child puts consistent effort into their football activities.",
           "reversed": false
         },
         {
           "key": "commitment-2",
-          "text": "I arrive prepared for training and matches.",
-          "textAboutPlayer": "The player arrives prepared for training and matches.",
-          "textForGuardian": "My child arrives prepared for training and matches.",
+          "text": "I keep working when I am tired or things become difficult.",
+          "textAboutPlayer": "The player keeps working when tired or when things become difficult.",
+          "textForGuardian": "My child continues working when tired or when things become difficult.",
           "reversed": false
         },
         {
           "key": "commitment-3",
-          "text": "I have goals for my own development that I work towards.",
-          "textAboutPlayer": "The player has goals for their own development that they work towards.",
-          "textForGuardian": "My child has goals for their own development that they work towards.",
+          "text": "I arrive mentally and physically ready to train and play.",
+          "textAboutPlayer": "The player arrives mentally and physically ready to train and play.",
+          "textForGuardian": "My child prepares themselves appropriately for training and matches.",
           "reversed": false
         },
         {
           "key": "commitment-4",
-          "text": "I lose motivation when things do not go my way.",
-          "textAboutPlayer": "The player loses motivation when things do not go their way.",
-          "textForGuardian": "My child loses motivation when things do not go their way.",
-          "reversed": true
+          "text": "I take responsibility for completing the things agreed for my own development.",
+          "textAboutPlayer": "The player takes responsibility for completing things agreed for their own development.",
+          "textForGuardian": "My child takes responsibility for things agreed for their own development.",
+          "reversed": false
         },
         {
           "key": "commitment-5",
-          "text": "I put in the extra work that development requires.",
-          "textAboutPlayer": "The player puts in the extra work that development requires.",
-          "textForGuardian": "My child puts in the extra work that development requires.",
+          "text": "I continue contributing to the team even when I am not directly involved in the play.",
+          "textAboutPlayer": "The player continues contributing to the team even when they are not directly involved in the play.",
+          "textForGuardian": "My child continues trying to contribute even when they are not directly involved or things are not going their way.",
           "reversed": false
         }
       ]
@@ -105,37 +105,37 @@
       "questions": [
         {
           "key": "communication-1",
-          "text": "I speak up to my team-mates during training and matches.",
-          "textAboutPlayer": "The player speaks up to team-mates during training and matches.",
-          "textForGuardian": "My child speaks up to team-mates during training and matches.",
+          "text": "I give teammates clear and useful information.",
+          "textAboutPlayer": "The player gives teammates clear and useful information.",
+          "textForGuardian": "My child communicates useful information to teammates when needed.",
           "reversed": false
         },
         {
           "key": "communication-2",
-          "text": "I can tell the coach when something is difficult.",
-          "textAboutPlayer": "The player can tell the coach when something is difficult.",
-          "textForGuardian": "My child can tell the coach when something is difficult.",
+          "text": "I listen and respond when teammates or coaches communicate with me.",
+          "textAboutPlayer": "The player listens and responds when teammates or coaches communicate with them.",
+          "textForGuardian": "My child listens and responds when coaches or teammates communicate with them.",
           "reversed": false
         },
         {
           "key": "communication-3",
-          "text": "I listen to feedback without becoming defensive.",
-          "textAboutPlayer": "The player listens to feedback without becoming defensive.",
-          "textForGuardian": "My child listens to feedback without becoming defensive.",
+          "text": "I encourage and support teammates when things are difficult or after mistakes.",
+          "textAboutPlayer": "The player encourages and supports teammates when things are difficult or after mistakes.",
+          "textForGuardian": "My child encourages and supports teammates when things are difficult or after mistakes.",
           "reversed": false
         },
         {
           "key": "communication-4",
-          "text": "I find it hard to make myself understood on the pitch.",
-          "textAboutPlayer": "The player finds it hard to make themselves understood on the pitch.",
-          "textForGuardian": "My child finds it hard to make themselves understood on the pitch.",
-          "reversed": true
+          "text": "I use positive and constructive body language towards others.",
+          "textAboutPlayer": "The player uses positive and constructive body language towards others..",
+          "textForGuardian": "My child generally uses positive and constructive body language towards others.",
+          "reversed": false
         },
         {
           "key": "communication-5",
-          "text": "I help team-mates by telling them what I see.",
-          "textAboutPlayer": "The player helps team-mates by telling them what they see.",
-          "textForGuardian": "My child helps team-mates by telling them what they see.",
+          "text": "I communicate what I need or expect from teammates clearly and respectfully.",
+          "textAboutPlayer": "The player communicates what they need or expect from teammates clearly and respectfully.",
+          "textForGuardian": "My child communicates what they need or expect from others clearly and respectfully.",
           "reversed": false
         }
       ]
@@ -147,37 +147,37 @@
       "questions": [
         {
           "key": "concentration-1",
-          "text": "I stay focused through a whole training session.",
-          "textAboutPlayer": "The player stays focused through a whole training session.",
-          "textForGuardian": "My child stays focused through a whole training session.",
+          "text": "I keep my attention on the task even when there are distractions.",
+          "textAboutPlayer": "The player keeps their attention on the task even when there are distractions.",
+          "textForGuardian": "My child is able to stay focused on what they need to do despite distractions.",
           "reversed": false
         },
         {
           "key": "concentration-2",
-          "text": "I get back into the match quickly after a mistake.",
-          "textAboutPlayer": "The player gets back into the match quickly after a mistake.",
-          "textForGuardian": "My child gets back into the match quickly after a mistake.",
+          "text": "I refocus quickly after mistakes, stoppages or changes in play",
+          "textAboutPlayer": "The player refocuses quickly after mistakes, stoppages or changes in play.",
+          "textForGuardian": "My child is able to refocus after mistakes or setbacks.",
           "reversed": false
         },
         {
           "key": "concentration-3",
-          "text": "I am easily distracted by what happens around me.",
-          "textAboutPlayer": "The player is easily distracted by what happens around them.",
-          "textForGuardian": "My child is easily distracted by what happens around them.",
-          "reversed": true
+          "text": "I stay mentally engaged even when exercises are repetitive or I am less involved.",
+          "textAboutPlayer": "The player stays mentally engaged even when exercises are repetitive or they are less involved.",
+          "textForGuardian": "My child remains mentally engaged even when things become repetitive or they are less involved.",
+          "reversed": false
         },
         {
           "key": "concentration-4",
-          "text": "I know what I am supposed to be paying attention to in a given situation.",
-          "textAboutPlayer": "The player knows what they are supposed to be paying attention to in a given situation.",
-          "textForGuardian": "My child knows what they are supposed to be paying attention to in a given situation.",
+          "text": "I listen carefully when coaches or teammates give important information.",
+          "textAboutPlayer": "The player listens carefully when coaches or teammates give important information.",
+          "textForGuardian": "My child listens carefully when important information or instructions are given.",
           "reversed": false
         },
         {
           "key": "concentration-5",
-          "text": "I keep my focus through the closing minutes of a match.",
-          "textAboutPlayer": "The player keeps their focus through the closing minutes of a match.",
-          "textForGuardian": "My child keeps their focus through the closing minutes of a match.",
+          "text": "I remember and apply the focus points we have agreed on.",
+          "textAboutPlayer": "The player remembers and applies agreed focus points.",
+          "textForGuardian": "My child remembers and tries to apply agreed football-related focus points.",
           "reversed": false
         }
       ]
@@ -189,37 +189,37 @@
       "questions": [
         {
           "key": "control-1",
-          "text": "I stay calm when the match gets tight.",
-          "textAboutPlayer": "The player stays calm when the match gets tight.",
-          "textForGuardian": "My child stays calm when the match gets tight.",
+          "text": "I regain my composure quickly after making a mistake.",
+          "textAboutPlayer": "The player regains their composure quickly after making a mistake.",
+          "textForGuardian": "My child regains their composure after making mistakes.",
           "reversed": false
         },
         {
           "key": "control-2",
-          "text": "I handle decisions I disagree with without losing my head.",
-          "textAboutPlayer": "The player handles decisions they disagree with without losing their head.",
-          "textForGuardian": "My child handles decisions they disagree with without losing their head.",
+          "text": "I stay calm enough to respond effectively when I am under pressure.",
+          "textAboutPlayer": "The player stays calm enough to respond effectively when under pressure.",
+          "textForGuardian": "My child is able to stay sufficiently calm when under pressure.",
           "reversed": false
         },
         {
           "key": "control-3",
-          "text": "I get angry with myself when I make a mistake.",
-          "textAboutPlayer": "The player gets angry with themselves when they make a mistake.",
-          "textForGuardian": "My child gets angry with themselves when they make a mistake.",
-          "reversed": true
+          "text": "I respond constructively when I become frustrated or disappointed.",
+          "textAboutPlayer": "The player responds constructively when frustrated or disappointed.",
+          "textForGuardian": "My child responds constructively when frustrated or disappointed.",
+          "reversed": false
         },
         {
           "key": "control-4",
-          "text": "I keep my body language steady when things go against me.",
-          "textAboutPlayer": "The player keeps their body language steady when things go against them.",
-          "textForGuardian": "My child keeps their body language steady when things go against them.",
+          "text": "I take responsibility for my reactions rather than blaming others.",
+          "textAboutPlayer": "The player takes responsibility for their reactions rather than blaming others.",
+          "textForGuardian": "My child takes responsibility for their reactions rather than blaming others.",
           "reversed": false
         },
         {
           "key": "control-5",
-          "text": "I can settle myself down when I notice I am getting stressed.",
-          "textAboutPlayer": "The player can settle themselves down when they notice they are getting stressed.",
-          "textForGuardian": "My child can settle themselves down when they notice they are getting stressed.",
+          "text": "I help teammates regain their composure when they are struggling.",
+          "textAboutPlayer": "The player helps teammates regain their composure when they are struggling.",
+          "textForGuardian": "My child tries to support teammates when they are frustrated or struggling.",
           "reversed": false
         }
       ]
@@ -231,37 +231,37 @@
       "questions": [
         {
           "key": "confidence-1",
-          "text": "I trust my own ability in a match.",
-          "textAboutPlayer": "The player trusts their own ability in a match.",
-          "textForGuardian": "My child trusts their own ability in a match.",
+          "text": "I take responsibility and make myself available in difficult situations.",
+          "textAboutPlayer": "The player takes responsibility and makes themselves available in difficult situations.",
+          "textForGuardian": "My child takes responsibility rather than avoiding difficult situations.",
           "reversed": false
         },
         {
           "key": "confidence-2",
-          "text": "I dare to try new things in training even if I might fail.",
-          "textAboutPlayer": "The player dares to try new things in training even if they might fail.",
-          "textForGuardian": "My child dares to try new things in training even if they might fail.",
+          "text": "I attempt challenging actions even when I am unsure whether they will succeed.",
+          "textAboutPlayer": "The player attempts challenging actions even when they are unsure whether they will succeed.",
+          "textForGuardian": "My child is willing to attempt challenging things even when they are unsure whether they will succeed.",
           "reversed": false
         },
         {
           "key": "confidence-3",
-          "text": "I am afraid of making mistakes in front of the others on the team.",
-          "textAboutPlayer": "The player is afraid of making mistakes in front of the others on the team.",
-          "textForGuardian": "My child is afraid of making mistakes in front of the others on the team.",
-          "reversed": true
+          "text": "After making a mistake, I get involved again rather than withdrawing.",
+          "textAboutPlayer": "After making a mistake, the player gets involved again rather than withdrawing.",
+          "textForGuardian": "After making mistakes or experiencing setbacks, my child is willing to try again.",
+          "reversed": false
         },
         {
           "key": "confidence-4",
-          "text": "I believe I will reach the goals I have set for myself.",
-          "textAboutPlayer": "The player believes they will reach the goals they have set for themselves.",
-          "textForGuardian": "My child believes they will reach the goals they have set for themselves.",
+          "text": "I show belief in my ability when I am under pressure.",
+          "textAboutPlayer": "The player shows belief in their ability when under pressure.",
+          "textForGuardian": "My child shows belief in their ability when facing pressure or challenges.",
           "reversed": false
         },
         {
           "key": "confidence-5",
-          "text": "I ask for the ball in situations that matter.",
-          "textAboutPlayer": "The player asks for the ball in situations that matter.",
-          "textForGuardian": "My child asks for the ball in situations that matter.",
+          "text": "My body language shows confidence when things are difficult.",
+          "textAboutPlayer": "The player's body language shows confidence when things are difficult.",
+          "textForGuardian": "My child's body language generally shows confidence when things are difficult.",
           "reversed": false
         }
       ]
