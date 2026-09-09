@@ -80,6 +80,12 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
             CoachHasAnswered = comparison.CoachHasAnswered,
             CoachAnswersReleased = released,
 
+            // Read from the UNREDACTED comparison, on purpose. It says only that there is
+            // something written, never what -- which is the same thing the page already
+            // says about the coach's numbers at this stage, and the reason it can say
+            // "not shared yet" instead of leaving a silent gap.
+            CoachWroteReflection = comparison.Reflection.Any(r => r.Coach.HasAnswer),
+
             CanFillIn = round.IsOpenAt(DateTimeOffset.UtcNow),
             FillRole = viewerIsGuardian ? RespondentType.Guardian : RespondentType.Player,
 

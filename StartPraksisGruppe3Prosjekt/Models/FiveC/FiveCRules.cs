@@ -36,6 +36,19 @@ public static class FiveCRules
     public const double AgreementThreshold = 0.5;
 
     /// <summary>
+    /// How much room a written reflection answer is given in the database, in characters.
+    /// The question set may ask for less per question; it may not ask for more, because
+    /// this is the size of the column the answer lands in. See <see cref="ReflectionQuestion.MaxLength"/>.
+    /// </summary>
+    public const int ReflectionTextLimit = 2000;
+
+    /// <summary>
+    /// What a reflection question gets when the file does not say. Room for a paragraph --
+    /// the questions ask for one example or one behaviour, not an essay.
+    /// </summary>
+    public const int DefaultReflectionMaxLength = 1000;
+
+    /// <summary>
     /// A difference score at or above this is a full point apart on the average statement:
     /// the coach and the player are not describing the same season. This is the number the
     /// overview sorts on.
