@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Models.FiveC;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using Xunit;
@@ -291,4 +292,84 @@ internal static class TestCatalog
             NullLogger<QuestionCatalog>.Instance));
 
     public static IQuestionCatalog Load() => Instance.Value;
+
+    /// <summary>
+    /// The real question set with one statement additionally marked reversed.
+    ///
+    /// Whether a statement is negatively worded is an editorial choice about the wording,
+    /// and the coaching team rewrites the file as they see fit -- the set on it today is
+    /// phrased positively throughout. Reversal is still part of how an answer is read, and
+    /// the next set may well use it, so a test of that scoring brings its own reversed
+    /// statement rather than depending on the file to keep containing one.
+    /// </summary>
+    public static IQuestionCatalog WithReversed(string questionKey) =>
+        new ReversedCatalog(Load().Questions, questionKey);
+
+    private sealed class ReversedCatalog : IQuestionCatalog
+    {
+        private readonly IReadOnlyDictionary<string, Question> _questionsByKey;
+        private readonly IReadOnlyDictionary<string, QuestionCategory> _categoriesByKey;
+        private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
+
+        public ReversedCatalog(QuestionSet source, string questionKey)
+        {
+            if (!source.AllQuestions.Any(q => Matches(q, questionKey)))
+            {
+                // Without this, a renamed key would leave the caller testing an ordinary
+                // statement while believing it had reversed one -- the same silent gap the
+                // reversal test is built to avoid.
+                throw new ArgumentException(
+                    $"The question set has no question '{questionKey}' to reverse.",
+                    nameof(questionKey));
+            }
+
+            Questions = new QuestionSet
+            {
+                Version = source.Version,
+                Scale = source.Scale,
+                Categories = source.Categories
+                    .Select(category => new QuestionCategory
+                    {
+                        Key = category.Key,
+                        Name = category.Name,
+                        Description = category.Description,
+                        Questions = category.Questions
+                            .Select(question => new Question
+                            {
+                                Key = question.Key,
+                                Text = question.Text,
+                                TextAboutPlayer = question.TextAboutPlayer,
+                                TextForGuardian = question.TextForGuardian,
+                                Reversed = question.Reversed || Matches(question, questionKey)
+                            })
+                            .ToList()
+                    })
+                    .ToList()
+            };
+
+            _categoriesByKey = Questions.Categories.ToDictionary(
+                c => c.Key, StringComparer.OrdinalIgnoreCase);
+
+            _questionsByKey = Questions.AllQuestions.ToDictionary(
+                q => q.Key, StringComparer.OrdinalIgnoreCase);
+
+            _categoryByQuestionKey = Questions.Categories
+                .SelectMany(c => c.Questions.Select(q => (q.Key, Category: c)))
+                .ToDictionary(pair => pair.Key, pair => pair.Category, StringComparer.OrdinalIgnoreCase);
+        }
+
+        public QuestionSet Questions { get; }
+
+        public Question? FindQuestion(string key) =>
+            _questionsByKey.TryGetValue(key, out var question) ? question : null;
+
+        public QuestionCategory? FindCategory(string key) =>
+            _categoriesByKey.TryGetValue(key, out var category) ? category : null;
+
+        public QuestionCategory? FindCategoryForQuestion(string questionKey) =>
+            _categoryByQuestionKey.TryGetValue(questionKey, out var category) ? category : null;
+
+        private static bool Matches(Question question, string key) =>
+            string.Equals(question.Key, key, StringComparison.OrdinalIgnoreCase);
+    }
 }

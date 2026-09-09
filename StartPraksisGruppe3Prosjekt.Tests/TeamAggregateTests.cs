@@ -104,7 +104,12 @@ public sealed class TeamAggregateTests
     public async Task Per_statement_averages_are_scored_so_a_reversed_statement_reads_like_the_rest()
     {
         using var database = new TestDatabase();
-        var catalog = TestCatalog.Load();
+
+        // The set on file is phrased positively throughout, so the fixture marks one
+        // statement reversed itself. The alternative -- reading the file and hoping a
+        // negatively worded statement is still in it -- makes this test's subject a
+        // wording decision rather than the scoring it is here to check.
+        var catalog = TestCatalog.WithReversed("commitment-1");
 
         var round = await database.AddOpenRoundAsync();
 
