@@ -43,7 +43,15 @@
     </div>
 </section>
 
-<form asp-action="Fill" method="post" data-survey-form data-question-count="@Model.QuestionCount">
+@*
+    data-survey-draft turns on the local copy survey.js keeps while the form is being
+    filled in. data-survey-saved-at is what decides between that copy and the answers on
+    this page when both exist -- see SurveyFormViewModel.LastSavedAt.
+*@
+<form asp-action="Fill" method="post" data-survey-form
+      data-question-count="@Model.QuestionCount"
+      data-survey-draft="@Model.DraftKey"
+      data-survey-saved-at="@(Model.LastSavedAt?.ToUniversalTime().ToString("o"))">
     <input type="hidden" asp-for="RoundId" />
     <input type="hidden" asp-for="PlayerId" />
     <input type="hidden" asp-for="Respondent" />
@@ -53,6 +61,15 @@
             <p class="sc-progress__text" data-survey-counter>
                 @Model.AnsweredCount of @Model.QuestionCount answered
             </p>
+
+            @*
+                The same count, for a screen reader. A separate element rather than
+                aria-live on the line above, because the two want different timing: the
+                visible number has to move the instant an answer is given, and a live
+                region that spoke on every one of twenty-five clicks would talk over the
+                answer itself. survey.js writes this one once the answering has paused.
+            *@
+            <span class="visually-hidden" role="status" aria-live="polite" data-survey-announce></span>
             <div class="sc-progress__track">
                 <div class="sc-progress__bar" data-survey-bar></div>
             </div>
@@ -69,6 +86,20 @@
                 </p>
             </div>
         }
+
+        @*
+            Shown by survey.js when it has put a local draft back on the page. Empty and
+            hidden until then -- and never shown at all when there was nothing to restore.
+        *@
+        <div class="sc-notice sc-notice--info" data-survey-draft-notice hidden>
+            <p>
+                <strong>Your unsaved answers have been put back.</strong>
+                They were kept on this device when the page closed before you saved.
+                Check them over and save when you are ready, or
+                <button type="button" class="sc-inline-action" data-survey-draft-discard>
+                    discard them and start from what was saved</button>.
+            </p>
+        </div>
 
         @if (Model.IsCorrection)
         {

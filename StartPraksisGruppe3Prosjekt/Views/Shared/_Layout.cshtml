@@ -50,6 +50,13 @@
     <link rel="stylesheet" href="~/StartPraksisGruppe3Prosjekt.styles.css" asp-append-version="true" />
 </head>
 <body>
+    @*
+        First thing in the tab order, and invisible until it has focus. Without it a
+        keyboard user tabs the whole navigation again on every page -- and the form pages
+        are exactly where somebody is moving through the page by keyboard.
+    *@
+    <a class="sc-skip" href="#main-content">Skip to content</a>
+
     <header class="sc-header">
         <nav class="navbar navbar-expand-lg navbar-light">
             <div class="sc-page d-flex align-items-center justify-content-between w-100">
@@ -114,7 +121,8 @@
         </nav>
     </header>
 
-    <main role="main">
+    @* tabindex="-1" so the skip link can move focus here; it is not in the tab order. *@
+    <main role="main" id="main-content" tabindex="-1">
         @if (fullWidth)
         {
             @RenderBody()

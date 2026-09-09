@@ -41,10 +41,17 @@
     /* The score bands. Red-amber-green, but at the club's saturation rather than a
        traffic light's: these numbers sit in tables of other numbers, and a signal colour
        loud enough to stop traffic makes the whole table hard to read.
-       --sc-warn is its own token even though it currently equals --sc-coach: they mean
+       --sc-warn is its own token even though it started out equal to --sc-coach: they mean
        different things, and the day the coach bar changes colour the amber band should
-       not change with it. */
-    --sc-warn: #a06c14;
+       not change with it.
+
+       It is now a shade darker than --sc-coach, and has to stay at least this dark. The
+       amber band is the only one that is text rather than a fill: it names the "on the
+       way" range AND colours the average printed next to it. At #a06c14 that text sat at
+       4.09:1 on --sc-mid-wash, under the 4.5:1 WCAG AA asks of body text -- so the one
+       band meaning "watch this player" was the one hardest to read. #92620f is 4.78:1 on
+       the wash and 5.28:1 on white. */
+    --sc-warn: #92620f;
     --sc-low-wash: #fbeeec;
     --sc-mid-wash: #fbf3e2;
     --sc-strong-wash: #ecf3ee;
@@ -65,6 +72,68 @@
 
     --sc-sans: "Barlow", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
     --sc-display: "Barlow Condensed", "Segoe UI Semibold", "Arial Narrow", var(--sc-sans);
+}
+
+/* ------------------------------------------------------------ skip link ---- */
+
+/* Off-screen rather than display:none -- a hidden element is not focusable, and the whole
+   point is that it is reachable by Tab. It parks itself over the header when it gets
+   focus, in the same yellow-on-ink the rest of the chrome uses. */
+/* a.sc-skip:link, not .sc-skip: _Layout.cshtml.css ships a scoped "a[b-...]" rule, which
+   is two classes' worth of specificity and loads after this file. A plain .sc-skip loses
+   to it and the link comes out blue on black -- 4.06:1, worse than what it replaced. */
+a.sc-skip,
+a.sc-skip:link,
+a.sc-skip:visited {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+    font-weight: 700;
+    left: 8px;
+    padding: 12px 18px;
+    position: fixed;
+    text-decoration: none;
+    top: -100px;
+    transition: top 120ms ease-in;
+    z-index: 1080;
+}
+
+a.sc-skip:focus {
+    color: var(--sc-yellow);
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+    top: 8px;
+}
+
+/* The skip target itself. It takes focus, and a focus ring drawn round the whole page
+   would be noise -- the jump is the feedback. */
+main[tabindex="-1"]:focus {
+    outline: none;
+}
+
+/* --------------------------------------------------------- inline action ---- */
+
+/* A button that has to read as part of a sentence. The alternative here was sc-btn--link,
+   which is a filled block: dropped into the middle of a paragraph it stops the sentence
+   dead and looks like the primary thing to do, which is the opposite of what an undo
+   offered in a notice should look like. */
+.sc-inline-action {
+    background: none;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sc-inline-action:hover {
+    text-decoration: none;
+}
+
+.sc-inline-action:focus-visible {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------- base ---- */
@@ -350,36 +419,93 @@ body {
 
 .sc-modal .modal-content {
     border: 1px solid var(--sc-border);
-    border-top: 5px solid var(--sc-blue);
     border-radius: 0;
 }
 
-.sc-modal .modal-header {
-    align-items: flex-start;
-    padding: 20px 26px 12px;
+/* Wider than Bootstrap's 500px. The body is prose with two bulleted lists under it, and at
+   the default width the sentences broke every six or seven words. */
+@media (min-width: 576px) {
+    .sc-modal .modal-dialog {
+        max-width: 580px;
+    }
+}
+
+/* The banner every other page in StartCompass opens with, at dialog size: the yellow
+   ground, the diagonal hatch and the black edge under it. Opening a C is going somewhere,
+   and without this the dialog reads as a box of text laid over the front page. */
+.sc-modal__header {
+    background: var(--sc-yellow);
+    border-bottom: 4px solid var(--sc-ink);
+    display: block;
+    overflow: hidden;
+    padding: 26px 26px 22px;
+    position: relative;
+}
+
+.sc-modal__header::before {
+    background-image: repeating-linear-gradient(115deg,
+            rgba(0, 0, 0, 0.05) 0 2px,
+            transparent 2px 46px);
+    content: "";
+    inset: 0;
+    position: absolute;
+}
+
+.sc-modal__header > * {
+    position: relative;
+}
+
+/* The rule takes the category's own colour, set on the element by site.js. currentColor,
+   because that is what the sc-qcolor-- classes carry. */
+.sc-modal__rule {
+    background: currentColor;
 }
 
 .sc-modal .modal-title {
-    color: var(--sc-foreground);
+    color: var(--sc-ink);
     font-family: var(--sc-display);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.05;
+    font-size: clamp(28px, 6vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 0.98;
+    margin: 0;
     text-transform: uppercase;
+}
+
+/* The Norwegian name. Under the heading rather than in brackets after it: it is the same
+   word again, not part of the title. */
+.sc-modal__subtitle {
+    color: rgba(0, 0, 0, 0.68);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    margin: 8px 0 0;
+    text-transform: uppercase;
+}
+
+/* Out of the flow, so the heading below starts at the left edge like every other page
+   heading instead of being pushed in by the button. */
+.sc-modal .btn-close {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    z-index: 1;
 }
 
 .sc-modal .modal-body {
     color: var(--sc-foreground);
-    font-size: 14px;
-    line-height: 1.6;
-    padding: 12px 26px 26px;
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 24px 26px 28px;
 }
 
 .sc-modal .modal-body h3 {
+    border-top: 1px solid var(--sc-border);
     color: var(--sc-blue);
     font-family: var(--sc-display);
     font-size: 18px;
-    margin: 22px 0 6px;
+    margin: 24px 0 10px;
+    padding-top: 18px;
     text-transform: uppercase;
 }
 
@@ -390,6 +516,10 @@ body {
 .sc-modal .modal-body ul {
     margin: 0;
     padding-left: 20px;
+}
+
+.sc-modal .modal-body li + li {
+    margin-top: 4px;
 }
 
 .sc-modal__reflection {
@@ -403,7 +533,7 @@ body {
         margin: 12px;
     }
 
-    .sc-modal .modal-header,
+    .sc-modal__header,
     .sc-modal .modal-body {
         padding-left: 20px;
         padding-right: 20px;

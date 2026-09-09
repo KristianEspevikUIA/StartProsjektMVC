@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	}
 
 	const title = modal.querySelector("#five-c-details-title");
+	const subtitle = modal.querySelector("[data-five-c-subtitle]");
+	const rule = modal.querySelector("[data-five-c-rule]");
 	const contentPanels = modal.querySelectorAll("[data-five-c-content]");
 	let trigger = null;
 
@@ -26,7 +28,18 @@ document.addEventListener("DOMContentLoaded", () => {
 		contentPanels.forEach((contentPanel) => {
 			contentPanel.hidden = contentPanel !== panel;
 		});
-		title.textContent = `${trigger.querySelector("h3").textContent} (${panel.dataset.fiveCNorwegian})`;
+
+		// From the button's own data, not from the card around it. The heading used to be
+		// read out of an <h3> inside the trigger -- there is none, the h3 is its sibling --
+		// so this threw on every open and the dialog appeared with no heading at all.
+		title.textContent = trigger.dataset.fiveCName || "";
+		subtitle.textContent = panel.dataset.fiveCNorwegian || "";
+
+		// The rule above the heading takes the C's own colour, the same one its statements
+		// are marked with in the form. A class rather than a style attribute: the content
+		// security policy has no unsafe-inline, and these classes already exist for the
+		// markers -- see QuestionColors.
+		rule.className = `sc-rule sc-modal__rule sc-qcolor--${trigger.dataset.fiveCColor || "slate"}`;
 	});
 
 	modal.addEventListener("hidden.bs.modal", () => {

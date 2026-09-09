@@ -20,8 +20,10 @@
         }
 
         var counter = form.querySelector("[data-survey-counter]");
+        var announcer = form.querySelector("[data-survey-announce]");
         var bar = form.querySelector("[data-survey-bar]");
         var total = parseInt(form.getAttribute("data-question-count"), 10);
+        var announceTimer = null;
 
         if (!counter || isNaN(total) || total <= 0) {
             return;
@@ -44,13 +46,33 @@
             return Object.keys(groups).length;
         }
 
-        function update() {
-            var answered = answeredCount();
+        // The same sentence, for a screen reader, once the clicking has stopped. Spoken on
+        // every answer it would land on top of the radio the reader has just announced, and
+        // twenty-five times over the course of the form. Waiting for a pause turns a burst
+        // of answering into one sentence at the point somebody might want it.
+        function announce(text) {
+            if (!announcer) {
+                return;
+            }
 
-            counter.textContent = answered + " of " + total + " answered";
+            window.clearTimeout(announceTimer);
+            announceTimer = window.setTimeout(function () {
+                announcer.textContent = text;
+            }, 1200);
+        }
+
+        function update(quietly) {
+            var answered = answeredCount();
+            var text = answered + " of " + total + " answered";
+
+            counter.textContent = text;
 
             if (bar) {
                 bar.style.width = Math.round((answered / total) * 100) + "%";
+            }
+
+            if (!quietly) {
+                announce(text);
             }
         }
 
@@ -60,7 +82,230 @@
             }
         });
 
-        update();
+        // Nothing to announce about a page that has only just opened -- the count is part
+        // of the page a reader is about to go through anyway.
+        update(true);
+    }
+
+    // A local copy of the form while it is being filled in.
+    //
+    // Thirty questions, answered on a phone, between other things. A locked screen, a
+    // mistaken back-gesture or a tab the browser reclaims used to cost every answer, with
+    // nothing on the way out to say it was about to happen.
+    //
+    // This is not saving, and the notice on the page says so. It is the copy that makes it
+    // possible to carry on; the answers still only exist for anybody else once the form has
+    // been submitted. It is dropped the moment that happens.
+    function initDraft() {
+        var form = document.querySelector("[data-survey-form]");
+        if (!form) {
+            return;
+        }
+
+        var key = form.getAttribute("data-survey-draft");
+        if (!key) {
+            return;
+        }
+
+        // Private windows, a browser told to keep no site data, a full quota. All of them
+        // throw rather than return null, and none of them is a reason to break the form --
+        // without storage the guard at the bottom is the protection that is left, and it
+        // does not need any.
+        var store = (function () {
+            try {
+                var probe = "startcompass:probe";
+                window.localStorage.setItem(probe, "1");
+                window.localStorage.removeItem(probe);
+                return window.localStorage;
+            } catch (error) {
+                return null;
+            }
+        })();
+
+        var storageKey = "startcompass:draft:" + key;
+
+        // What was on the server when this page was rendered. It goes into the draft and is
+        // compared on the way back in: a draft written against a different submission is one
+        // this respondent has since overtaken somewhere else -- answered on a laptop after
+        // half-answering on a phone -- and putting it back would undo that.
+        //
+        // Compared rather than dated, deliberately. A draft carries the browser's clock and
+        // the submission carries the server's, and deciding which of those is newer is a
+        // guess. Whether they are the same string is not.
+        var renderedFrom = form.getAttribute("data-survey-saved-at") || "";
+
+        var notice = form.querySelector("[data-survey-draft-notice]");
+        var discard = form.querySelector("[data-survey-draft-discard]");
+        var saveTimer = null;
+        var unsaved = false;
+        var submitting = false;
+
+        function fields() {
+            return form.querySelectorAll("input[type=radio], textarea");
+        }
+
+        function read() {
+            var values = {};
+            var all = fields();
+
+            for (var i = 0; i < all.length; i++) {
+                var field = all[i];
+
+                if (field.type === "radio") {
+                    // Only the checked one, and its value may be "" -- that is the
+                    // reflection's "Not answered", which is a state worth remembering.
+                    if (field.checked) {
+                        values[field.name] = field.value;
+                    }
+                } else {
+                    // Written answers go in whatever they hold, empty included: somebody who
+                    // cleared a paragraph meant to clear it.
+                    values[field.name] = field.value;
+                }
+            }
+
+            return values;
+        }
+
+        function write(values) {
+            var all = fields();
+
+            for (var i = 0; i < all.length; i++) {
+                var field = all[i];
+                var value = values[field.name];
+
+                if (value === undefined) {
+                    continue;
+                }
+
+                if (field.type === "radio") {
+                    field.checked = field.value === value;
+                } else {
+                    field.value = value;
+                }
+            }
+        }
+
+        function forget() {
+            unsaved = false;
+
+            if (!store) {
+                return;
+            }
+
+            try {
+                store.removeItem(storageKey);
+            } catch (error) {
+                // Nothing to do about it, and nothing depends on it having worked.
+            }
+        }
+
+        function save() {
+            if (!store) {
+                return;
+            }
+
+            try {
+                store.setItem(storageKey, JSON.stringify({
+                    renderedFrom: renderedFrom,
+                    values: read()
+                }));
+            } catch (error) {
+                // Out of quota, or storage switched off between the probe and now. The form
+                // still works; it just no longer has a copy to fall back on.
+            }
+        }
+
+        function restore() {
+            if (!store) {
+                return;
+            }
+
+            var raw;
+            try {
+                raw = store.getItem(storageKey);
+            } catch (error) {
+                return;
+            }
+
+            if (!raw) {
+                return;
+            }
+
+            var draft;
+            try {
+                draft = JSON.parse(raw);
+            } catch (error) {
+                // Written by something older, or half-written. Not worth guessing at.
+                forget();
+                return;
+            }
+
+            if (!draft || !draft.values || draft.renderedFrom !== renderedFrom) {
+                forget();
+                return;
+            }
+
+            // A draft saying exactly what the page already says does not deserve a notice
+            // announcing that something was put back. Most reloads land here.
+            if (JSON.stringify(draft.values) === JSON.stringify(read())) {
+                return;
+            }
+
+            write(draft.values);
+            unsaved = true;
+
+            if (notice) {
+                notice.hidden = false;
+            }
+
+            // The count, the per-tab totals and the flags all read the fields, so they have
+            // to be told the fields moved under them.
+            form.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+
+        if (discard) {
+            discard.addEventListener("click", function () {
+                forget();
+
+                // Back to what the server sent, which is what starting from the saved
+                // answers means. A reload is the only honest way to get there: the page no
+                // longer holds those values once the draft has been written over them.
+                window.location.reload();
+            });
+        }
+
+        function touched() {
+            unsaved = true;
+            window.clearTimeout(saveTimer);
+            saveTimer = window.setTimeout(save, 400);
+        }
+
+        // Both events: "change" is what a radio fires, and "input" is what a textarea fires
+        // while it is still being typed in -- which is the one that must not wait.
+        form.addEventListener("change", touched);
+        form.addEventListener("input", touched);
+
+        form.addEventListener("submit", function () {
+            // From here the answers are the server's problem. Marked before the request goes
+            // out, so the guard below does not stop the submit it has been waiting for.
+            submitting = true;
+            window.clearTimeout(saveTimer);
+            forget();
+        });
+
+        // The last line of defence, and the only one in a private window. Browsers ignore
+        // the message and show their own, so there is no point writing one.
+        window.addEventListener("beforeunload", function (event) {
+            if (!unsaved || submitting) {
+                return;
+            }
+
+            event.preventDefault();
+            event.returnValue = "";
+        });
+
+        restore();
     }
 
     function initCopyLinks() {
@@ -531,6 +776,7 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         initProgress();
+        initDraft();
         initCopyLinks();
         initPlayerFilter();
         initFormSteps(initSectionTabs());

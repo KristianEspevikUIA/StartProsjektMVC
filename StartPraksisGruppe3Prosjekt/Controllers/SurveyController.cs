@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -390,6 +392,21 @@ public class SurveyController : Controller
     }
 
     /// <summary>
+    /// Names this respondent's unsaved draft of this form in their own browser. See
+    /// <see cref="SurveyFormViewModel.DraftKey"/> for what it is for.
+    ///
+    /// Hashed rather than written out: the value ends up in page source, and the three
+    /// things it is built from include an account id. Not a secret and not doing any
+    /// security work -- it only has to be stable for one person and different for the next.
+    /// </summary>
+    private static string DraftKey(int roundId, int playerId, string userId)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{roundId}:{playerId}:{userId}"));
+
+        return Convert.ToHexString(hash)[..16].ToLowerInvariant();
+    }
+
+    /// <summary>
     /// Builds the form from the question catalog. Called on GET and again whenever a POST
     /// has to be redisplayed, so there is exactly one place that decides what is on the page.
     /// </summary>
@@ -417,6 +434,8 @@ public class SurveyController : Controller
             Respondent = respondent,
             QuestionSetVersion = _catalog.Questions.Version,
             IsCorrection = existing is not null,
+            LastSavedAt = existing?.SubmittedAt,
+            DraftKey = DraftKey(round.Id, player.Id, UserId),
             Scale = _catalog.Questions.Scale
         };
 

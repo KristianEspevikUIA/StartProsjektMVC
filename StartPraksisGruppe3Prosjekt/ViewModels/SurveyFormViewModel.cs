@@ -50,6 +50,30 @@ public class SurveyFormViewModel
     public bool IsCorrection { get; set; }
 
     /// <summary>
+    /// Names this respondent's unsaved draft of this form in their own browser.
+    ///
+    /// The form is thirty questions long and is filled in on a phone, between other things.
+    /// Somebody who is interrupted -- a locked screen, a mistaken back-gesture, a tab the
+    /// browser reclaims -- used to lose every answer with no warning. survey.js keeps a copy
+    /// against this key and offers it back; nothing about that copy reaches the server.
+    ///
+    /// It is a hash of (round, player, respondent), not the three of them in the clear. It
+    /// only has to be stable for one person and different for the next -- and the browser it
+    /// is written in may well be a family tablet, where the same round and the same child
+    /// are answered by two people. Hashing keeps an account id out of the page source.
+    /// </summary>
+    public string DraftKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When this respondent's stored submission was last saved, or null if there is none.
+    ///
+    /// Decides which copy wins when both exist: a draft older than the submission on the
+    /// server is a leftover from a device that has since been overtaken, and restoring it
+    /// would quietly undo answers the respondent has already saved somewhere else.
+    /// </summary>
+    public DateTimeOffset? LastSavedAt { get; set; }
+
+    /// <summary>
     /// The answers, flat and in display order. This is the part that is model-bound.
     /// <see cref="Sections"/> points into this list by index.
     /// </summary>

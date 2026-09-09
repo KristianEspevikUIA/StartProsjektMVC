@@ -60,9 +60,18 @@
                     <h3>@category.Name</h3>
                     <p class="sc-card__meta">@category.Description</p>
                     <div class="sc-actions">
+                        @*
+                            The name and the colour ride along on the button rather than being
+                            read back out of the card by the script. Both come from the
+                            catalog, which is the same place the form takes them from -- so
+                            the heading over the detail matches the marker on every statement
+                            in that C, and neither is written out again in a .cshtml file.
+                        *@
                         <button class="sc-btn sc-btn--link" type="button"
                                 data-bs-toggle="modal" data-bs-target="#five-c-details"
-                                data-five-c-key="@category.Key">
+                                data-five-c-key="@category.Key"
+                                data-five-c-name="@category.Name"
+                                data-five-c-color="@Catalog.ColorForCategory(category.Key)">
                             Read more
                         </button>
                     </div>
@@ -76,9 +85,22 @@
     aria-modal="true" aria-labelledby="five-c-details-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title" id="five-c-details-title"></h2>
+            @*
+                A header, not a title bar. Opening a C is going somewhere, and every other
+                page in StartCompass says so with the yellow banner -- without it this reads
+                as a box of text that appeared over the front page.
+
+                Filled in by site.js from the button that opened it: the English name as the
+                heading, the Norwegian one under it, and the rule in that C's own colour.
+                Empty in the markup on purpose. There is one dialog for five categories, and
+                a heading written here would be a sixth version of a name that already lives
+                in the question set.
+            *@
+            <div class="modal-header sc-modal__header">
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="sc-rule sc-modal__rule" data-five-c-rule></div>
+                <h2 class="modal-title" id="five-c-details-title"></h2>
+                <p class="sc-modal__subtitle" data-five-c-subtitle></p>
             </div>
             <div class="modal-body">
                 <div data-five-c-content="commitment" data-five-c-norwegian="Forpliktelse" hidden>
