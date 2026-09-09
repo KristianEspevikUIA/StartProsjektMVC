@@ -140,68 +140,6 @@ public sealed record CategoryComparison(
 }
 
 /// <summary>
-/// What one person wrote in answer to one reflection question, ready to be shown.
-///
-/// <see cref="Value"/> is what is stored: a category key for a choice between the five C's,
-/// the words themselves for a written answer. <see cref="Display"/> is the same thing as it
-/// should be read -- "Confidence" rather than "confidence" -- so a view never has to look a
-/// category up, and a heading rewritten in the question set is picked up here.
-///
-/// <see cref="None"/> is both "did not answer" and "not yours to see". The player-facing
-/// page redacts the coach's reflection to it until the coach has shared, which is the same
-/// rule the numbers follow -- see <see cref="ViewModels.FiveC.FiveCFeedbackViewModel.Redact"/>.
-/// </summary>
-public sealed record ReflectionResponse(string? Value, string? Display)
-{
-    /// <summary>Nothing to show.</summary>
-    public static ReflectionResponse None { get; } = new(null, null);
-
-    public bool HasAnswer => !string.IsNullOrWhiteSpace(Value);
-}
-
-/// <summary>
-/// One reflection question, with what the player, the guardian and the coach each said.
-///
-/// Nothing here is scored or compared numerically. Two people picking the same C is worth
-/// seeing, and the view says so, but there is no difference score: the distance between
-/// "Control" and "Concentration" is not a number.
-/// </summary>
-/// <param name="QuestionKey">Stable key from the question set, e.g. "reflection-strength".</param>
-/// <param name="Number">Running number within the reflection. Matches the form.</param>
-/// <param name="Text">
-/// The question in the player's own wording, which is the reference one -- the same choice
-/// <see cref="QuestionComparison.Text"/> makes.
-/// </param>
-/// <param name="IsCategoryChoice">
-/// True when the answer is one of the five C's, false when it is written. The view shows a
-/// chosen C as a badge and a written answer as a quotation.
-/// </param>
-/// <param name="Player">What the player wrote or picked.</param>
-/// <param name="Guardian">The same for the guardian.</param>
-/// <param name="Coach">The same for the coach.</param>
-public sealed record ReflectionComparison(
-    string QuestionKey,
-    int Number,
-    string Text,
-    bool IsCategoryChoice,
-    ReflectionResponse Player,
-    ReflectionResponse Guardian,
-    ReflectionResponse Coach)
-{
-    /// <summary>True when nobody answered this question.</summary>
-    public bool Unanswered => !Player.HasAnswer && !Guardian.HasAnswer && !Coach.HasAnswer;
-
-    /// <summary>
-    /// True when the player and the coach picked the same C. Only meaningful for a choice,
-    /// and only when both of them answered.
-    /// </summary>
-    public bool PlayerAndCoachAgree =>
-        IsCategoryChoice
-        && Player.HasAnswer
-        && string.Equals(Player.Value, Coach.Value, StringComparison.OrdinalIgnoreCase);
-}
-
-/// <summary>
 /// All five categories for one player in one round, plus what is missing.
 /// </summary>
 /// <param name="PlayerId">The player.</param>
@@ -219,14 +157,6 @@ public sealed record ReflectionComparison(
 /// category scores. Averaging the categories would silently give a category with two
 /// answered statements the same weight as one with five.
 /// </param>
-/// <param name="Reflection">
-/// The end-of-period reflection, in the order the form asked it. Empty when the question
-/// set has no reflection section.
-///
-/// It sits beside the numbers rather than inside <see cref="Categories"/> because it is not
-/// one: a chosen C and a sentence do not belong to a category average, and nothing here is
-/// scored, compared or trended.
-/// </param>
 public sealed record PlayerFiveCComparison(
     int PlayerId,
     string PlayerCode,
@@ -235,12 +165,8 @@ public sealed record PlayerFiveCComparison(
     DateTimeOffset? PlayerSubmittedAt,
     DateTimeOffset? GuardianSubmittedAt,
     DateTimeOffset? CoachSubmittedAt,
-    DifferenceScores Differences,
-    IReadOnlyList<ReflectionComparison> Reflection)
+    DifferenceScores Differences)
 {
-    /// <summary>True when at least one of the three wrote anything in the reflection.</summary>
-    public bool HasReflection => Reflection.Any(r => !r.Unanswered);
-
     public bool PlayerHasAnswered => PlayerSubmittedAt.HasValue;
 
     public bool GuardianHasAnswered => GuardianSubmittedAt.HasValue;

@@ -23,30 +23,10 @@
     "    stored identically whichever wording produced it -- only the grammar changes.",
     "    Keep the three in step: they should differ in person, not in meaning.",
     "",
-    "After the 25 statements comes 'reflection': the short questions that close the",
-    "period. The whole block is optional -- delete it and the form is the 25 statements",
-    "it was. Each question is one of two kinds, and the three wordings above apply here",
-    "too:",
-    "",
-    "    'type': 'category'  -- answered by picking one of the five C's above. What is",
-    "                           stored is the category KEY, so a choice can be counted",
-    "                           without matching on a heading that may be rewritten.",
-    "    'type': 'text'      -- answered in the respondent's own words. 'maxLength' caps",
-    "                           it: 1000 unless the question says otherwise, and never",
-    "                           more than 2000, which is the size of the column.",
-    "",
-    "  * 'required' is false unless a question says otherwise. The 25 statements are the",
-    "    measurement; a compulsory paragraph after them is answered with a full stop.",
-    "    Turn it on per question if the club decides otherwise.",
-    "  * Reflection keys share one namespace with the statement keys. They have to be",
-    "    unique across the whole file.",
-    "  * Written answers are free text about a child. They are stored in a table of their",
-    "    own, are never scored, and follow the player into an export and a deletion.",
-    "",
     "The app validates this file at startup and refuses to start with a clear error if",
     "it is malformed, so a typo shows up immediately instead of halfway through a round."
   ],
-  "version": "placeholder-2026-09-09",
+  "version": "placeholder-2026-09-02",
   "scale": {
     "min": 1,
     "max": 5,
@@ -286,47 +266,5 @@
         }
       ]
     }
-    ],
-  "reflection": {
-    "title": "End of period",
-    "description": "Five short questions to close the period. The statements above say where things stand; these say what to do next. Answer the ones you have something to say about — none of them have to be filled in.",
-    "questions": [
-      {
-        "key": "reflection-strength",
-        "type": "category",
-        "text": "Which C has been your greatest strength during this meso period?",
-        "textAboutPlayer": "Which C has been the player's greatest strength during this meso period?",
-        "textForGuardian": "Which C has been your child's greatest strength during this meso period?"
-      },
-      {
-        "key": "reflection-strength-example",
-        "type": "text",
-        "maxLength": 500,
-        "text": "Please give one example of when you noticed this.",
-        "placeholder": "One situation is enough — a training session, a match, a conversation."
-      },
-      {
-        "key": "reflection-focus",
-        "type": "category",
-        "text": "Which C would be most useful for you to focus on during the next meso period?",
-        "textAboutPlayer": "Which C would be most useful for the player to focus on during the next meso period?",
-        "textForGuardian": "Which C would be most useful for your child to focus on during the next meso period?"
-      },
-      {
-        "key": "reflection-behaviour",
-        "type": "text",
-        "maxLength": 500,
-        "text": "What is one behaviour within this C that could be developed during the next meso period?",
-        "placeholder": "Something you would be able to see happening."
-      },
-      {
-        "key": "reflection-support",
-        "type": "text",
-        "maxLength": 500,
-        "text": "What could help you develop this?",
-        "textAboutPlayer": "What could help the player develop this?",
-        "textForGuardian": "What could help your child develop this?"
-      }
-    ]
-  }
+  ]
 }

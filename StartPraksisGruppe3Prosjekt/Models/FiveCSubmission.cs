@@ -71,12 +71,6 @@ public class FiveCSubmission
     public DateTimeOffset SubmittedAt { get; set; }
 
     public List<FiveCAnswer> Answers { get; set; } = new();
-
-    /// <summary>
-    /// The end-of-period reflection. Empty when the question set has no reflection section,
-    /// or when the respondent left all of it blank.
-    /// </summary>
-    public List<FiveCReflectionAnswer> Reflection { get; set; } = new();
 }
 
 /// <summary>One answer in a <see cref="FiveCSubmission"/>.</summary>
@@ -111,48 +105,4 @@ public class FiveCAnswer
     [Range(PlayerRules.ScaleMin, PlayerRules.ScaleMax)]
     [Display(Name = "Answer")]
     public int? Value { get; set; }
-}
-
-/// <summary>
-/// One answer to a reflection question: the part of the form that is words rather than
-/// numbers.
-///
-/// A table of its own rather than a text column on <see cref="FiveCAnswer"/>. Two reasons,
-/// both about what the row IS rather than about how it is joined:
-///
-///   * Nothing here is scored. The mean of a C, the difference between a coach and a player,
-///     the trend across periods -- none of them read this table, and a row that cannot be
-///     scored should not sit in the one that is summed.
-///   * It is free text about a child. A 1-5 answer is pseudonymous however it is written;
-///     a sentence is only as pseudonymous as whoever typed it. Keeping it in one named
-///     place is what makes it findable for an access request, and reviewable on its own.
-///
-/// It goes with the submission: cascade from <see cref="FiveCSubmission"/>, which itself
-/// cascades from the player, so deleting a player takes the written answers with it.
-/// </summary>
-public class FiveCReflectionAnswer
-{
-    public int Id { get; set; }
-
-    public int SubmissionId { get; set; }
-    public FiveCSubmission? Submission { get; set; }
-
-    /// <summary>
-    /// The stable key from Data/Questions/five-c-questions.json, e.g. "reflection-strength".
-    /// </summary>
-    [Required]
-    [StringLength(100)]
-    public string QuestionKey { get; set; } = string.Empty;
-
-    /// <summary>
-    /// What was answered: a category key ("confidence") for a choice between the five C's,
-    /// or what the respondent wrote for a written question.
-    ///
-    /// Nullable, and null means the question was left blank -- a blank is not stored as an
-    /// empty string. The length is the ceiling the question set is validated against; see
-    /// <see cref="Models.FiveC.FiveCRules.ReflectionTextLimit"/>.
-    /// </summary>
-    [StringLength(FiveC.FiveCRules.ReflectionTextLimit)]
-    [Display(Name = "Answer")]
-    public string? Value { get; set; }
 }

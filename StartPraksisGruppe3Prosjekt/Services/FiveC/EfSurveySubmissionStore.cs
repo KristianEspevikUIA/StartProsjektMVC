@@ -34,7 +34,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
     {
         var candidate = await _db.FiveCSubmissions
             .Include(s => s.Answers)
-            .Include(s => s.Reflection)
             .FirstOrDefaultAsync(
                 s => s.RoundId == submission.RoundId
                      && s.PlayerId == submission.PlayerId
@@ -54,7 +53,8 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         }
         else
         {
-            ClearAnswers(candidate);
+            _db.FiveCAnswers.RemoveRange(candidate.Answers);
+            candidate.Answers.Clear();
         }
 
         toPersist.PlayerCode = submission.PlayerCode;
@@ -62,7 +62,15 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         toPersist.QuestionSetVersion = submission.QuestionSetVersion;
         toPersist.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
 
-        AddAnswers(toPersist, submission);
+        foreach (var answer in submission.Answers)
+        {
+            toPersist.Answers.Add(new FiveCAnswer
+            {
+                QuestionKey = answer.QuestionKey,
+                CategoryKey = answer.CategoryKey,
+                Value = answer.Value
+            });
+        }
 
         try
         {
@@ -72,7 +80,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         {
             var retry = await _db.FiveCSubmissions
                 .Include(s => s.Answers)
-                .Include(s => s.Reflection)
                 .FirstOrDefaultAsync(
                     s => s.RoundId == submission.RoundId
                          && s.PlayerId == submission.PlayerId
@@ -84,60 +91,24 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
                 throw;
             }
 
-            ClearAnswers(retry);
+            _db.FiveCAnswers.RemoveRange(retry.Answers);
+            retry.Answers.Clear();
             retry.PlayerCode = submission.PlayerCode;
             retry.RespondentRole = submission.RespondentRole;
             retry.QuestionSetVersion = submission.QuestionSetVersion;
             retry.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
 
-            AddAnswers(retry, submission);
-
-            await _db.SaveChangesAsync(cancellationToken);
-        }
-    }
-
-    /// <summary>
-    /// Drops what a previous submission left behind, answers and reflection both. A
-    /// wholesale replace rather than a diff: it cannot leave an answer standing that the
-    /// respondent has since cleared, which is the whole point of letting them correct one.
-    /// </summary>
-    private void ClearAnswers(FiveCSubmission row)
-    {
-        _db.FiveCAnswers.RemoveRange(row.Answers);
-        row.Answers.Clear();
-
-        _db.FiveCReflectionAnswers.RemoveRange(row.Reflection);
-        row.Reflection.Clear();
-    }
-
-    /// <summary>Writes the submitted answers onto the row, in both tables.</summary>
-    private static void AddAnswers(FiveCSubmission row, SurveySubmission submission)
-    {
-        foreach (var answer in submission.Answers)
-        {
-            row.Answers.Add(new FiveCAnswer
+            foreach (var answer in submission.Answers)
             {
-                QuestionKey = answer.QuestionKey,
-                CategoryKey = answer.CategoryKey,
-                Value = answer.Value
-            });
-        }
-
-        // Only what was actually written. A blank reflection question is left out entirely
-        // rather than stored as an empty row -- "not answered" is the absence of a row here,
-        // exactly as a null value means it for a statement.
-        foreach (var answer in submission.Reflection)
-        {
-            if (string.IsNullOrWhiteSpace(answer.Value))
-            {
-                continue;
+                retry.Answers.Add(new FiveCAnswer
+                {
+                    QuestionKey = answer.QuestionKey,
+                    CategoryKey = answer.CategoryKey,
+                    Value = answer.Value
+                });
             }
 
-            row.Reflection.Add(new FiveCReflectionAnswer
-            {
-                QuestionKey = answer.QuestionKey,
-                Value = answer.Value
-            });
+            await _db.SaveChangesAsync(cancellationToken);
         }
     }
 
@@ -155,7 +126,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var row = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
-            .Include(s => s.Reflection)
             .FirstOrDefaultAsync(
                 s => s.RoundId == roundId
                      && s.PlayerId == playerId
@@ -174,7 +144,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
-            .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && s.PlayerId == playerId)
             .ToListAsync(cancellationToken);
 
@@ -199,7 +168,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
-            .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && ids.Contains(s.PlayerId))
             .ToListAsync(cancellationToken);
 
@@ -246,13 +214,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             {
                 QuestionKey = a.QuestionKey,
                 CategoryKey = a.CategoryKey,
-                Value = a.Value
-            })
-            .ToList(),
-        Reflection = row.Reflection
-            .Select(a => new ReflectionAnswer
-            {
-                QuestionKey = a.QuestionKey,
                 Value = a.Value
             })
             .ToList()

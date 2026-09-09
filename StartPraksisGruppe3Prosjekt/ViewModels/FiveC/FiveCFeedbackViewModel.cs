@@ -55,17 +55,6 @@ public class FiveCFeedbackViewModel
     /// <summary>Whether the coach has shared their answers with the player.</summary>
     public bool CoachAnswersReleased { get; set; }
 
-    /// <summary>
-    /// Whether the coach wrote anything in the reflection. Set from the comparison BEFORE it
-    /// is redacted, and it carries nothing but the fact -- what they wrote is not in the
-    /// model until they share it.
-    ///
-    /// It is here so the reflection can say "your coach has written something and will go
-    /// through it with you" rather than showing a gap. Saying that when the coach wrote
-    /// nothing would promise a paragraph that does not exist.
-    /// </summary>
-    public bool CoachWroteReflection { get; set; }
-
     /// <summary>Whether this viewer can still fill the form in for this period.</summary>
     public bool CanFillIn { get; set; }
 
@@ -143,14 +132,7 @@ public class FiveCFeedbackViewModel
 
             // The coach's submission time is kept: "your coach has answered" is exactly
             // what the player is allowed to know at this stage.
-            Differences = DifferenceScores.None,
-
-            // And what the coach WROTE. A sentence about a fourteen-year-old is the sharpest
-            // thing on this page, not the mildest -- if the five averages wait for the
-            // conversation, the paragraph explaining them certainly does.
-            Reflection = comparison.Reflection
-                .Select(r => r with { Coach = ReflectionResponse.None })
-                .ToList()
+            Differences = DifferenceScores.None
         };
 }
 

@@ -14,8 +14,7 @@ valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på t
 
 ## Status
 
-**Bygget og i bruk:** 5C-spørreskjemaet (25 påstander i fem kategorier, pluss
-refleksjonen som avslutter perioden), skjemalisten med
+**Bygget og i bruk:** 5C-spørreskjemaet (25 påstander, fem kategorier), skjemalisten med
 filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten med snitt per
 kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
 mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, admin-siden for
@@ -217,11 +216,6 @@ brukertekst skulle være på norsk. Views som ennå ikke er rørt, kan fortsatt 
 25 påstander i fem kategorier, 1–5-skala, besvart av spiller, foresatt og trener om samme
 spiller — pluss en treneroversikt som viser hvor de tre er uenige.
 
-Etter påstandene kommer **refleksjonen**: fem korte spørsmål som avslutter perioden — hvilken
-C som har vært sterkest, hvilken det er verdt å jobbe med neste periode, og hva som ville
-hjelpe. To av dem velger en C, tre besvares med egne ord. Alle tre gruppene får dem, ingen av
-dem er obligatoriske, og de ligger i den samme fila som påstandene. Se `docs/five-c.md`.
-
 **Spørsmålene ligger i `Data/Questions/five-c-questions.json` og ingen andre steder.** Ingen
 `.cshtml`-fil inneholder et kategorinavn eller en påstand, så treneteamet kan bytte hele
 settet uten at UI-koden røres. Fila valideres ved oppstart, og en feil i den stopper appen
@@ -231,15 +225,6 @@ Svarene lagres i **appens egen database**, som etter overgangen til Npgsql *er* 
 tabellene `FiveCSubmissions` og `FiveCAnswers`, med unik indeks på
 (runde, spiller, respondent) slik at et nytt svar er en retting og ikke en ny mening.
 Tidligere lå de i minnet og forsvant ved omstart.
-
-Refleksjonen ligger i sin egen tabell, `FiveCReflectionAnswers`. Den er fritekst om et barn
-og regnes aldri med i et snitt — derfor ikke i samme tabell som tallene. Den følger
-innsendingen, som følger spilleren: sletting av en spiller tar den med seg, og innsyn
-(`/Admin/Export/{id}`) har den med.
-
-Treneren ser alle tre refleksjonene på spillersiden sin. Spilleren og foresatte ser sin egen
-— og trenerens først når treneren har delt, samme regel som tallene følger, og av en sterkere
-grunn: en setning om en fjortenåring er skarpere enn et snitt, ikke mildere.
 
 To unntak finnes, og de er unntak — ikke alternativer:
 

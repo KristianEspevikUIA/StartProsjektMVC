@@ -16,10 +16,7 @@ using StartPraksisGruppe3Prosjekt.ViewModels;
 namespace StartPraksisGruppe3Prosjekt.Controllers;
 
 /// <summary>
-/// The 5C questionnaire: 25 statements in five categories, answered on a 1-5 scale, and
-/// the short reflection that closes the period -- the strongest C, the one to work on next,
-/// and what would help. Both come from the question set file; see
-/// <see cref="Models.FiveC.ReflectionSection"/>.
+/// The 5C questionnaire: 25 statements in five categories, answered on a 1-5 scale.
 ///
 /// The same form is used by all three respondent types. What differs is the header -- who
 /// is answering, and about whom -- not the statements. The statements themselves come from
@@ -246,7 +243,6 @@ public class SurveyController : Controller
         }
 
         var answers = ReadAnswers(model);
-        var reflection = ReadReflection(model);
 
         if (!ModelState.IsValid)
         {
@@ -260,16 +256,6 @@ public class SurveyController : Controller
                 if (answers.TryGetValue(input.QuestionKey, out var value))
                 {
                     input.Value = value;
-                }
-            }
-
-            // The same for the reflection: a rejected save must not throw away the paragraph
-            // somebody just wrote because a statement further up was left blank.
-            foreach (var input in redisplay.ReflectionAnswers)
-            {
-                if (reflection.TryGetValue(input.QuestionKey, out var written))
-                {
-                    input.Value = written;
                 }
             }
 
@@ -293,17 +279,6 @@ public class SurveyController : Controller
                     // Raw, unreversed, exactly as it was answered.
                     Value = answers.TryGetValue(question.Key, out var value) ? value : null
                 }))
-                .ToList(),
-
-            // Driven by the catalog for the same reason the answers are: the browser decides
-            // what it posts, the question set decides what is stored. Blanks are carried as
-            // null and dropped by the store -- a question left alone leaves no row.
-            Reflection = _catalog.Questions.ReflectionQuestions
-                .Select(question => new ReflectionAnswer
-                {
-                    QuestionKey = question.Key,
-                    Value = reflection.TryGetValue(question.Key, out var written) ? written : null
-                })
                 .ToList()
         };
 
@@ -393,10 +368,6 @@ public class SurveyController : Controller
         var previous = existing?.Answers.ToDictionary(a => a.QuestionKey, a => a.Value)
                        ?? new Dictionary<string, int?>();
 
-        var previousReflection = existing?.Reflection
-                                     .ToDictionary(a => a.QuestionKey, a => a.Value, StringComparer.OrdinalIgnoreCase)
-                                 ?? new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
         var model = new SurveyFormViewModel
         {
             RoundId = round.Id,
@@ -443,64 +414,8 @@ public class SurveyController : Controller
         }
 
         model.Sections = sections;
-        model.Reflection = BuildReflection(model, respondent, previousReflection);
 
         return model;
-    }
-
-    /// <summary>
-    /// The reflection block, or null when the question set does not have one.
-    ///
-    /// The choices are the catalog's own categories, so the five C's a respondent picks
-    /// between are by construction the five they have just answered about -- adding a sixth
-    /// C to the file adds it here too, with no code change.
-    /// </summary>
-    private SurveyFormViewModel.ReflectionBlock? BuildReflection(
-        SurveyFormViewModel model,
-        RespondentType respondent,
-        IReadOnlyDictionary<string, string?> previous)
-    {
-        var reflection = _catalog.Questions.Reflection;
-
-        if (reflection is null || reflection.Questions.Count == 0)
-        {
-            return null;
-        }
-
-        var choices = _catalog.Questions.Categories
-            .Select(c => new SurveyFormViewModel.ReflectionChoice(c.Key, c.Name))
-            .ToList();
-
-        var fields = new List<SurveyFormViewModel.ReflectionField>();
-        var number = 0;
-
-        foreach (var question in reflection.Questions)
-        {
-            var index = model.ReflectionAnswers.Count;
-
-            model.ReflectionAnswers.Add(new SurveyFormViewModel.ReflectionInput
-            {
-                QuestionKey = question.Key,
-                Value = previous.TryGetValue(question.Key, out var written) ? written : null
-            });
-
-            fields.Add(new SurveyFormViewModel.ReflectionField(
-                Index: index,
-                Number: ++number,
-                Text: question.TextFor(respondent),
-                IsCategoryChoice: question.IsCategoryChoice,
-                Required: question.Required,
-                MaxLength: question.MaxLength,
-                Placeholder: question.Placeholder,
-                Choices: question.IsCategoryChoice
-                    ? choices
-                    : Array.Empty<SurveyFormViewModel.ReflectionChoice>()));
-        }
-
-        return new SurveyFormViewModel.ReflectionBlock(
-            reflection.Title,
-            reflection.Description,
-            fields);
     }
 
     /// <summary>
@@ -568,98 +483,6 @@ public class SurveyController : Controller
         }
 
         return answers;
-    }
-
-    /// <summary>
-    /// Reads the posted reflection against the catalog, the same way <see cref="ReadAnswers"/>
-    /// reads the statements: an unknown key is dropped, and anything wrong is recorded in
-    /// ModelState rather than stored.
-    ///
-    /// Three things are checked here and cannot be checked in the view model, because they
-    /// depend on which question this is: that a chosen C is one of the C's in the file, that
-    /// a written answer is within the length that question allows, and that a question the
-    /// file marks as required was actually answered.
-    ///
-    /// What comes back is keyed by question and is what gets stored -- blanks included, as
-    /// null. Values that failed a check are in there too, so a rejected save redisplays what
-    /// the respondent wrote instead of clearing it; nothing is stored unless ModelState is
-    /// valid.
-    /// </summary>
-    private Dictionary<string, string?> ReadReflection(SurveyFormViewModel model)
-    {
-        var written = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
-        for (var i = 0; i < model.ReflectionAnswers.Count; i++)
-        {
-            var input = model.ReflectionAnswers[i];
-            var question = _catalog.FindReflectionQuestion(input.QuestionKey);
-
-            if (question is null)
-            {
-                // Either the form is stale because the question set changed under the
-                // respondent, or someone is editing field names. Same handling as for a
-                // statement: dropped, and said out loud in the log.
-                _logger.LogWarning(
-                    "Discarded an answer for the unknown reflection question '{QuestionKey}'.",
-                    input.QuestionKey);
-                continue;
-            }
-
-            var value = input.Value?.Trim();
-
-            if (string.IsNullOrEmpty(value))
-            {
-                // A blank is not an empty string. It is stored as null, or not at all.
-                written[question.Key] = null;
-                continue;
-            }
-
-            written[question.Key] = value;
-
-            if (question.IsCategoryChoice)
-            {
-                var category = _catalog.FindCategory(value);
-
-                if (category is null)
-                {
-                    ModelState.AddModelError(
-                        $"ReflectionAnswers[{i}].Value",
-                        "Choose one of the five C's.");
-                    continue;
-                }
-
-                // The catalog's own spelling, not the browser's. What is stored has to match
-                // the category keys everything else groups on.
-                written[question.Key] = category.Key;
-            }
-            else if (value.Length > question.MaxLength)
-            {
-                ModelState.AddModelError(
-                    $"ReflectionAnswers[{i}].Value",
-                    $"Keep this to {question.MaxLength} characters or fewer.");
-            }
-        }
-
-        // Questions the file marks as required. Off by default -- see ReflectionQuestion.Required.
-        foreach (var question in _catalog.Questions.ReflectionQuestions.Where(q => q.Required))
-        {
-            var answered = written.TryGetValue(question.Key, out var value)
-                           && !string.IsNullOrWhiteSpace(value);
-
-            if (answered)
-            {
-                continue;
-            }
-
-            var postedIndex = model.ReflectionAnswers.FindIndex(
-                a => string.Equals(a.QuestionKey, question.Key, StringComparison.OrdinalIgnoreCase));
-
-            ModelState.AddModelError(
-                $"ReflectionAnswers[{(postedIndex >= 0 ? postedIndex : 0)}].Value",
-                "This question has not been answered.");
-        }
-
-        return written;
     }
 
     /// <summary>Builds the closed-round page, including whether this user already answered.</summary>

@@ -9,8 +9,8 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 
 /// <summary>
 /// Stores 5C submissions in Supabase over PostgREST, the REST API every Supabase project
-/// exposes at /rest/v1. No client library: three tables and a handful of requests do not
-/// need one, and a package would be one more thing to keep in step with Victor's schema.
+/// exposes at /rest/v1. No client library: two tables and four requests do not need one,
+/// and a package would be one more thing to keep in step with Victor's schema.
 ///
 /// This class knows the SHAPE of the data -- <see cref="SurveySubmission"/> -- and gets the
 /// table and column names from <see cref="SupabaseOptions"/>. It does not define the schema.
@@ -66,11 +66,6 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
         //    respondent has since cleared.
         await DeleteAnswersAsync(submissionId, cancellationToken);
         await InsertAnswersAsync(submissionId, submission.Answers, cancellationToken);
-
-        // 3. The written reflection, same rule and same reason -- a paragraph the respondent
-        //    has deleted must not survive the correction.
-        await DeleteReflectionAsync(submissionId, cancellationToken);
-        await InsertReflectionAsync(submissionId, submission.Reflection, cancellationToken);
 
         _logger.LogInformation(
             "Stored 5C submission {SubmissionId}: round {RoundId}, player {PlayerId}, role {Role}.",
@@ -233,37 +228,6 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
         await EnsureSuccessAsync(response, "insert answers", cancellationToken);
     }
 
-    private async Task DeleteReflectionAsync(long submissionId, CancellationToken cancellationToken)
-    {
-        var url = $"{_options.ReflectionTable}?{_options.AnswerSubmissionColumn}=eq.{submissionId}";
-
-        using var response = await _http.DeleteAsync(url, cancellationToken);
-        await EnsureSuccessAsync(response, "delete previous reflection answers", cancellationToken);
-    }
-
-    private async Task InsertReflectionAsync(
-        long submissionId,
-        IReadOnlyList<ReflectionAnswer> reflection,
-        CancellationToken cancellationToken)
-    {
-        // Only what was actually written. A blank question is left out rather than stored as
-        // an empty row -- "not answered" is the absence of a row here.
-        var rows = reflection
-            .Where(a => !string.IsNullOrWhiteSpace(a.Value))
-            .Select(a => ReflectionRow.From(submissionId, a, _options.AnswerSubmissionColumn))
-            .ToList();
-
-        if (rows.Count == 0)
-        {
-            return;
-        }
-
-        using var response = await _http.PostAsJsonAsync(
-            _options.ReflectionTable, rows, Json, cancellationToken);
-
-        await EnsureSuccessAsync(response, "insert reflection answers", cancellationToken);
-    }
-
     private async Task<List<SubmissionRow>> GetRowsAsync(string query, CancellationToken cancellationToken)
     {
         using var response = await _http.GetAsync(query, cancellationToken);
@@ -308,42 +272,12 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
             .GroupBy(a => a.SubmissionId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        var reflectionBySubmission = await ReadReflectionAsync(ids, cancellationToken);
-
         return rows
             .Select(row => row.ToSubmission(
                 bySubmission.TryGetValue(row.Id ?? 0, out var list)
                     ? list.Select(a => a.ToAnswer()).ToList()
-                    : new List<SurveyAnswer>(),
-                reflectionBySubmission.TryGetValue(row.Id ?? 0, out var written)
-                    ? written.Select(a => a.ToAnswer()).ToList()
-                    : new List<ReflectionAnswer>()))
+                    : new List<SurveyAnswer>()))
             .ToList();
-    }
-
-    /// <summary>
-    /// The written reflection for a set of submissions, in one request. A second call rather
-    /// than a wider select on the answers table: it is a different table, and the two are
-    /// deliberately not joined in the schema either.
-    /// </summary>
-    private async Task<Dictionary<long, List<ReflectionRow>>> ReadReflectionAsync(
-        IReadOnlyList<long> submissionIds,
-        CancellationToken cancellationToken)
-    {
-        var query =
-            $"{_options.ReflectionTable}" +
-            $"?{_options.AnswerSubmissionColumn}=in.({string.Join(',', submissionIds)})" +
-            $"&select=submission_id:{_options.AnswerSubmissionColumn},question_key,value";
-
-        using var response = await _http.GetAsync(query, cancellationToken);
-        await EnsureSuccessAsync(response, "read reflection answers", cancellationToken);
-
-        var rows = await response.Content.ReadFromJsonAsync<List<ReflectionRow>>(Json, cancellationToken)
-                   ?? new List<ReflectionRow>();
-
-        return rows
-            .GroupBy(a => a.SubmissionId)
-            .ToDictionary(g => g.Key, g => g.ToList());
     }
 
     /// <summary>
@@ -409,9 +343,7 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
             SubmittedAt = submission.SubmittedAt
         };
 
-        public SurveySubmission ToSubmission(
-            IReadOnlyList<SurveyAnswer> answers,
-            IReadOnlyList<ReflectionAnswer> reflection) => new()
+        public SurveySubmission ToSubmission(IReadOnlyList<SurveyAnswer> answers) => new()
         {
             RoundId = RoundId,
             PlayerId = PlayerId,
@@ -420,8 +352,7 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
             RespondentUserId = RespondentUserId,
             QuestionSetVersion = QuestionSetVersion,
             SubmittedAt = SubmittedAt,
-            Answers = answers,
-            Reflection = reflection
+            Answers = answers
         };
     }
 
@@ -459,36 +390,6 @@ public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore
         {
             QuestionKey = QuestionKey,
             CategoryKey = CategoryKey,
-            Value = Value
-        };
-    }
-
-    /// <summary>One row of the reflection table. Text where the answers table has a number.</summary>
-    private sealed record ReflectionRow
-    {
-        [JsonPropertyName("submission_id")]
-        public long SubmissionId { get; init; }
-
-        [JsonPropertyName("question_key")]
-        public string QuestionKey { get; init; } = string.Empty;
-
-        [JsonPropertyName("value")]
-        public string? Value { get; init; }
-
-        /// <inheritdoc cref="AnswerRow.From" />
-        public static Dictionary<string, object?> From(
-            long submissionId,
-            ReflectionAnswer answer,
-            string submissionColumn) => new()
-        {
-            [submissionColumn] = submissionId,
-            ["question_key"] = answer.QuestionKey,
-            ["value"] = answer.Value
-        };
-
-        public ReflectionAnswer ToAnswer() => new()
-        {
-            QuestionKey = QuestionKey,
             Value = Value
         };
     }

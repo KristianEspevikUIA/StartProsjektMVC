@@ -156,8 +156,8 @@ public class AdminController : Controller
     /// <summary>
     /// Innsyn: alt systemet har registrert om én spiller, som en nedlastbar JSON-fil.
     ///
-    /// Samler Player, Guardianships, Responses med Answers, FiveCSubmissions med sine svar
-    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen og frigivelsene. Avviket er ikke med —
+    /// Samler Player, Guardianships, Responses med Answers, FiveCSubmissions med sine svar,
+    /// hele ConsentEvent-historikken, revisjonsloggen og frigivelsene. Avviket er ikke med —
     /// det er ikke lagret, det regnes ut hver gang (se ScoringService).
     ///
     /// Oppslaget logges før dokumentet bygges. Et innsyn er nettopp den typen oppslag
@@ -229,17 +229,6 @@ public class AdminController : Controller
                         a.Id,
                         a.QuestionKey,
                         a.CategoryKey,
-                        a.Value
-                    })
-                    .ToList(),
-                // Fritekst om spilleren. Den er noe av det mest identifiserende systemet
-                // har, og nettopp derfor det et innsyn ikke kan hoppe over.
-                Reflection = s.Reflection
-                    .OrderBy(a => a.Id)
-                    .Select(a => new
-                    {
-                        a.Id,
-                        a.QuestionKey,
                         a.Value
                     })
                     .ToList()
@@ -332,8 +321,7 @@ public class AdminController : Controller
                     AnsweredBy = people.For(s.RespondentUserId, RoleOfSubmission(s.RespondentRole)),
                     s.QuestionSetVersion,
                     s.SubmittedAt,
-                    s.Answers,
-                    s.Reflection
+                    s.Answers
                 })
                 .ToList(),
             ConsentEvents = consentEvents
@@ -505,8 +493,6 @@ public class AdminController : Controller
                 .CountAsync(a => a.Response!.PlayerId == id, cancellationToken),
             FiveCSubmissionCount = await _db.FiveCSubmissions
                 .CountAsync(s => s.PlayerId == id, cancellationToken),
-            ReflectionAnswerCount = await _db.FiveCReflectionAnswers
-                .CountAsync(a => a.Submission!.PlayerId == id, cancellationToken),
             ConsentEventCount = await _db.ConsentEvents
                 .CountAsync(c => c.PlayerId == id, cancellationToken),
             AccessEventCount = await _db.PlayerAccessEvents
