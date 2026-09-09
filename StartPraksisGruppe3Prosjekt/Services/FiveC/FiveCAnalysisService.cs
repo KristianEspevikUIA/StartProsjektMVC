@@ -111,16 +111,21 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
                 Questions: category.Questions
                     .Select(question => new TeamQuestionAverage(
                         QuestionKey: question.Key,
-                        // The same running number the form used, so a statement is called
-                        // the same thing here as it was when it was answered.
+                        // Catalog order, which is the canonical numbering. It is NOT the
+                        // number the form showed: the form is shuffled per player and
+                        // period (see IQuestionOrder), so there is no single "number this
+                        // statement had when it was answered" left to reuse. What is stable
+                        // across every reader is the position in the question set.
                         Number: ++number,
                         Text: question.Text,
                         Reversed: question.Reversed,
                         Means: MeansOf(
                             squad,
                             question.Text,
-                            scores => ScoreOf(scores, category.Key, question.Key))))
-                    .ToList()))
+                            scores => ScoreOf(scores, category.Key, question.Key)),
+                        Color: _catalog.ColorForQuestion(question.Key)))
+                    .ToList(),
+                Color: _catalog.ColorForCategory(category.Key)))
             .ToList();
 
         return new TeamFiveCAggregate(
@@ -240,12 +245,17 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
             Coach: AverageOfPlayers(squad, RespondentType.Coach, perPlayer));
 
     /// <summary>
-    /// One role's team average: the mean of the per-player numbers, and how many players
-    /// are behind it.
+    /// One role's team average: the mean of the per-player numbers, how far apart those
+    /// numbers are, and how many players are behind them.
     ///
     /// The mean of MEANS, not of answers. One player counts once whether they answered five
     /// statements or twenty-five -- see <see cref="TeamFiveCAggregate"/>. Players with
     /// nothing to contribute to this slice are left out rather than counted as a gap.
+    ///
+    /// The spread is measured over the same list, for the same reason: it says how far
+    /// apart the PLAYERS are, not how far apart the answers are. A squad where everybody
+    /// is inconsistent within themselves but lands on the same average is a squad that
+    /// agrees, and this number should say so.
     /// </summary>
     private static TeamRoleAverage AverageOfPlayers(
         IReadOnlyList<ScoredAnswers> squad,
@@ -261,7 +271,11 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
 
         return means.Count == 0
             ? TeamRoleAverage.None(role)
-            : TeamRoleAverage.From(role, means.Average(), means.Count);
+            : TeamRoleAverage.From(
+                role,
+                means.Average(),
+                TeamRoleAverage.SpreadOf(means),
+                means.Count);
     }
 
     /// <summary>One respondent's mean across every statement they answered, or null.</summary>

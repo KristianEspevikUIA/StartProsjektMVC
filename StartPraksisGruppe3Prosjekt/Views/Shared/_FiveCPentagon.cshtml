@@ -1,0 +1,90 @@
+@model StartPraksisGruppe3Prosjekt.ViewModels.FiveC.PentagonChartViewModel
+@{
+    // The five C's as one shape: an axis per category, a closed polygon per respondent.
+    //
+    // Beside the bars rather than instead of them. Five bars answer "how high is
+    // Commitment" and this answers "what shape is this player" -- even across the five, or
+    // spiked in one and hollow in another. The second question is the one a season plan is
+    // made against, and five separate bar charts are worst at it.
+    //
+    // The colours are the same three the bars use, from the same tokens, so a coach does
+    // not have to learn a second key: blue is the player, green the guardian, brown the
+    // coach, here as everywhere else.
+    //
+    // Every coordinate is computed in PentagonChartViewModel and arrives as a string. That
+    // is not tidiness: the app runs under a Norwegian culture, a double formats as "3,0",
+    // and a comma inside an SVG points attribute separates coordinates. The view model
+    // formats invariant; a number formatted here would silently draw the wrong polygon.
+}
+
+<figure class="sc-pentagon">
+    <svg class="sc-pentagon__svg"
+         viewBox="@StartPraksisGruppe3Prosjekt.ViewModels.FiveC.PentagonChartViewModel.ViewBox"
+         role="img"
+         aria-label="@(Model.HasAnyShapes
+             ? string.Join(". ", Model.Shapes.Select(s => $"{s.RoleName}: {s.Description}"))
+             : "Nobody has answered every category, so there is no shape to draw.")">
+
+        @* The grid, drawn first so everything else sits on top of it. One ring per whole
+           point of the scale, which is what makes the shape readable as numbers rather
+           than only as a silhouette. *@
+        @foreach (var ring in Model.Rings)
+        {
+            <polygon class="sc-pentagon__ring" points="@ring.Points" />
+        }
+
+        @foreach (var axis in Model.Axes)
+        {
+            <line class="sc-pentagon__axis" vector-effect="non-scaling-stroke"
+                  x1="150" y1="150" x2="@axis.X" y2="@axis.Y" />
+        }
+
+        @* The polygons. Outlined and only lightly filled, so three overlapping shapes stay
+           three shapes -- solid fills at this size turn into one muddy blob and the reader
+           loses whichever role was drawn first. *@
+        @foreach (var shape in Model.Shapes)
+        {
+            <polygon class="sc-pentagon__shape sc-pentagon__shape--@shape.Css"
+                     points="@shape.Points" />
+        }
+
+        @*
+            The <g> is not decoration. Razor reads a bare <text> at the start of a code
+            block as its own escape tag, which cannot carry attributes -- so the SVG <text>
+            below has to be reached through a tag Razor recognises as markup first.
+        *@
+        @foreach (var axis in Model.Axes)
+        {
+            <g>
+                <text class="sc-pentagon__label"
+                      x="@axis.LabelX" y="@axis.LabelY"
+                      text-anchor="@axis.Anchor" dominant-baseline="@axis.Baseline">@axis.Label</text>
+            </g>
+        }
+    </svg>
+
+    <figcaption class="sc-pentagon__caption">
+        @if (Model.HasAnyShapes)
+        {
+            <text>
+                Each ring is one point on the 1–5 scale; the outer edge is 5. The shape is
+                the five averages joined up.
+            </text>
+        }
+
+        @if (Model.MissingRoles.Count > 0)
+        {
+            @*
+                Named rather than left out. A role is drawn only when it has a number for
+                every category -- a polygon with a missing vertex has to put that vertex
+                somewhere, and dropping it to the centre would draw "nobody answered" as
+                "scored zero". Saying which role is missing is the honest version.
+            *@
+            <text>
+                No shape for
+                @string.Join(" or ", Model.MissingRoles.Select(r => r.ToLowerInvariant())):
+                a shape needs a number in every category, and there is at least one missing.
+            </text>
+        }
+    </figcaption>
+</figure>

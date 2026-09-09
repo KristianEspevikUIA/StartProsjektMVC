@@ -63,6 +63,41 @@ public static class FiveCRules
     }
 
     /// <summary>
+    /// A mean at or above this reads as a strength. On a scale labelled Never / Rarely /
+    /// Sometimes / Often / Always, 3.5 is the point where the average answer is "often" or
+    /// better -- the first band that is worth saying something positive about rather than
+    /// merely not worrying about.
+    ///
+    /// It is the upper of the two lines <see cref="LevelOfScore"/> bands on. The lower one
+    /// is <see cref="FollowUpThreshold"/>, deliberately: a number the overview colours red
+    /// and a category the system flags for follow-up have to be the same thing, or the page
+    /// contradicts its own notice.
+    /// </summary>
+    public const double StrongScoreThreshold = 3.5;
+
+    /// <summary>
+    /// Turns a mean on the 1-5 scale into the three colour bands the overview reads it in.
+    ///
+    /// This is NOT <see cref="LevelOf"/>. That one bands a DIFFERENCE between two people;
+    /// this one bands a SCORE. They are both shown as red, amber and green, on the same
+    /// pages, and they are not the same measurement -- see <see cref="ScoreLevels"/> for
+    /// the words that keep them apart on screen.
+    /// </summary>
+    /// <param name="mean">
+    /// A mean on the 1-5 scale, after reversal. Rounded to one decimal first, for the same
+    /// reason <see cref="LevelOf"/> does it: the band sits next to the number, and the
+    /// number is printed to one decimal. Banding 3.46 as amber while printing "3.5" puts a
+    /// visible contradiction on the page.
+    /// </param>
+    public static ScoreLevel LevelOfScore(double mean) =>
+        Math.Round(mean, 1, MidpointRounding.AwayFromZero) switch
+        {
+            < FollowUpThreshold => ScoreLevel.Low,
+            < StrongScoreThreshold => ScoreLevel.Middling,
+            _ => ScoreLevel.Strong
+        };
+
+    /// <summary>
     /// Whether a category should be flagged for follow-up: a mean under
     /// <see cref="FollowUpThreshold" /> backed by at least
     /// <see cref="MinimumAnswersForFollowUp" /> answers.
@@ -141,6 +176,81 @@ public static class AgreementLevels
     {
         AgreementLevel.Agree => "sc-badge sc-badge--ok",
         AgreementLevel.LargeDifference => "sc-badge sc-badge--alert",
+        _ => "sc-badge sc-badge--warn"
+    };
+}
+
+/// <summary>
+/// How a mean on the 1-5 scale reads, in the three bands the overview colours it in.
+/// The numbers behind the bands are <see cref="FiveCRules.FollowUpThreshold"/> and
+/// <see cref="FiveCRules.StrongScoreThreshold"/>.
+///
+/// Kept apart from <see cref="AgreementLevel"/> on purpose. Both are red-amber-green and
+/// both appear on the coach overview, but one describes how a squad answered and the other
+/// how far apart two people are about the same player. A page that used one enum for both
+/// would eventually colour a difference as though it were a score.
+/// </summary>
+public enum ScoreLevel
+{
+    /// <summary>Under two. The same line the follow-up flag is raised at.</summary>
+    Low = 0,
+
+    /// <summary>Between two and three and a half. The ordinary middle of the scale.</summary>
+    Middling = 1,
+
+    /// <summary>Three and a half or better -- "often" or above on the average statement.</summary>
+    Strong = 2
+}
+
+/// <summary>
+/// The words and class names the three SCORE bands are shown with, next to
+/// <see cref="AgreementLevels"/>, which does the same job for difference scores.
+///
+/// The wording is deliberately not "good" and "bad". These are answers from a fourteen-year
+/// old about themselves, read by their coach, and a number the system labels "poor" is a
+/// label the player wears. "Needs work" is something a season can act on.
+/// </summary>
+public static class ScoreLevels
+{
+    /// <summary>Heading text, e.g. "Needs work".</summary>
+    public static string DisplayName(ScoreLevel level) => level switch
+    {
+        ScoreLevel.Low => "Needs work",
+        ScoreLevel.Middling => "On the way",
+        ScoreLevel.Strong => "Strength",
+        _ => level.ToString()
+    };
+
+    /// <summary>"low", "mid" or "strong" -- the suffix used in startcompass.css.</summary>
+    public static string CssSuffix(ScoreLevel level) => level switch
+    {
+        ScoreLevel.Low => "low",
+        ScoreLevel.Strong => "strong",
+        _ => "mid"
+    };
+
+    /// <summary>
+    /// The class for a number coloured by its band, e.g. "sc-mean sc-mean--low".
+    ///
+    /// "sc-mean" and not "sc-score", which is already taken by the difference score CARD on
+    /// the player page -- and taken as a block, so a second block of the same name would
+    /// have inherited its padding and its border. The two are different measurements as
+    /// well as different elements; they should not share a name.
+    ///
+    /// A number, not a badge: these sit in table cells full of other numbers, and a column
+    /// of uppercase badges is unreadable at twenty-five rows.
+    /// </summary>
+    public static string ScoreClass(ScoreLevel level) => $"sc-mean sc-mean--{CssSuffix(level)}";
+
+    /// <summary>The same for a nullable mean. A mean nobody produced gets no colour.</summary>
+    public static string ScoreClass(double? mean) =>
+        mean is { } value ? ScoreClass(FiveCRules.LevelOfScore(value)) : "sc-mean sc-mean--none";
+
+    /// <summary>The full badge class, for the one place a band is named rather than shown.</summary>
+    public static string BadgeClass(ScoreLevel level) => level switch
+    {
+        ScoreLevel.Low => "sc-badge sc-badge--alert",
+        ScoreLevel.Strong => "sc-badge sc-badge--ok",
         _ => "sc-badge sc-badge--warn"
     };
 }

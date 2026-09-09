@@ -300,4 +300,117 @@ public sealed class TeamAggregateTests
                 playerIds,
                 rounds.Select(r => new TrendPeriod(r.Id, r.Name, r.ClosesAt)).ToList());
     }
+
+    /// <summary>
+    /// The spread is what the average does not say.
+    ///
+    /// A squad averaging 3.0 because everybody answered 3, and one averaging 3.0 because
+    /// half answered 1 and half answered 5, are two entirely different teams and the same
+    /// mean. This is the number that tells them apart, and it is the second one that has
+    /// something to act on.
+    /// </summary>
+    [Fact]
+    public async Task The_spread_separates_a_squad_that_agrees_from_one_that_does_not()
+    {
+        using var database = new TestDatabase();
+        var catalog = TestCatalog.Load();
+
+        // The same three players, twice. Two periods rather than two squads, because that
+        // is the comparison a coach actually makes -- and because it holds everything else
+        // still: same team, same size, same people, same average, different spread.
+        var agreed = await database.AddOpenRoundAsync();
+        var split = await database.AddRoundAsync(
+            "Later",
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddDays(30));
+
+        var player = await AnswerAsync(database, catalog, agreed, "TS-10-01", score: 3);
+        await AnswerAsync(database, catalog, agreed, "TS-10-02", score: 3);
+        await AnswerAsync(database, catalog, agreed, "TS-10-03", score: 3);
+
+        var same = await AggregateAsync(database, catalog, agreed, player.TeamId);
+
+        Assert.Equal(3.0, same.Overall.PlayerMean!.Value, precision: 2);
+        Assert.Equal(0.0, same.Overall.PlayerSpread!.Value, precision: 2);
+
+        await AnswerAsync(database, catalog, split, "TS-10-01", score: 1);
+        await AnswerAsync(database, catalog, split, "TS-10-02", score: 3);
+        await AnswerAsync(database, catalog, split, "TS-10-03", score: 5);
+
+        var apart = await AggregateAsync(database, catalog, split, player.TeamId);
+
+        // The same average, and it now describes nobody on the team.
+        Assert.Equal(3.0, apart.Overall.PlayerMean!.Value, precision: 2);
+
+        // Sample standard deviation of 1, 3, 5: sqrt(8 / 2) = 2.
+        Assert.Equal(2.0, apart.Overall.PlayerSpread!.Value, precision: 2);
+    }
+
+    /// <summary>
+    /// And it is withheld with the mean. Knowing that two players are two points apart is
+    /// knowing a great deal about two people -- the threshold exists for exactly that, and
+    /// a spread that survived it would walk straight round it.
+    /// </summary>
+    [Fact]
+    public async Task A_spread_is_withheld_wherever_the_average_is()
+    {
+        using var database = new TestDatabase();
+        var catalog = TestCatalog.Load();
+
+        var round = await database.AddOpenRoundAsync();
+
+        var first = await AnswerAsync(database, catalog, round, "TS-12-01", score: 1);
+        await AnswerAsync(database, catalog, round, "TS-12-02", score: 5);
+
+        var aggregate = await AggregateAsync(database, catalog, round, first.TeamId);
+
+        Assert.Null(aggregate.Overall.PlayerMean);
+        Assert.Null(aggregate.Overall.PlayerSpread);
+        Assert.True(aggregate.Overall.Player.Withheld);
+
+        // Per statement too, not only across the whole form.
+        Assert.All(
+            aggregate.Categories.SelectMany(c => c.Questions),
+            question => Assert.Null(question.Means.PlayerSpread));
+    }
+
+    /// <summary>
+    /// One number has no spread. Null and not zero: zero is "everybody answered the same",
+    /// which is a real and quite different finding.
+    /// </summary>
+    [Fact]
+    public void One_respondent_has_no_spread_at_all()
+    {
+        Assert.Null(TeamRoleAverage.SpreadOf(Array.Empty<double>()));
+        Assert.Null(TeamRoleAverage.SpreadOf(new[] { 4.0 }));
+        Assert.Equal(0.0, TeamRoleAverage.SpreadOf(new[] { 4.0, 4.0 })!.Value, precision: 2);
+    }
+
+    /// <summary>
+    /// Every statement carries the marker the respondent saw on the form. That is what lets
+    /// a coach and a player point at the same statement once the form no longer groups by
+    /// category -- see IQuestionOrder.
+    /// </summary>
+    [Fact]
+    public async Task Every_statement_carries_the_colour_it_was_answered_under()
+    {
+        using var database = new TestDatabase();
+        var catalog = TestCatalog.Load();
+
+        var round = await database.AddOpenRoundAsync();
+
+        var first = await AnswerAsync(database, catalog, round, "TS-13-01", score: 3);
+        await AnswerAsync(database, catalog, round, "TS-13-02", score: 3);
+        await AnswerAsync(database, catalog, round, "TS-13-03", score: 3);
+
+        var aggregate = await AggregateAsync(database, catalog, round, first.TeamId);
+
+        Assert.All(aggregate.Categories, category =>
+        {
+            Assert.Equal(catalog.ColorForCategory(category.CategoryKey), category.Color);
+
+            Assert.All(category.Questions, question =>
+                Assert.Equal(catalog.ColorForQuestion(question.QuestionKey), question.Color));
+        });
+    }
 }

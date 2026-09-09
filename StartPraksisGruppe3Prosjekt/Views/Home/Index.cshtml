@@ -22,6 +22,19 @@
             else
             {
                 <a class="sc-btn" asp-controller="Survey" asp-action="Index">Go to the form</a>
+
+                @*
+                    Only for the roles that have teams to go to. CoachController is
+                    [Authorize(Coach, Admin)], so anyone else following this link would meet
+                    a 403 -- and a button that leads to a refusal is worse than no button.
+                    The check is the same pair of roles the controller names, deliberately:
+                    if that ever changes, this is the line that has to change with it.
+                *@
+                @if (User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin))
+                {
+                    <a class="sc-btn sc-btn--secondary"
+                       asp-controller="Coach" asp-action="Index">My teams</a>
+                }
             }
         </div>
     </div>

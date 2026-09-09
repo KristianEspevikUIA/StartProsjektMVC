@@ -1,0 +1,26 @@
+@{
+    // The key for the three score bands, shown wherever a number is coloured by them.
+    //
+    // It is here as a partial because the bands appear on the overview, inside every
+    // category tab and in the statement table, and a colour scale explained in one of
+    // those three places is a colour scale two of them do not explain.
+    //
+    // The thresholds come from FiveCRules, not from numbers typed here: the low band and
+    // the follow-up flag are the same line, and a legend that drifted from the flag would
+    // put a contradiction on the page.
+}
+
+<div class="sc-scale-legend">
+    <span class="sc-scale-legend__item">
+        <span class="sc-mean sc-mean--low">&lt;@FiveCRules.FollowUpThreshold.ToString("0.0")</span>
+        @ScoreLevels.DisplayName(ScoreLevel.Low)
+    </span>
+    <span class="sc-scale-legend__item">
+        <span class="sc-mean sc-mean--mid">@FiveCRules.FollowUpThreshold.ToString("0.0")–@FiveCRules.StrongScoreThreshold.ToString("0.0")</span>
+        @ScoreLevels.DisplayName(ScoreLevel.Middling)
+    </span>
+    <span class="sc-scale-legend__item">
+        <span class="sc-mean sc-mean--strong">≥@FiveCRules.StrongScoreThreshold.ToString("0.0")</span>
+        @ScoreLevels.DisplayName(ScoreLevel.Strong)
+    </span>
+</div>

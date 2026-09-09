@@ -38,10 +38,5 @@ public class Player
     public ICollection<ConsentEvent> ConsentEvents { get; set; } = new List<ConsentEvent>();
 
     /// <summary>Alder i hele år på gitt dato. Grunnlaget for kravet om foresatt.</summary>
-    public int AgeAt(DateOnly onDate)
-    {
-        var age = onDate.Year - BirthDate.Year;
-        if (BirthDate.AddYears(age) > onDate) age--;
-        return age;
-    }
+    public int AgeAt(DateOnly onDate) => PlayerRules.AgeAt(BirthDate, onDate);
 }

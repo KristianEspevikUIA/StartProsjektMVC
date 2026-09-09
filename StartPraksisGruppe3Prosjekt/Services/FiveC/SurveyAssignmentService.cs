@@ -110,6 +110,8 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
                     PlayerId: player.Id,
                     PlayerCode: player.Code,
                     TeamName: player.Team?.Name ?? string.Empty,
+                    Position: player.Position,
+                    BirthDate: player.BirthDate,
                     Role: key.Role,
                     IsAboutSelf: key.Role == RespondentType.Player,
                     SubmittedAt: submittedAt.TryGetValue(key, out var at) ? at : null);

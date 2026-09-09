@@ -125,6 +125,21 @@
                 </span>
             </div>
 
+            @*
+                The shape before the bars. The bars answer "how high is Commitment"; the
+                pentagon answers "what shape is this player", which is the question the
+                conversation with them actually starts from -- and the one five separate
+                bar charts are worst at.
+
+                Null when the question set has fewer than three categories, which is not a
+                shape. The bars below are the whole picture either way; this is a second
+                reading of the same five numbers, not a source of new ones.
+            *@
+            @if (PentagonChartViewModel.From(comparison.Categories) is { } pentagon)
+            {
+                <partial name="_FiveCPentagon" model="pentagon" />
+            }
+
             <div class="sc-compare">
                 @foreach (var category in comparison.Categories)
                 {

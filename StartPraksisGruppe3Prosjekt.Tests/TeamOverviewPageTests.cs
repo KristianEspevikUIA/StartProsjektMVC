@@ -207,4 +207,116 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
                 userId,
                 value));
         });
+
+    /// <summary>
+    /// The Overview panel holds a second, nested strip: one tab per C, plus the five at a
+    /// glance. Marked with data-subtab-* rather than data-tab-*, because the page-level
+    /// query looks for the latter and would otherwise flatten the two levels into one long
+    /// strip of nine tabs.
+    /// </summary>
+    [Fact]
+    public async Task The_overview_breaks_down_into_one_tab_per_category()
+    {
+        await ThreeAnswersAsync();
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("data-subtabs", html);
+        Assert.Contains("data-subtab-label=\"All five\"", html);
+
+        foreach (var category in Catalog().Questions.Categories)
+        {
+            Assert.Contains($"data-subtab-label=\"{category.Name}\"", html);
+        }
+
+        // The nested panels must not be visible to the page-level strip, or the coach gets
+        // one strip of nine tabs instead of two strips of four and six.
+        Assert.DoesNotContain("data-tab-panel data-tab-label=\"Commitment\"", html);
+    }
+
+    /// <summary>
+    /// The spread is shown next to the average, everywhere the average is. It is the number
+    /// that tells a squad that agrees apart from one that does not, and an overview with
+    /// only means cannot say which it is looking at.
+    /// </summary>
+    [Fact]
+    public async Task The_overview_shows_how_far_apart_the_squad_is_and_not_only_its_average()
+    {
+        await ThreeAnswersAsync();
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("Spread", html);
+        Assert.Contains("±", html);
+    }
+
+    /// <summary>
+    /// Numbers are coloured by the band they fall in, and the key that explains the bands is
+    /// on the page with them. A colour scale nobody explains is decoration.
+    /// </summary>
+    [Fact]
+    public async Task Averages_are_coloured_by_their_band_and_the_bands_are_explained()
+    {
+        await ThreeAnswersAsync();
+
+        var html = await TeamPageAsync();
+
+        // Three players answering 4, 3 and 5 average 4.0 -- a strength.
+        Assert.Contains(ScoreLevels.ScoreClass(ScoreLevel.Strong), html);
+
+        Assert.Contains(ScoreLevels.DisplayName(ScoreLevel.Low), html);
+        Assert.Contains(ScoreLevels.DisplayName(ScoreLevel.Strong), html);
+
+        // A score and a difference are two scales on one page, and they must not share a
+        // class -- the badge is the difference, the tinted number is the score.
+        Assert.DoesNotContain("sc-badge sc-mean", html);
+    }
+
+    /// <summary>
+    /// The statement table carries the same marker the respondent saw on the form. Once the
+    /// form is shuffled, that colour is what connects "statement 4 on my form" to a row here.
+    /// </summary>
+    [Fact]
+    public async Task Every_statement_row_carries_its_category_marker()
+    {
+        await ThreeAnswersAsync();
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("sc-qcolor--dot", html);
+
+        foreach (var category in Catalog().Questions.Categories)
+        {
+            Assert.Contains(QuestionColors.CssClass(Catalog().ColorForCategory(category.Key)), html);
+        }
+    }
+
+    /// <summary>
+    /// The squad's shape, from the same partial the player page uses. Drawn only when there
+    /// is an aggregate at all -- a grid with no polygon on it says nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_squad_gets_a_pentagon_once_there_is_an_aggregate()
+    {
+        await ThreeAnswersAsync();
+
+        Assert.Contains("sc-pentagon", await TeamPageAsync());
+    }
+
+    private IQuestionCatalog Catalog()
+    {
+        using var scope = _factory.Services.CreateScope();
+
+        return scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
+    }
+
+    /// <summary>Three players answering, which is the minimum for an aggregate at all.</summary>
+    private async Task ThreeAnswersAsync()
+    {
+        var third = await AddPlayerAsync("TS-TEST-03", "user-third");
+
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 4);
+        await AnswerAsync(_factory.OtherPlayerId, "TS-TEST-02", StartCompassFactory.OtherPlayerUserId, value: 3);
+        await AnswerAsync(third, "TS-TEST-03", "user-third", value: 5);
+    }
 }

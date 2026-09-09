@@ -41,8 +41,17 @@ public interface ISurveyAssignmentService
 
 /// <summary>One form a user is expected to fill in.</summary>
 /// <param name="PlayerId">The player the form is about.</param>
-/// <param name="PlayerCode">Player code, e.g. "TS-08-16". Codes, not names.</param>
+/// <param name="PlayerCode">
+/// Player code, e.g. "TS-08-16". CODES, NOT NAMES -- and not because a name column has not
+/// been built yet: there are no names anywhere in this data model, on purpose, so the code
+/// is what identifies a player in every list in the application.
+/// </param>
 /// <param name="TeamName">The player's team.</param>
+/// <param name="Position">Their position, or null when the club has not recorded one.</param>
+/// <param name="BirthDate">
+/// Carried so the list can show an age. The date itself is never printed -- an age is the
+/// part a coach reading a squad list needs, and a birth date is more than that.
+/// </param>
 /// <param name="Role">Which role this user answers in for this player.</param>
 /// <param name="IsAboutSelf">True when the user is the player. Changes the wording only.</param>
 /// <param name="SubmittedAt">When it was last submitted, or null if it has not been.</param>
@@ -50,9 +59,18 @@ public sealed record SurveyAssignment(
     int PlayerId,
     string PlayerCode,
     string TeamName,
+    string? Position,
+    DateOnly BirthDate,
     RespondentType Role,
     bool IsAboutSelf,
     DateTimeOffset? SubmittedAt)
 {
     public bool HasAnswered => SubmittedAt.HasValue;
+
+    /// <summary>
+    /// Age in whole years today, by the same rule the guardian requirement uses --
+    /// <see cref="PlayerRules.AgeAt"/>. Local date rather than UTC: a coach reading a squad
+    /// list is in a place, and a player is a year older on their birthday there.
+    /// </summary>
+    public int Age => PlayerRules.AgeAt(BirthDate, DateOnly.FromDateTime(DateTime.Now));
 }

@@ -1,8 +1,9 @@
 @model StartPraksisGruppe3Prosjekt.Services.FiveC.TeamFiveCAggregate
 @{
-    // The squad read as one: across every statement at once, and per category. The third
-    // level -- statement by statement -- is its own panel, in _FiveCTeamStatements,
-    // because twenty-five rows is a page of its own and not a footnote to this one.
+    // The squad read as one: across every statement at once, and then one tab per C. The
+    // third level -- statement by statement, all twenty-five at once -- is its own panel,
+    // in _FiveCTeamStatements, because that is a page of its own and not a footnote to
+    // this one.
     //
     // Every bar here is drawn by _FiveCCategoryChart, the same partial the player page uses,
     // because the three bars mean the same thing one level up -- see IRespondentMeans. The
@@ -12,6 +13,17 @@
     // A number with fewer than CanViewTeamAggregateRequirement.MinimumResponses people
     // behind it is not shown at all. That is decided in TeamRoleAverage, so this view never
     // has the withheld number to leak -- it only knows that there was one.
+    //
+    // TWO COLOUR SCALES LIVE ON THIS PAGE and they are not the same thing. Here, red-amber-
+    // green means how the squad ANSWERED (ScoreLevels, keyed off FiveCRules.LevelOfScore).
+    // In the player table below, the same three colours on an uppercase badge mean how far
+    // apart two people are (AgreementLevels). They are told apart by shape -- a score is a
+    // number on a tinted ground, a difference is a badge -- and each has a legend where it
+    // is used.
+    //
+    // The five C's are marked up as a nested tab group. survey.js turns [data-subtabs] into
+    // a second strip inside this panel; with JavaScript off they are five sections stacked
+    // down the page, which is what this partial has always been.
 
     var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
 
@@ -35,6 +47,8 @@
     </span>
 </div>
 
+<partial name="_FiveCScoreLegend" />
+
 @* Across the whole questionnaire. Measured over all twenty-five statements at once rather
    than by averaging the five C's below, so a player who answered one category does not
    weigh as much here as one who answered the whole form. *@
@@ -54,6 +68,21 @@
     </p>
 
     <partial name="_FiveCCategoryChart" model="Model.Overall" />
+    <partial name="_FiveCMeansTable" model="Model.Overall" />
+
+    @if (Model.Overall.PlayerSpread is { } overallSpread)
+    {
+        @* Said in words as well as printed, once, here. A standard deviation is a number a
+           coach is entitled to not have met before, and the sentence is what makes the
+           column above readable everywhere else on the page. *@
+        <p class="sc-lead sc-small">
+            The squad's own answers sit ± @overallSpread.ToString("0.0") around their average:
+            that is how far a typical player is from it, on the same 1–5 scale. A small number
+            means the squad is answering the same way as each other; a large one means the
+            average is describing nobody in particular, and the individual rows are where the
+            picture actually is.
+        </p>
+    }
 </article>
 
 @if (Model.NeedsFollowUp)
@@ -87,19 +116,102 @@ else if (Model.WeakestCategory is { } weakest
     enough to one person's answers to be read as theirs.
 </p>
 
-<div class="sc-compare">
+@*
+    The nested strip. The first tab is the five at a glance, which is what this section used
+    to be and is still the right way in; the five after it are one C each, in enough detail
+    to plan a season against.
+*@
+<div data-subtabs data-subtabs-label="The five C's">
+    <section data-subtab-panel data-subtab-label="All five">
+        <h4 data-tab-heading>All five</h4>
+
+        @*
+            The squad's shape, drawn by the same partial the player page uses -- one axis
+            per C, one polygon per role. It reads the same three numbers the cards below
+            read; what it adds is whether the squad is even across the five or spiked in
+            one, which is the thing five cards side by side are worst at showing.
+        *@
+        @if (PentagonChartViewModel.From(Model.Categories.Select(c => (IRespondentMeans)c.Means).ToList()) is { } pentagon)
+        {
+            <partial name="_FiveCPentagon" model="pentagon" />
+        }
+
+        <div class="sc-compare">
+            @foreach (var category in Model.Categories)
+            {
+                <article class="sc-compare__card @(category.Means.NeedsFollowUp ? "sc-compare__card--alert" : "")">
+                    <div class="sc-compare__head">
+                        <h3>
+                            <span class="@category.ColorClass sc-qcolor--dot"></span>
+                            @category.CategoryName
+                        </h3>
+                        @if (category.Means.NeedsFollowUp)
+                        {
+                            <span class="sc-badge sc-badge--alert">Follow up</span>
+                        }
+                    </div>
+
+                    <p class="sc-compare__desc">
+                        @if (category.Means.HasAnyMeans)
+                        {
+                            <text>Averaged over @RespondentSummary(category.Means).</text>
+                        }
+                        else if (category.Means.AnythingWithheld)
+                        {
+                            <text>
+                                Somebody answered, but fewer than @minimum of any one role, so there
+                                is no average to show yet.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>Nobody has answered this category for the squad.</text>
+                        }
+                    </p>
+
+                    <partial name="_FiveCCategoryChart" model="category.Means" />
+
+                    @* The two numbers a card has room for: what the squad averaged, and how
+                       far apart they are about it. The full breakdown per role is one tab
+                       away rather than five times on this screen. *@
+                    <p class="sc-compare__desc">
+                        <span class="@ScoreLevels.ScoreClass(category.Means.PlayerMean)">
+                            @(category.Means.PlayerMean is { } m ? m.ToString("0.0") : "–")
+                        </span>
+                        @if (category.Means.PlayerSpread is { } spread)
+                        {
+                            <span class="sc-muted sc-small">± @spread.ToString("0.0") across the squad</span>
+                        }
+                    </p>
+                </article>
+            }
+        </div>
+    </section>
+
     @foreach (var category in Model.Categories)
     {
-        <article class="sc-compare__card @(category.Means.NeedsFollowUp ? "sc-compare__card--alert" : "")">
+        @*
+            One C in full. data-subtab-flag marks the tab when the squad is low in it, so
+            the reader does not have to open all five to find the one the notice above
+            named. The attribute is named off the panel's own, so a nested strip reads
+            data-subtab-* where the page-level one reads data-tab-*.
+        *@
+        <section data-subtab-panel
+                 data-subtab-label="@category.CategoryName"
+                 data-subtab-flag="@(category.Means.NeedsFollowUp ? "true" : "false")">
+            <h4 data-tab-heading>@category.CategoryName</h4>
+
             <div class="sc-compare__head">
-                <h3>@category.CategoryName</h3>
+                <p class="sc-eyebrow">
+                    <span class="@category.ColorClass">@category.CategoryName</span>
+                </p>
                 @if (category.Means.NeedsFollowUp)
                 {
                     <span class="sc-badge sc-badge--alert">Follow up</span>
                 }
             </div>
 
-            <p class="sc-compare__desc">
+            <p class="sc-lead">
                 @if (category.Means.HasAnyMeans)
                 {
                     <text>Averaged over @RespondentSummary(category.Means).</text>
@@ -107,8 +219,8 @@ else if (Model.WeakestCategory is { } weakest
                 else if (category.Means.AnythingWithheld)
                 {
                     <text>
-                        Somebody answered, but fewer than @minimum of any one role, so there
-                        is no average to show yet.
+                        Somebody answered, but fewer than @minimum of any one role, so there is
+                        no average to show yet.
                     </text>
                 }
                 else
@@ -118,6 +230,62 @@ else if (Model.WeakestCategory is { } weakest
             </p>
 
             <partial name="_FiveCCategoryChart" model="category.Means" />
-        </article>
+            <partial name="_FiveCMeansTable" model="category.Means" />
+
+            @*
+                The statements in this C alone. The same numbers as the "Per statement" panel
+                and deliberately so: that one is for scanning all twenty-five, this one is for
+                reading one C without the other twenty rows in the way.
+            *@
+            <h5 class="sc-mt">The statements in @category.CategoryName</h5>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Statement</th>
+                            <th scope="col">Players</th>
+                            <th scope="col">Spread</th>
+                            <th scope="col">Guardians</th>
+                            <th scope="col">Coaches</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var question in category.Questions)
+                        {
+                            <tr>
+                                <td class="sc-muted sc-small">@question.Number</td>
+                                <td>
+                                    @question.Text
+                                    @if (question.Reversed)
+                                    {
+                                        <span class="sc-badge sc-badge--muted">Reversed</span>
+                                    }
+                                </td>
+                                <td class="sc-num">
+                                    <span class="@ScoreLevels.ScoreClass(question.Means.PlayerMean)">
+                                        @(question.Means.PlayerMean is { } pm ? pm.ToString("0.0") : "–")
+                                    </span>
+                                </td>
+                                <td class="sc-num sc-muted sc-small">
+                                    @(question.Means.PlayerSpread is { } qs ? $"± {qs:0.0}" : "–")
+                                </td>
+                                <td class="sc-num">
+                                    <span class="@ScoreLevels.ScoreClass(question.Means.GuardianMean)">
+                                        @(question.Means.GuardianMean is { } gm ? gm.ToString("0.0") : "–")
+                                    </span>
+                                </td>
+                                <td class="sc-num">
+                                    <span class="@ScoreLevels.ScoreClass(question.Means.CoachMean)">
+                                        @(question.Means.CoachMean is { } cm ? cm.ToString("0.0") : "–")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
     }
 </div>

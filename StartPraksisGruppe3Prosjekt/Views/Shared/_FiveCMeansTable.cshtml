@@ -1,0 +1,72 @@
+@model StartPraksisGruppe3Prosjekt.Services.FiveC.TeamMeans
+@{
+    // The numbers behind the bars: what each role averaged, how far apart the people behind
+    // that average are, and how many of them there were.
+    //
+    // Beside _FiveCCategoryChart rather than instead of it. The bars answer "which of the
+    // three is highest" at a glance; this answers "by how much, and is the squad actually
+    // agreeing". A coach reads the first question far more often, which is why the chart
+    // comes first and this sits under it.
+    //
+    // SPREAD is the column that is not obvious. A squad averaging 3.0 because everybody
+    // answered 3, and one averaging 3.0 because half answered 1 and half answered 5, are
+    // different teams with the same mean -- and it is the second one that has something to
+    // act on. See TeamRoleAverage.Spread.
+    //
+    // A dash is never a zero here. For a mean it is "too few answered to show one"; for a
+    // spread it is "there is only one number, and one number has no spread".
+
+    var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
+}
+
+<div class="sc-table-wrap">
+    <table class="sc-table sc-table--means">
+        <thead>
+            <tr>
+                <th scope="col">Answered by</th>
+                <th scope="col">Average</th>
+                <th scope="col">Spread</th>
+                <th scope="col">People</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var role in Model.Roles)
+            {
+                <tr>
+                    <th scope="row">@role.RoleNamePlural</th>
+
+                    <td class="sc-num">
+                        @* Coloured by the band it falls in, from the one place that decides
+                           the bands. Every role is coloured, not only the players': a coach
+                           average under two is the coaching team saying something about the
+                           squad, and it should not be the one uncoloured number on screen. *@
+                        <span class="@ScoreLevels.ScoreClass(role.Mean)">
+                            @(role.Mean is { } mean ? mean.ToString("0.0") : "–")
+                        </span>
+                    </td>
+
+                    <td class="sc-num sc-muted">
+                        @if (role.Spread is { } spread)
+                        {
+                            <text>± @spread.ToString("0.0")</text>
+                        }
+                        else
+                        {
+                            <text>–</text>
+                        }
+                    </td>
+
+                    <td class="sc-num sc-small">@role.Respondents</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Model.AnythingWithheld)
+{
+    <p class="sc-lead sc-small">
+        A dash where somebody has answered means fewer than @minimum people of that role did.
+        With fewer, an average is close enough to one person's answers to be read as theirs.
+    </p>
+}

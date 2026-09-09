@@ -47,6 +47,15 @@ public sealed class QuestionCategory
     [JsonPropertyName("description")]
     public string Description { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The colour every question in this category is marked with, unless the question names
+    /// its own. One of <see cref="QuestionColors.Palette"/> -- a name, not a hex value, and
+    /// optional: left out, the category is given the palette entry at its own position, so
+    /// an unedited file still gets five distinct markers.
+    /// </summary>
+    [JsonPropertyName("color")]
+    public string? Color { get; init; }
+
     [JsonPropertyName("questions")]
     public IReadOnlyList<Question> Questions { get; init; } = Array.Empty<Question>();
 }
@@ -91,6 +100,16 @@ public sealed class Question
     /// </summary>
     [JsonPropertyName("reversed")]
     public bool Reversed { get; init; }
+
+    /// <summary>
+    /// A colour for this one statement, overriding the category's. One of
+    /// <see cref="QuestionColors.Palette"/>. Normally left out: the useful marker is the
+    /// one that groups a category together, and twenty-five different colours is not a
+    /// code, it is a rainbow. It is here for the question set that genuinely wants to pull
+    /// one statement out of its category.
+    /// </summary>
+    [JsonPropertyName("color")]
+    public string? Color { get; init; }
 
     /// <summary>
     /// The wording this respondent should see.

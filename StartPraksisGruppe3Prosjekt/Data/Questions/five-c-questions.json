@@ -22,6 +22,19 @@
     "    everybody. It is the same statement, the same 1-5 scale, and the answer is",
     "    stored identically whichever wording produced it -- only the grammar changes.",
     "    Keep the three in step: they should differ in person, not in meaning.",
+    "  * 'color' marks a category, and every question in it, with one of a fixed set of",
+    "    names: indigo, teal, plum, rust, moss, sky, sand, slate. A name and not a hex",
+    "    value -- the content security policy has no unsafe-inline, so a colour that is",
+    "    not one of these has no class behind it and the app refuses to start.",
+    "    The marker matters because the FORM NO LONGER GROUPS THE STATEMENTS BY CATEGORY:",
+    "    all twenty-five are shuffled, so the colour and the category name printed on each",
+    "    statement are what tell a reader that two of them belong together. A question may",
+    "    override its category's colour, but normally should not -- twenty-five different",
+    "    colours is not a code, it is a rainbow. Leaving 'color' out is fine: a category",
+    "    then gets the palette entry at its own position, which is five distinct markers.",
+    "  * Red, amber and green are deliberately NOT in the palette. Those three mean a",
+    "    score band on the coach pages, and a question marked red beside a number coloured",
+    "    red would read as a verdict on the answer.",
     "",
     "The app validates this file at startup and refuses to start with a clear error if",
     "it is malformed, so a typo shows up immediately instead of halfway through a round."
@@ -58,6 +71,7 @@
   "categories": [
     {
       "key": "commitment",
+      "color": "indigo",
       "name": "Commitment",
       "description": "Drive, and the ability to keep working at long-term development.",
       "questions": [
@@ -100,6 +114,7 @@
     },
     {
       "key": "communication",
+      "color": "teal",
       "name": "Communication",
       "description": "Communication with team-mates, opponents, the coaching staff and the support team.",
       "questions": [
@@ -142,6 +157,7 @@
     },
     {
       "key": "concentration",
+      "color": "plum",
       "name": "Concentration",
       "description": "Holding focus through a full session or match.",
       "questions": [
@@ -184,6 +200,7 @@
     },
     {
       "key": "control",
+      "color": "rust",
       "name": "Control",
       "description": "Self-control and emotional regulation under pressure.",
       "questions": [
@@ -226,6 +243,7 @@
     },
     {
       "key": "confidence",
+      "color": "moss",
       "name": "Confidence",
       "description": "Self-belief and trust in one's own ability in training and matches.",
       "questions": [
