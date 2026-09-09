@@ -80,12 +80,17 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         }
     }
 
-    /// <summary>This respondent's submission for this player in this round, answers and all.</summary>
+    /// <summary>
+    /// This respondent's submission for this player in this round -- the rated answers and
+    /// the written reflection both, so that a correction replaces the whole form rather
+    /// than half of it.
+    /// </summary>
     private Task<FiveCSubmission?> FindRowAsync(
         SurveySubmission submission,
         CancellationToken cancellationToken) =>
         _db.FiveCSubmissions
             .Include(s => s.Answers)
+            .Include(s => s.Reflection)
             .FirstOrDefaultAsync(
                 s => s.RoundId == submission.RoundId
                      && s.PlayerId == submission.PlayerId
@@ -99,10 +104,16 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
     /// </summary>
     private void Apply(SurveySubmission submission, FiveCSubmission row)
     {
-        // Answering again is a correction, not a second opinion: the previous answers go
-        // rather than being added to. On a new row there are none, and this does nothing.
+        // Answering again is a correction, not a second opinion: what the previous
+        // submission left behind goes, answers and reflection both, rather than being added
+        // to. A wholesale replace rather than a diff -- it cannot leave standing an answer
+        // the respondent has since cleared, which is the point of letting them correct one.
+        // On a new row there is nothing to remove, and this does nothing.
         _db.FiveCAnswers.RemoveRange(row.Answers);
         row.Answers.Clear();
+
+        _db.FiveCReflectionAnswers.RemoveRange(row.Reflection);
+        row.Reflection.Clear();
 
         row.PlayerCode = submission.PlayerCode;
         row.RespondentRole = submission.RespondentRole;
@@ -115,6 +126,23 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             {
                 QuestionKey = answer.QuestionKey,
                 CategoryKey = answer.CategoryKey,
+                Value = answer.Value
+            });
+        }
+
+        // Only what was actually written. A blank reflection question is left out entirely
+        // rather than stored as an empty row -- "not answered" is the absence of a row here,
+        // exactly as a null value means it for a statement.
+        foreach (var answer in submission.Reflection)
+        {
+            if (string.IsNullOrWhiteSpace(answer.Value))
+            {
+                continue;
+            }
+
+            row.Reflection.Add(new FiveCReflectionAnswer
+            {
+                QuestionKey = answer.QuestionKey,
                 Value = answer.Value
             });
         }
@@ -148,6 +176,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var row = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
+            .Include(s => s.Reflection)
             .FirstOrDefaultAsync(
                 s => s.RoundId == roundId
                      && s.PlayerId == playerId
@@ -166,6 +195,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
+            .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && s.PlayerId == playerId)
             .ToListAsync(cancellationToken);
 
@@ -190,6 +220,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
             .Include(s => s.Answers)
+            .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && ids.Contains(s.PlayerId))
             .ToListAsync(cancellationToken);
 
@@ -236,6 +267,13 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             {
                 QuestionKey = a.QuestionKey,
                 CategoryKey = a.CategoryKey,
+                Value = a.Value
+            })
+            .ToList(),
+        Reflection = row.Reflection
+            .Select(a => new ReflectionAnswer
+            {
+                QuestionKey = a.QuestionKey,
                 Value = a.Value
             })
             .ToList()

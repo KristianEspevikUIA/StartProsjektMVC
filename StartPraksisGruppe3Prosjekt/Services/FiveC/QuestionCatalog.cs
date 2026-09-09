@@ -32,6 +32,7 @@ public sealed class QuestionCatalog : IQuestionCatalog
     private readonly IReadOnlyDictionary<string, Question> _questionsByKey;
     private readonly IReadOnlyDictionary<string, QuestionCategory> _categoriesByKey;
     private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
+    private readonly IReadOnlyDictionary<string, ReflectionQuestion> _reflectionByKey;
 
     public QuestionCatalog(IWebHostEnvironment environment, ILogger<QuestionCatalog> logger)
     {
@@ -76,6 +77,9 @@ public sealed class QuestionCatalog : IQuestionCatalog
             .SelectMany(c => c.Questions.Select(q => (q.Key, Category: c)))
             .ToDictionary(pair => pair.Key, pair => pair.Category, StringComparer.OrdinalIgnoreCase);
 
+        _reflectionByKey = Questions.ReflectionQuestions.ToDictionary(
+            q => q.Key, StringComparer.OrdinalIgnoreCase);
+
         var questionCount = _questionsByKey.Count;
 
         if (Questions.Categories.Count != ExpectedCategoryCount
@@ -93,10 +97,12 @@ public sealed class QuestionCatalog : IQuestionCatalog
         }
 
         logger.LogInformation(
-            "Loaded 5C question set '{Version}': {CategoryCount} categories, {QuestionCount} questions.",
+            "Loaded 5C question set '{Version}': {CategoryCount} categories, {QuestionCount} questions, " +
+            "{ReflectionCount} reflection questions.",
             Questions.Version,
             Questions.Categories.Count,
-            questionCount);
+            questionCount,
+            _reflectionByKey.Count);
     }
 
     /// <inheritdoc />
@@ -113,6 +119,10 @@ public sealed class QuestionCatalog : IQuestionCatalog
     /// <inheritdoc />
     public QuestionCategory? FindCategoryForQuestion(string questionKey) =>
         _categoryByQuestionKey.TryGetValue(questionKey, out var category) ? category : null;
+
+    /// <inheritdoc />
+    public ReflectionQuestion? FindReflectionQuestion(string key) =>
+        _reflectionByKey.TryGetValue(key, out var question) ? question : null;
 
     /// <summary>
     /// Everything that has to hold for the form to be answerable and the answers readable.
@@ -165,7 +175,13 @@ public sealed class QuestionCatalog : IQuestionCatalog
                 $"The category key '{duplicate}' is used more than once. Category keys must be unique.");
         }
 
-        foreach (var duplicate in Duplicates(set.AllQuestions.Select(q => q.Key)))
+        // Statements and reflection questions are checked together: they are stored in
+        // different tables, but both are stored against this key, and two questions sharing
+        // one is the kind of edit that reads fine and merges two answers.
+        var answerKeys = set.AllQuestions.Select(q => q.Key)
+            .Concat(set.ReflectionQuestions.Select(q => q.Key));
+
+        foreach (var duplicate in Duplicates(answerKeys))
         {
             problems.Add(
                 $"The question key '{duplicate}' is used more than once. Answers are stored against " +
@@ -202,6 +218,46 @@ public sealed class QuestionCatalog : IQuestionCatalog
                     problems.Add($"Question '{question.Key}' in '{category.Key}' is missing 'text'.");
                 }
             }
+        }
+
+        // The reflection section is optional. Present, it has to be answerable: a question
+        // whose 'type' is a typo would otherwise render as an input nobody can fill in.
+        foreach (var question in set.ReflectionQuestions)
+        {
+            if (string.IsNullOrWhiteSpace(question.Key))
+            {
+                problems.Add($"A reflection question is missing 'key' (text: '{question.Text}').");
+            }
+
+            if (string.IsNullOrWhiteSpace(question.Text))
+            {
+                problems.Add($"Reflection question '{question.Key}' is missing 'text'.");
+            }
+
+            if (!ReflectionQuestionTypes.IsKnown(question.Type))
+            {
+                problems.Add(
+                    $"Reflection question '{question.Key}' has the unknown type '{question.Type}'. " +
+                    $"Use '{ReflectionQuestionTypes.Category}' for a choice between the five C's, or " +
+                    $"'{ReflectionQuestionTypes.Text}' for a written answer.");
+            }
+
+            if (!question.IsCategoryChoice
+                && (question.MaxLength < 1 || question.MaxLength > FiveCRules.ReflectionTextLimit))
+            {
+                problems.Add(
+                    $"Reflection question '{question.Key}' has 'maxLength' {question.MaxLength}. " +
+                    $"It has to be between 1 and {FiveCRules.ReflectionTextLimit} -- the size of the " +
+                    "column the answer is stored in.");
+            }
+        }
+
+        if (set.Reflection is { } reflection
+            && reflection.Questions.Count > 0
+            && string.IsNullOrWhiteSpace(reflection.Title))
+        {
+            problems.Add(
+                "'reflection.title' is missing. It is the heading over the section and the label on its tab.");
         }
 
         if (problems.Count > 0)

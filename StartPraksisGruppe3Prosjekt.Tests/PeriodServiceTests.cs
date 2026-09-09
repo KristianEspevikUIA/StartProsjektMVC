@@ -310,6 +310,7 @@ internal static class TestCatalog
         private readonly IReadOnlyDictionary<string, Question> _questionsByKey;
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoriesByKey;
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
+        private readonly IReadOnlyDictionary<string, ReflectionQuestion> _reflectionByKey;
 
         public ReversedCatalog(QuestionSet source, string questionKey)
         {
@@ -327,6 +328,10 @@ internal static class TestCatalog
             {
                 Version = source.Version,
                 Scale = source.Scale,
+                // Carried over untouched. Reversal is about how a rated statement is
+                // scored, and the reflection is not scored at all -- a caller that asks for
+                // one reversed statement still gets the rest of the form it had.
+                Reflection = source.Reflection,
                 Categories = source.Categories
                     .Select(category => new QuestionCategory
                     {
@@ -356,6 +361,9 @@ internal static class TestCatalog
             _categoryByQuestionKey = Questions.Categories
                 .SelectMany(c => c.Questions.Select(q => (q.Key, Category: c)))
                 .ToDictionary(pair => pair.Key, pair => pair.Category, StringComparer.OrdinalIgnoreCase);
+
+            _reflectionByKey = Questions.ReflectionQuestions.ToDictionary(
+                q => q.Key, StringComparer.OrdinalIgnoreCase);
         }
 
         public QuestionSet Questions { get; }
@@ -368,6 +376,9 @@ internal static class TestCatalog
 
         public QuestionCategory? FindCategoryForQuestion(string questionKey) =>
             _categoryByQuestionKey.TryGetValue(questionKey, out var category) ? category : null;
+
+        public ReflectionQuestion? FindReflectionQuestion(string key) =>
+            _reflectionByKey.TryGetValue(key, out var question) ? question : null;
 
         private static bool Matches(Question question, string key) =>
             string.Equals(question.Key, key, StringComparison.OrdinalIgnoreCase);
