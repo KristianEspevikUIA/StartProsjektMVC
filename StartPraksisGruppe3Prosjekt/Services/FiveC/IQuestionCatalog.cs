@@ -33,4 +33,18 @@ public interface IQuestionCatalog
     /// a statement with a number, a reflection question with a C or with words.
     /// </summary>
     ReflectionQuestion? FindReflectionQuestion(string key);
+
+    /// <summary>
+    /// The palette name a question is marked with: its own colour if the file gives it one,
+    /// otherwise its category's, otherwise the palette entry at the category's position.
+    ///
+    /// Resolved here rather than in a view so that the form, the statement table and the
+    /// player page cannot mark the same statement with three different colours. An unknown
+    /// key gets <see cref="QuestionColors.Fallback"/> -- a stored answer for a question the
+    /// file no longer contains still has to render somewhere.
+    /// </summary>
+    string ColorForQuestion(string questionKey);
+
+    /// <summary>The palette name for a category, resolved the same way.</summary>
+    string ColorForCategory(string categoryKey);
 }

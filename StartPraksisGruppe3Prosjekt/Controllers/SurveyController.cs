@@ -33,6 +33,12 @@ namespace StartPraksisGruppe3Prosjekt.Controllers;
 ///      again on POST. The hidden fields in the form are input, not proof.
 ///   3. Answers are stored raw, 1-5. Reversal is a reading rule, not a writing one.
 ///
+/// The statements are shown SHUFFLED, in blocks of five rather than in the five C's -- see
+/// <see cref="IQuestionOrder"/>. The order depends only on the player and the period, so it
+/// is the same on a redisplay and the same when the respondent comes back to correct an
+/// answer. What is STORED is unaffected: the submission below is built from the catalog, in
+/// catalog order, whatever order the form was in.
+///
 /// Sharing a form is a query string: /Survey/Fill?roundId=2&amp;playerId=14&amp;role=Coach.
 /// The link only preselects who is answering about whom -- it grants nothing. Anyone
 /// following it still signs in, and both checks above still run. See docs/five-c.md for
@@ -44,6 +50,7 @@ public class SurveyController : Controller
     private readonly AppDbContext _db;
     private readonly IAuthorizationService _authz;
     private readonly IQuestionCatalog _catalog;
+    private readonly IQuestionOrder _order;
     private readonly ISurveySubmissionStore _store;
     private readonly ISurveyAssignmentService _assignments;
     private readonly ILogger<SurveyController> _logger;
@@ -54,6 +61,7 @@ public class SurveyController : Controller
         AppDbContext db,
         IAuthorizationService authz,
         IQuestionCatalog catalog,
+        IQuestionOrder order,
         ISurveySubmissionStore store,
         ISurveyAssignmentService assignments,
         ILogger<SurveyController> logger,
@@ -63,6 +71,7 @@ public class SurveyController : Controller
         _db = db;
         _authz = authz;
         _catalog = catalog;
+        _order = order;
         _store = store;
         _assignments = assignments;
         _logger = logger;
@@ -411,35 +420,50 @@ public class SurveyController : Controller
             Scale = _catalog.Questions.Scale
         };
 
+        // The order this player and period get, which is not the catalog order -- see
+        // IQuestionOrder. Derived from the two ids, so a redisplay after a failed POST
+        // rebuilds exactly the form the respondent was looking at.
+        var ordered = _order.For(player.Id, round.Id);
+
         var sections = new List<SurveyFormViewModel.Section>();
-        var number = 0;
 
-        foreach (var category in _catalog.Questions.Categories)
+        // Blocks of five, cut out of the shuffled sequence. They are positions in the form
+        // and not the five C's: a block normally holds statements from four or five
+        // different categories, which is the point.
+        foreach (var block in ordered.Chunk(QuestionOrder.BlockSize))
         {
-            var questions = new List<SurveyFormViewModel.SectionQuestion>();
+            var questions = new List<SurveyFormViewModel.SectionQuestion>(block.Length);
 
-            foreach (var question in category.Questions)
+            foreach (var item in block)
             {
                 var index = model.Answers.Count;
 
                 model.Answers.Add(new SurveyFormViewModel.QuestionInput
                 {
-                    QuestionKey = question.Key,
-                    Value = previous.TryGetValue(question.Key, out var value) ? value : null
+                    QuestionKey = item.Question.Key,
+                    Value = previous.TryGetValue(item.Question.Key, out var value) ? value : null
                 });
 
                 questions.Add(new SurveyFormViewModel.SectionQuestion(
                     Index: index,
-                    Number: ++number,
-                    Text: question.TextFor(respondent),
-                    Reversed: question.Reversed));
+                    Number: item.Number,
+                    Text: item.Question.TextFor(respondent),
+                    Reversed: item.Question.Reversed,
+                    CategoryName: item.Category.Name,
+                    Color: item.Color));
             }
 
+            var first = block[0].Number;
+            var last = block[^1].Number;
+
             sections.Add(new SurveyFormViewModel.Section(
-                category.Key,
-                category.Name,
-                category.Description,
-                questions));
+                Key: $"block-{sections.Count + 1}",
+                // An en dash, and the same range the tab strip shows, so the heading and
+                // the tab are the same words. A single-statement block says "25", not
+                // "25-25", which is what a last block of one would otherwise read as.
+                Name: first == last ? $"Statement {first}" : $"Statements {first}\u2013{last}",
+                Description: string.Empty,
+                Questions: questions));
         }
 
         model.Sections = sections;
@@ -500,6 +524,7 @@ public class SurveyController : Controller
         return new SurveyFormViewModel.ReflectionBlock(
             reflection.Title,
             reflection.Description,
+            reflection.NoAnswerLabel,
             fields);
     }
 

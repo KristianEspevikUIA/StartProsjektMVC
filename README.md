@@ -315,9 +315,17 @@ for hvert oppslag, og det kan den det gjelder også.
 
 ### Skjemalisten
 
-`/Survey` er én liste med tre betydninger: for en spiller ett kort om seg selv, for en
-foresatt ett per barn, for en trener ett per spiller i klubben. Visningen forgrener seg ikke
+`/Survey` er én liste med tre betydninger: for en spiller én rad om seg selv, for en
+foresatt én per barn, for en trener én per spiller i klubben. Visningen forgrener seg ikke
 på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører hjemme i lista.
+
+**En tabell, ikke kort.** Kolonnene er spillerkode, posisjon, lag, alder, hvilken rolle du
+svarer i, og status. Kort var greit for en spiller med ett skjema og en foresatt med to; en
+trener får ett per spiller i klubben, og tretti kort er tretti overskrifter og en side man
+ruller i stedet for å skumme. Identifikatoren er **koden** — datamodellen har ingen navn,
+med vilje, så koden er det en spiller heter i hele applikasjonen. Alderen regnes ut av
+`PlayerRules.AgeAt`, samme regel som kravet om foresatt henger på; fødselsdatoen selv vises
+aldri.
 
 Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og spillerkode.
 Filtrene ligger i query-strengen, så en filtrert liste er en URL som kan deles og som
@@ -345,9 +353,16 @@ og samme komponent, slik at man ikke møter ny navigasjon på hver side:
 | Side | Faner |
 | --- | --- |
 | Lagsiden | Overview, Per statement, Over time, Players |
+| Lagsidens Overview | *(nøstet)* All five, og én fane per C |
 | Spillersiden | Differences, The five C's, Statements, Over time, Sharing |
 | Spillerens egen side | Status, Your answers, Who has looked |
-| Skjemaet | én fane per C, med Back/Next og teller |
+| Skjemaet | én fane per bolk på fem påstander, med Back/Next og teller |
+
+Overview-panelet har en **stripe inni stripa**: «All five» er de fem C-ene ved siden av
+hverandre, og de fem etter den er én C hver, med tall per rolle, spredning og påstandene i
+akkurat den kategorien. Nøstede paneler merkes `data-subtab-panel` og ikke `data-tab-panel`,
+nettopp fordi spørringen på sidenivå ellers ville plukket dem opp og gjort to striper på
+fire og seks faner om til én stripe på ni.
 
 En seksjon melder seg på med `data-tab-panel`; `survey.js` bygger stripa av de panelene som
 faktisk står der. To ting ligger bevisst *utenfor* panelene, fordi de er grunnen til at siden
@@ -355,9 +370,9 @@ ble åpnet: «fyll ut skjemaet» på spillersiden, og **Lagre** på skjemaet. Ut
 finnes ingen stripe og ingenting er skjult — da er sidene de samme kolonnene som før. Valgt
 fane huskes per side i `sessionStorage`.
 
-Skjemaet gjør litt mer enn å bytte: hver fane viser hvor mange av de fem påstandene som er
-besvart (`3/5`) og markeres om noe mangler, og panelene har Back/Next. Skjulte paneler sendes
-inn som før — fanene endrer hva som vises, ikke hva som lagres.
+Skjemaet gjør litt mer enn å bytte: hver fane viser hvor mange av bolkens fem påstander som
+er besvart (`3/5`) og markeres om noe mangler, og panelene har Back/Next. Skjulte paneler
+sendes inn som før — fanene endrer hva som vises, ikke hva som lagres.
 
 **Hvert tall er et snitt av SPILLERE, ikke av svar.** På hvert nivå er lagets tall snittet av
 spillernes tall på det nivået, slik at én spiller teller én gang enten hen svarte på fem
@@ -426,6 +441,89 @@ sitt eget barn — bare grammatikken skifter:
 
 Hver faller tilbake på den over, så et spørsmålssett som bare fyller ut `text` fungerer for
 alle. Svaret lagres likt uansett hvilken ordlyd som produserte det.
+
+### Stokket rekkefølge og fargekoder
+
+Katalogrekkefølgen — fem C-er, fem påstander hver, alltid den samme — er et skjema man kan
+fylle ut uten å lese. Fem påstander om forpliktelse på rad lærer leseren at den neste også
+handler om forpliktelse, og i tredje periode klikker en spiller nedover en kolonne.
+
+`IQuestionOrder` stokker derfor alle 25 på tvers av kategoriene. To egenskaper må holde
+samtidig, og de drar i hver sin retning:
+
+* **Stabil innenfor en periode.** Den som lagrer, kommer tilbake og retter ett svar, må møte
+  det samme skjemaet. En rekkefølge som var tilfeldig *per forespørsel* ville renummerert
+  påstandene under dem midt i rettingen.
+* **Forskjellig mellom perioder.** Ellers er stokkingen pynt: samme rekkefølge hver september
+  er den samme autopiloten, én permutasjon lenger bort.
+
+Begge faller ut av å seede på **(spiller, periode)** og utlede permutasjonen av seedet i
+stedet for å lagre den. Ingenting skrives ned, ingenting må migreres, og den samme
+rekkefølgen kan gjenskapes senere fra de to ID-ene alene. Generatoren er en liten SplitMix64
+skrevet ut i koden og ikke `System.Random`: sistnevnte lover ikke samme sekvens på tvers av
+.NET-versjoner, og rekkefølgen må overleve en runtime-oppgradering midt i en måleperiode.
+
+Seedet henger på **spilleren** og ikke på den som svarer. Det betyr at spilleren, foresatt og
+treneren svarer om samme spiller i samme rekkefølge, som er det som gjør «du satte 5 på den
+fjerde» til en setning to personer kan ha. En trener med tjue spillere får likevel tjue ulike
+rekkefølger, så trenerens egen autopilot brytes også.
+
+Skjemaet er derfor **bolker på fem** og ikke de fem C-ene, og hver påstand bærer i stedet en
+fargekode og navnet på sin C. Fargen er et *navn* fra et fast sett — indigo, teal, plum,
+rust, moss, sky, sand, slate — og ikke en hex-verdi: CSP-en har ingen `unsafe-inline`, så en
+farge som ikke finnes har ingen klasse bak seg, og appen nekter å starte på den. Rødt, gult
+og grønt står bevisst utenfor palettet; de tre betyr et *skårbånd* på treneroversikten, og en
+påstand merket rød ved siden av et rødt tall ville lest som en dom over svaret.
+
+Fargen settes per kategori i `five-c-questions.json` (og kan overstyres per påstand, men bør
+normalt ikke være det — 25 ulike farger er ikke en kode, det er en regnbue). Utelates den,
+får kategorien palett-oppføringen på sin egen plass, altså fem tydelige markører uansett.
+
+Det som **lagres** er upåvirket: innsendingen bygges fra katalogen, i katalogrekkefølge,
+uansett hvilken rekkefølge skjemaet sto i. Løpenummeret på analysesidene er katalogens, ikke
+skjemaets — det finnes ikke lenger ett nummer en påstand «hadde da den ble besvart».
+
+### Farge og spredning på oversikten
+
+To røde-gule-grønne skalaer bor på lagsiden, og de er **ikke** det samme:
+
+| Skala | Måler | Ser ut som |
+| --- | --- | --- |
+| `ScoreLevels` | hvordan troppen *svarte* | et tall på tonet bunn (`sc-mean`) |
+| `AgreementLevels` | hvor langt fra hverandre to personer er | et versalt merke (`sc-badge`) |
+
+De er skilt på form, hver har sin forklaring der den brukes, og de er to enum-er nettopp
+fordi én felles enum før eller siden ville fargelagt et avvik som om det var en skår.
+Skårbåndene er `< 2,0` (nederste linje er den samme som følges opp-flagget, med vilje),
+`2,0–3,5` og `≥ 3,5`.
+
+Ved siden av hvert snitt står **spredningen**: standardavviket (utvalg, *n−1*) over
+spillernes egne tall, på samme 1–5-skala. Det er tallet snittet ikke sier. En tropp som
+snitter 3,0 fordi alle svarte 3, og en som snitter 3,0 fordi halvparten svarte 1 og
+halvparten 5, er to helt forskjellige lag med samme snitt — og det er den andre som har noe å
+gjøre noe med. Spredningen holdes tilbake sammen med snittet under minstekravet på tre
+respondenter: å vite at to spillere er to poeng fra hverandre er å vite svært mye om to
+personer.
+
+Spredningen fargelegges ikke. Lav spredning er ikke bra i seg selv — en tropp der alle svarte
+2 har spredning null — så et trafikklys på den ville sagt noe usant.
+
+### Pentagon
+
+De fem C-ene tegnet som én form: én akse per kategori, ett lukket polygon per respondent, i
+de samme tre rollefargene som stolpene. Stolpene svarer på «hvor høy er Commitment»; formen
+svarer på «hvilken form har denne spilleren» — jevn over de fem, eller spiss i én og hul i en
+annen. Det andre spørsmålet er det en sesongplan lages mot, og fem separate stolpediagrammer
+er dårligst på nettopp det.
+
+En rolle tegnes bare når den har et tall i **hver** kategori. Et polygon må plassere hvert
+hjørne et sted, og det eneste stedet et manglende hjørne kunne gå er midten — som ville tegnet
+«ingen svarte på denne C-en» som «skåret bunnen av skalaen». Rollen navngis i stedet.
+
+All geometri regnes ut i `PentagonChartViewModel` og aldri i viewet. Det er ikke ryddighet:
+appen kjører under norsk kultur, der en `double` blir «3,0», og komma i et SVG-`points`-
+attributt skiller *koordinater*. Ett tall formatert med gjeldende kultur blir til to, og
+polygonet forsvinner eller tegnes et helt annet sted — uten at noe feiler høylytt.
 
 ### Samtaleflyten
 

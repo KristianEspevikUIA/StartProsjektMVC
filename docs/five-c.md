@@ -71,6 +71,7 @@ They live in the same file, in a `reflection` block after `categories`:
 "reflection": {
   "title": "End of period",
   "description": "Five short questions to close the period. …",
+  "noAnswerLabel": "Not answered",
   "questions": [
     { "key": "reflection-strength", "type": "category",
       "text": "Which C has been your greatest strength during this meso period?",
@@ -91,6 +92,12 @@ They live in the same file, in a `reflection` block after `categories`:
 - **`required` is `false` unless a question says otherwise.** The twenty-five statements are
   the measurement; a compulsory paragraph after them is answered with a full stop. It is a
   per-question flag in the file if the club decides differently.
+- **`noAnswerLabel`** is the way back out of a `category` question. A radio cannot be
+  unchecked by clicking it again, so without it the first C somebody touches is the one they
+  are stuck with — on a question the page has just told them is optional. It is rendered as
+  the last option in the group, posts an empty value, and is stored as no answer at all: the
+  row goes, and the result is indistinguishable from never having chosen. Offered on every
+  category question that is not `required`.
 - The whole block is optional. Remove it and the form is the twenty-five statements it was.
 - Reflection keys share one namespace with the statement keys. The catalog refuses to load a
   file where one is used twice.
@@ -101,7 +108,9 @@ carried explicitly through the admin export. They follow the submission, which f
 player, so a deletion takes them with it.
 
 The form counts them separately too: the progress bar at the top counts the statements only,
-and the reflection tab is marked optional so nothing flags it as unfinished.
+and the reflection tab is marked optional so nothing flags it as unfinished. The tab's own
+count ignores a selected "Not answered": clearing a choice that otherwise left the count
+where it was would be a counter that cannot go down.
 
 ### Who reads it
 

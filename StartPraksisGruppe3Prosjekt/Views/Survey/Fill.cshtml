@@ -7,7 +7,15 @@
 }
 
 @*
-    The 5C form. Twenty-five statements in five categories, one 1-5 scale.
+    The 5C form. Twenty-five statements, one 1-5 scale.
+
+    The statements are SHUFFLED, and the panels below are blocks of five rather than the
+    five C's -- see IQuestionOrder. The same player and period always get the same order,
+    so coming back to correct one answer meets the same form.
+
+    Because the blocks no longer say which C a statement belongs to, each statement carries
+    a coloured marker and the name of its C. Colour AND name: a marker that is only a colour
+    says nothing to a reader who cannot tell teal from moss.
 
     Nothing on this page names a category or a statement. Everything comes from the
     question catalog through the view model, which is what makes it possible to replace
@@ -73,23 +81,23 @@
         }
 
         @*
-            One C per panel. survey.js turns these into the same tab strip the coach pages
-            use, adds Back and Next, and writes the answered count onto each tab -- so the
-            form is five statements at a time instead of twenty-five in one column, and you
-            can still see how far you have got.
+            One block of five per panel. survey.js turns these into the same tab strip the
+            coach pages use, adds Back and Next, and writes the answered count onto each tab
+            -- so the form is five statements at a time instead of twenty-five in one column,
+            and you can still see how far you have got.
 
             Hidden panels still post: a radio in a section nobody opened submits exactly as
             it would have in the long column. With JavaScript off there is no strip and
             nothing is hidden, which is the form as it was.
 
-            data-tab-open sends the reader to the first C with something still unanswered
+            data-tab-open sends the reader to the first block with something still unanswered
             after a rejected save. An error message behind an unopened tab is a form that
             will not submit and will not say why.
         *@
         @{ var firstWithError = true; }
-        @foreach (var categoryBlock in Model.Sections)
+        @foreach (var block in Model.Sections)
         {
-            var blockHasError = categoryBlock.Questions.Any(q =>
+            var blockHasError = block.Questions.Any(q =>
                 ViewData.ModelState[$"Answers[{q.Index}].Value"]?.Errors.Count > 0);
 
             var openThis = blockHasError && firstWithError;
@@ -99,14 +107,17 @@
             }
 
             <section class="sc-section" data-tab-panel
-                     data-tab-label="@categoryBlock.Name"
+                     data-tab-label="@block.Name"
                      data-tab-open="@(openThis ? "true" : "false")">
                 <div class="sc-rule"></div>
-                <h2 data-tab-heading>@categoryBlock.Name</h2>
-                <p class="sc-lead">@categoryBlock.Description</p>
+                <h2 data-tab-heading>@block.Name</h2>
+                @if (!string.IsNullOrWhiteSpace(block.Description))
+                {
+                    <p class="sc-lead">@block.Description</p>
+                }
 
                 <div class="sc-card">
-                    @foreach (var question in categoryBlock.Questions)
+                    @foreach (var question in block.Questions)
                     {
                         var input = Model.Answers[question.Index];
                         var fieldName = $"Answers[{question.Index}].Value";
@@ -123,9 +134,14 @@
                                 reversal is a scoring rule in FiveCRules.Score and is not
                                 something the respondent should notice; flipping the scale
                                 here would reverse it twice.
+
+                                The marker names its C as well as colouring it. Screen
+                                readers get the name; everybody else gets a colour they can
+                                match against the next statement without reading anything.
                             *@
                             <p class="sc-question__text" id="@(groupId)-label">
                                 <span class="sc-question__number">@question.Number</span>
+                                <span class="@question.ColorClass">@question.CategoryName</span>
                                 <span>@question.Text</span>
                             </p>
 
@@ -199,8 +215,8 @@
         @*
             The reflection, after the 25 and before Save.
 
-            A panel like the five before it, so it is the last tab and the last step of the
-            walk rather than a second page. Nothing here is written in this file either:
+            A panel like the blocks of statements before it, so it is the last tab and the
+            last step of the walk rather than a second page. Nothing here is written in this file either:
             the questions, the wording per reader, the five C's to choose between and the
             length of a written answer all come from the question catalog, and a question
             set without a reflection renders nothing at all.
@@ -265,6 +281,42 @@
                                                    value="@choice.Key"
                                                    checked="@(string.Equals(input.Value, choice.Key, StringComparison.OrdinalIgnoreCase))" />
                                             <label for="@optionId">@choice.Name</label>
+                                        </div>
+                                    }
+
+                                    @*
+                                        The way back out of an optional question. A radio
+                                        cannot be unchecked by clicking it again, so without
+                                        this the first C somebody touches is the one they are
+                                        stuck with -- on a question the page has just told
+                                        them they may leave alone.
+
+                                        An option in the same group rather than a button
+                                        beside it: it is answerable with the keyboard like
+                                        the five above it, and it works with JavaScript off,
+                                        which a button that unchecks a group does not.
+
+                                        It posts an empty value, which ReadReflection stores
+                                        as no answer and the store drops the row for --
+                                        indistinguishable from never having chosen. Not
+                                        offered when the question is required: there would be
+                                        nothing to go back to.
+
+                                        Pre-selected only on a form there is a submission
+                                        behind, for the same reason "Don't know" above is:
+                                        on a blank form it would be the system answering
+                                        first.
+                                    *@
+                                    @if (!question.Required)
+                                    {
+                                        <div class="sc-choice__option sc-choice__option--none">
+                                            <input type="radio"
+                                                   id="@(groupId)-none"
+                                                   name="@fieldName"
+                                                   value=""
+                                                   data-reflection-clear
+                                                   checked="@(Model.IsCorrection && string.IsNullOrEmpty(input.Value))" />
+                                            <label for="@(groupId)-none">@reflection.NoAnswerLabel</label>
                                         </div>
                                     }
                                 </div>

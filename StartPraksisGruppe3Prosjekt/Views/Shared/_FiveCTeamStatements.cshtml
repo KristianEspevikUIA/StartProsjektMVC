@@ -5,6 +5,12 @@
     // Split out of _FiveCTeamOverview so it can be a panel of its own. Twenty-five rows
     // is most of the page's height, and a coach reading category averages is usually not
     // reading statement averages in the same breath.
+    //
+    // The same three C's-worth of colour appears here as on the overview, and it means the
+    // same thing: how the squad ANSWERED. See ScoreLevels. The coloured dot at the start of
+    // each row is a different scale entirely -- it is the question marker, the one the
+    // respondent saw on the form, and it says which C the statement belongs to. A marker is
+    // never red, amber or green, precisely so the two cannot be confused.
 }
 
 @*
@@ -17,9 +23,11 @@
 *@
 <p class="sc-lead">
     Every statement, averaged across the squad. A dash means too few of that role answered
-    it — it is not a zero. Rows where the squad's own average is under
-    @FiveCRules.FollowUpThreshold.ToString("0") are marked.
+    it — it is not a zero. The colour is the band the average falls in; the spread column is
+    how far apart the players are about that one statement.
 </p>
+
+<partial name="_FiveCScoreLegend" />
 
 <div class="sc-table-wrap">
     <table class="sc-table">
@@ -28,6 +36,7 @@
                 <th scope="col">#</th>
                 <th scope="col">Statement</th>
                 <th scope="col">Players</th>
+                <th scope="col">Spread</th>
                 <th scope="col">Guardians</th>
                 <th scope="col">Coaches</th>
             </tr>
@@ -36,16 +45,23 @@
             @foreach (var category in Model.Categories)
             {
                 <tr class="sc-row--group">
-                    <th scope="rowgroup" colspan="5">@category.CategoryName</th>
+                    <th scope="rowgroup" colspan="6">
+                        <span class="@category.ColorClass sc-qcolor--dot"></span>
+                        @category.CategoryName
+                    </th>
                 </tr>
 
                 @foreach (var question in category.Questions)
                 {
-                    var low = question.Means.PlayerMean < FiveCRules.FollowUpThreshold;
+                    @* The row highlight and the number's colour are now the same judgement,
+                       from the same place. They used to be two separate comparisons against
+                       the same threshold, which is one edit away from disagreeing. *@
+                    var level = question.Means.Level;
 
-                    <tr class="@(low ? "sc-row--alert" : "")">
+                    <tr class="@(level == ScoreLevel.Low ? "sc-row--alert" : "")">
                         <td class="sc-muted sc-small">@question.Number</td>
                         <td>
+                            <span class="@question.ColorClass sc-qcolor--dot"></span>
                             @question.Text
                             @if (question.Reversed)
                             {
@@ -53,19 +69,30 @@
                             }
                         </td>
 
-                        @foreach (var role in question.Means.Roles)
-                        {
-                            <td class="sc-num">
-                                @if (role.Mean is { } mean)
-                                {
-                                    @mean.ToString("0.0")
-                                }
-                                else
-                                {
-                                    <span class="sc-muted">–</span>
-                                }
-                            </td>
-                        }
+                        <td class="sc-num">
+                            <span class="@ScoreLevels.ScoreClass(question.Means.PlayerMean)">
+                                @(question.Means.PlayerMean is { } player ? player.ToString("0.0") : "–")
+                            </span>
+                        </td>
+
+                        @* Not coloured. A spread is not better when it is low -- a squad
+                           that all answered 1 has a spread of zero -- so a traffic light on
+                           it would be saying something untrue. *@
+                        <td class="sc-num sc-muted sc-small">
+                            @(question.Means.PlayerSpread is { } spread ? $"± {spread:0.0}" : "–")
+                        </td>
+
+                        <td class="sc-num">
+                            <span class="@ScoreLevels.ScoreClass(question.Means.GuardianMean)">
+                                @(question.Means.GuardianMean is { } guardian ? guardian.ToString("0.0") : "–")
+                            </span>
+                        </td>
+
+                        <td class="sc-num">
+                            <span class="@ScoreLevels.ScoreClass(question.Means.CoachMean)">
+                                @(question.Means.CoachMean is { } coach ? coach.ToString("0.0") : "–")
+                            </span>
+                        </td>
                     </tr>
                 }
             }
@@ -77,4 +104,12 @@
     “Reversed” marks a negatively worded statement. These averages already account for it,
     so a high number is good in every row — that is the difference from the per-player table,
     where the numbers are exactly what each person clicked.
+</p>
+
+<p class="sc-lead sc-small">
+    The spread is the standard deviation across the players who answered that statement, on
+    the same 1–5 scale. It is not good or bad on its own: a squad that all answered 2 has a
+    spread of zero. What it tells you is whether the average describes the squad or is
+    sitting between two halves of it — a low average with a low spread is everybody, a middling
+    average with a high spread is nobody.
 </p>

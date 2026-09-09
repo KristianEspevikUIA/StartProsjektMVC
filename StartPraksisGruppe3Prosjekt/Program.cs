@@ -193,6 +193,12 @@ builder.Services.AddScoped<IFiveCFeedbackBuilder, FiveCFeedbackBuilder>();
 // et halvtomt skjema midt i en runde.
 // ---------------------------------------------------------------------------
 builder.Services.AddSingleton<IQuestionCatalog, QuestionCatalog>();
+
+// Rekkefølgen utsagnene vises i. Singleton fordi den ikke har noen tilstand: den samme
+// spilleren og den samme perioden gir den samme rekkefølgen hver gang, og den regnes ut
+// fra de to ID-ene i stedet for å lagres. Se IQuestionOrder for hvorfor den er stokket.
+builder.Services.AddSingleton<IQuestionOrder, QuestionOrder>();
+
 builder.Services.AddScoped<ISurveyAssignmentService, SurveyAssignmentService>();
 builder.Services.AddScoped<IFiveCAnalysisService, FiveCAnalysisService>();
 

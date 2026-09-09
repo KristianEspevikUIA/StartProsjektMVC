@@ -20,11 +20,31 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// </summary>
 /// <param name="Role">Whose answers the average is over.</param>
 /// <param name="Mean">The average, on the 1-5 scale after reversal, or null.</param>
+/// <param name="Spread">
+/// How far apart the people behind the average are: the sample standard deviation of the
+/// per-player numbers, on the same 1-5 scale, or null.
+///
+/// The number the average does not tell you. A squad averaging 3.0 because everybody
+/// answered 3, and a squad averaging 3.0 because half answered 1 and half answered 5, are
+/// two entirely different teams and the same mean. A coach reading only the mean cannot
+/// tell them apart, and it is the second one that has something to do about it.
+///
+/// SAMPLE standard deviation, n-1, not population. The squad that answered is a sample of
+/// the squad -- some players have not filled the form in, and the ones who did are being
+/// read as an estimate of the team rather than as the whole of it. With the minimum of
+/// three respondents the difference between the two divisors is visible, so it is worth
+/// being deliberate: n-1 is the conservative one, and it does not understate the spread.
+///
+/// Null under two respondents even when a mean exists, because one number has no spread --
+/// and withheld with the mean whenever the mean is withheld, for the same reason: knowing
+/// that two players are 2.0 apart is knowing a great deal about two people.
+/// </param>
 /// <param name="Respondents">How many people of that role are behind it. Never withheld.</param>
 /// <param name="Withheld">There was a number, and it was suppressed as too thin.</param>
 public sealed record TeamRoleAverage(
     RespondentType Role,
     double? Mean,
+    double? Spread,
     int Respondents,
     bool Withheld)
 {
@@ -33,26 +53,52 @@ public sealed record TeamRoleAverage(
     /// </summary>
     /// <param name="role">Whose answers these are.</param>
     /// <param name="mean">The average over everyone of that role who answered, or null.</param>
+    /// <param name="spread">The sample standard deviation of the same numbers, or null.</param>
     /// <param name="respondents">How many of them there were.</param>
-    public static TeamRoleAverage From(RespondentType role, double? mean, int respondents)
+    public static TeamRoleAverage From(
+        RespondentType role,
+        double? mean,
+        double? spread,
+        int respondents)
     {
         var enough = respondents >= CanViewTeamAggregateRequirement.MinimumResponses;
 
         return new TeamRoleAverage(
             Role: role,
             Mean: enough ? mean : null,
+            // Dropped rather than carried and hidden, exactly as the mean is: nothing
+            // downstream can show a spread the threshold withheld, because nothing
+            // downstream is given it.
+            Spread: enough ? spread : null,
             Respondents: respondents,
             Withheld: !enough && mean.HasValue);
     }
 
     /// <summary>Nobody of this role answered. Not the same as an average of zero.</summary>
-    public static TeamRoleAverage None(RespondentType role) => new(role, null, 0, false);
+    public static TeamRoleAverage None(RespondentType role) => new(role, null, null, 0, false);
 
     /// <summary>Display name for the role, from the one place that decides it.</summary>
     public string RoleName => RespondentGap.DisplayName(Role);
 
     /// <summary>The same name in the plural, from the same place. "Coaches", not "Coachs".</summary>
     public string RoleNamePlural => RespondentGap.PluralName(Role);
+
+    /// <summary>
+    /// The sample standard deviation of a set of per-player numbers, or null when there are
+    /// fewer than two of them. One number has no spread; zero numbers have no anything.
+    /// </summary>
+    public static double? SpreadOf(IReadOnlyCollection<double> values)
+    {
+        if (values.Count < 2)
+        {
+            return null;
+        }
+
+        var mean = values.Average();
+        var sumOfSquares = values.Sum(value => (value - mean) * (value - mean));
+
+        return Math.Sqrt(sumOfSquares / (values.Count - 1));
+    }
 }
 
 /// <summary>
@@ -95,6 +141,21 @@ public sealed record TeamMeans(
     /// </summary>
     public bool NeedsFollowUp => FiveCRules.NeedsFollowUp(Player.Mean, Player.Respondents);
 
+    /// <summary>
+    /// How far apart the PLAYERS are on this slice, or null when there is no spread to
+    /// show. The players' own answers, because that is the line every other judgement on
+    /// these pages is made against -- see <see cref="TeamRoleAverage.Spread"/>.
+    /// </summary>
+    public double? PlayerSpread => Player.Spread;
+
+    /// <summary>
+    /// The band the squad's own average falls in, or null when there is no average.
+    /// The one place a view should get a colour from, so the overview and the statement
+    /// table cannot band the same number differently.
+    /// </summary>
+    public ScoreLevel? Level =>
+        PlayerMean is { } mean ? FiveCRules.LevelOfScore(mean) : null;
+
     /// <summary>The three roles in display order, for a legend or a table row.</summary>
     public IReadOnlyList<TeamRoleAverage> Roles => new[] { Player, Guardian, Coach };
 
@@ -116,24 +177,41 @@ public sealed record TeamMeans(
 /// way. The flag stays so a reader can tell which statements were turned round.
 /// </param>
 /// <param name="Means">The three team averages for this statement.</param>
+/// <param name="Color">
+/// The palette name the statement is marked with, from
+/// <see cref="IQuestionCatalog.ColorForQuestion"/>. The same marker the respondent saw on
+/// the form, so a coach and a player looking at the same statement are looking at the same
+/// colour -- which is most of what a marker is for once the form no longer groups by
+/// category.
+/// </param>
 public sealed record TeamQuestionAverage(
     string QuestionKey,
     int Number,
     string Text,
     bool Reversed,
-    TeamMeans Means);
+    TeamMeans Means,
+    string Color)
+{
+    /// <summary>The class for the marker, e.g. "sc-qcolor sc-qcolor--teal".</summary>
+    public string ColorClass => QuestionColors.CssClass(Color);
+}
 
 /// <summary>One of the five C's, averaged across the squad, with its statements.</summary>
 /// <param name="CategoryKey">Category key, e.g. "commitment".</param>
 /// <param name="Means">The three team averages for the category as a whole.</param>
 /// <param name="Questions">The statements in it, each averaged the same way.</param>
+/// <param name="Color">The palette name for the category, from the question catalog.</param>
 public sealed record TeamCategoryAverage(
     string CategoryKey,
     TeamMeans Means,
-    IReadOnlyList<TeamQuestionAverage> Questions)
+    IReadOnlyList<TeamQuestionAverage> Questions,
+    string Color)
 {
     /// <summary>Heading, e.g. "Commitment".</summary>
     public string CategoryName => Means.Name;
+
+    /// <summary>The class for the marker, e.g. "sc-qcolor sc-qcolor--teal".</summary>
+    public string ColorClass => QuestionColors.CssClass(Color);
 }
 
 /// <summary>

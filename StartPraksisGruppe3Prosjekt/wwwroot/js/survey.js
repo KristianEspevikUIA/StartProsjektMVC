@@ -170,11 +170,19 @@
     // is what lets the coach team page, the coach player page, the feedback page and the
     // form all share one component and look the same.
     //
+    // The root and the attribute are arguments so that the same function can build a strip
+    // INSIDE a panel of another strip -- the coach overview has one tab per C inside its
+    // Overview panel. Sub-panels are marked with a different attribute rather than the same
+    // one, so the page-level query cannot pick them up and flatten the two levels into one.
+    //
     // Returns a small handle so a page with live state -- the form, counting its own
     // answers -- can keep the strip in step. Null when there was nothing to build.
-    function initSectionTabs() {
+    function initSectionTabs(root, attribute, label) {
+        root = root || document;
+        attribute = attribute || "data-tab-panel";
+
         var panels = Array.prototype.slice.call(
-            document.querySelectorAll("[data-tab-panel]"));
+            root.querySelectorAll("[" + attribute + "]"));
 
         // One panel is not a set of tabs, it is a page. Two is the least that can switch.
         if (panels.length < 2) {
@@ -182,18 +190,37 @@
         }
 
         var strip = document.createElement("div");
-        strip.className = "sc-tabs";
+        strip.className = attribute === "data-tab-panel" ? "sc-tabs" : "sc-tabs sc-tabs--sub";
         strip.setAttribute("role", "tablist");
-        strip.setAttribute("aria-label", "Sections");
+        strip.setAttribute("aria-label", label || "Sections");
+
+        // Every other attribute is named off the panel's own: "data-tab-panel" reads
+        // "data-tab-label", "data-subtab-panel" reads "data-subtab-label". Deriving them
+        // rather than hard-coding one set is what stops a nested strip silently falling back
+        // to "Section 1" while its labels sit unread in the markup.
+        var base = attribute.replace(/-panel$/, "");
+        var labelAttr = base + "-label";
+        var countAttr = base + "-count";
+        var openAttr = base + "-open";
+        var flagAttr = base + "-flag";
+
+        // A page can hold more than one strip -- the coach overview has category tabs
+        // inside its Overview panel -- so ids and the remembered selection are namespaced
+        // per group. Without this the second strip would reuse the first one's ids, and
+        // aria-controls would point at the wrong panel.
+        //
+        // The page-level strip keeps the bare "sc" it has always had, so that a link to
+        // #sc-panel-2 written before there were nested strips still opens the same panel.
+        var prefix = attribute === "data-tab-panel" ? "sc" : base.replace(/^data-/, "sc-");
 
         var tabs = [];
         var badges = [];
         var dots = [];
 
         panels.forEach(function (panel, index) {
-            var label = panel.getAttribute("data-tab-label") || "Section " + (index + 1);
-            var id = "sc-panel-" + index;
-            var tabId = "sc-tab-" + index;
+            var label = panel.getAttribute(labelAttr) || "Section " + (index + 1);
+            var id = prefix + "-panel-" + index;
+            var tabId = prefix + "-tab-" + index;
 
             panel.id = id;
             panel.classList.add("sc-tabpanel");
@@ -217,7 +244,7 @@
             // updates them while somebody works does not have to build elements to do it.
             var badge = document.createElement("span");
             badge.className = "sc-tabs__count";
-            badge.textContent = panel.getAttribute("data-tab-count") || "";
+            badge.textContent = panel.getAttribute(countAttr) || "";
             tab.appendChild(badge);
             badges.push(badge);
 
@@ -227,7 +254,7 @@
             dot.className = "sc-tabs__dot";
             dot.setAttribute("role", "img");
             dot.setAttribute("aria-label", "needs attention");
-            dot.hidden = panel.getAttribute("data-tab-flag") !== "true";
+            dot.hidden = panel.getAttribute(flagAttr) !== "true";
             tab.appendChild(dot);
             dots.push(dot);
 
@@ -309,11 +336,14 @@
         }
 
         function storageKey() {
-            return "sc-tab:" + window.location.pathname + window.location.search;
+            return "sc-tab:" + prefix + ":"
+                + window.location.pathname + window.location.search;
         }
 
         function initialIndex() {
             // A link to #sc-panel-N wins: it is the most deliberate of the three.
+            // Matched against this group's own ids, so a hash meant for the page-level
+            // strip does not also move a nested one.
             var hash = window.location.hash.replace("#", "");
             for (var i = 0; i < panels.length; i++) {
                 if (panels[i].id === hash) {
@@ -325,7 +355,7 @@
             // holding the first statement that came back unanswered -- otherwise that is
             // an error message sitting behind a tab nobody was told to press.
             for (var j = 0; j < panels.length; j++) {
-                if (panels[j].getAttribute("data-tab-open") === "true") {
+                if (panels[j].getAttribute(openAttr) === "true") {
                     return j;
                 }
             }
@@ -388,6 +418,11 @@
         // Answered means any radio in the group is checked -- including "Do not know",
         // which is an answer, just not a number. Same rule as the bar at the top.
         //
+        // The one radio that does NOT count is the reflection's "Not answered": it exists to
+        // take a chosen C back off, so counting it would mean clearing a choice left the tab
+        // reading exactly what it read before. It is marked in the view rather than found by
+        // its empty value, because "Do not know" is empty too and that one is an answer.
+        //
         // A written reflection answer counts the same way, on whether anything has been
         // typed into it: the reflection panel would otherwise say "0/2" with three of its
         // five questions filled in.
@@ -395,10 +430,13 @@
             var groups = panel.querySelectorAll("[role=radiogroup]");
             var written = panel.querySelectorAll("[data-reflection-text]");
             var done = 0;
+            var chosen;
             var i;
 
             for (i = 0; i < groups.length; i++) {
-                if (groups[i].querySelector("input[type=radio]:checked")) {
+                chosen = groups[i].querySelector("input[type=radio]:checked");
+
+                if (chosen && !chosen.hasAttribute("data-reflection-clear")) {
                     done++;
                 }
             }
@@ -476,10 +514,26 @@
         refresh();
     }
 
+    // The nested strips: one per marked container, built AFTER the page-level strip so
+    // that a hidden parent panel is already hidden when its children are set up. Nothing
+    // here knows what the groups are for -- the coach overview uses one per C, and the
+    // next page that wants a strip inside a strip marks up a container and gets one.
+    function initNestedTabs() {
+        var groups = document.querySelectorAll("[data-subtabs]");
+
+        for (var i = 0; i < groups.length; i++) {
+            initSectionTabs(
+                groups[i],
+                "data-subtab-panel",
+                groups[i].getAttribute("data-subtabs-label") || "Sections");
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         initProgress();
         initCopyLinks();
         initPlayerFilter();
         initFormSteps(initSectionTabs());
+        initNestedTabs();
     });
 })();

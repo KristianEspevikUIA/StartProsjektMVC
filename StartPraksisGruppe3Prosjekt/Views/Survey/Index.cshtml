@@ -8,11 +8,12 @@
 }
 
 @*
-    One list, three meanings. A player sees one card about themselves, a guardian one per
+    One list, three meanings. A player sees one row about themselves, a guardian one per
     child, a coach one per player in the club. The view does not branch on role.
 
-    The coach case is why the filters are here: a coach is no longer scoped to a team, so
-    without them this page is every player there is.
+    The coach case is why the filters are here, and why the forms are a table rather than a
+    grid of cards: a coach is no longer scoped to a team, so without the filters this page
+    is every player there is -- and thirty of anything is a list, not a set of cards.
 *@
 
 <section class="sc-hero">
@@ -157,44 +158,84 @@
             }
             else
             {
-                <div class="sc-grid">
-                    @foreach (var assignment in Model.Assignments)
-                    {
-                        <article class="sc-card @(assignment.HasAnswered ? "sc-card--top" : "sc-card--left")">
-                            <div class="sc-compare__head">
-                                <h3>@(assignment.IsAboutSelf ? "About yourself" : assignment.PlayerCode)</h3>
-                                <span class="sc-badge @(assignment.HasAnswered ? "sc-badge--ok" : "")">
-                                    @(assignment.HasAnswered ? "Completed" : "Pending")
-                                </span>
-                            </div>
+                @*
+                    A list, not a grid of cards.
 
-                            <p class="sc-card__meta">
-                                @assignment.PlayerCode
-                                @(string.IsNullOrEmpty(assignment.TeamName) ? "" : $"· {assignment.TeamName}")
-                                · as @Roles.DisplayName(assignment.Role.ToString())
-                            </p>
+                    Cards were fine for a player with one form and a guardian with two. A
+                    coach gets one per player in the club, and thirty cards is thirty
+                    headings, thirty borders and a page you scroll rather than scan. The
+                    same thirty as rows fit on one screen, line up column by column, and can
+                    be compared down a column -- which is the only thing anybody does with
+                    this list.
 
-                            @if (assignment.SubmittedAt is { } submittedAt)
+                    The identifying column is the player CODE. There are no names in this
+                    data model, deliberately, and the code is what a player is called
+                    everywhere in the application.
+                *@
+                <div class="sc-table-wrap">
+                    <table class="sc-table sc-table--squad">
+                        <thead>
+                            <tr>
+                                <th scope="col">Player</th>
+                                <th scope="col">Position</th>
+                                <th scope="col">Team</th>
+                                <th scope="col">Age</th>
+                                <th scope="col">Answering as</th>
+                                <th scope="col">Status</th>
+                                <th scope="col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var assignment in Model.Assignments)
                             {
-                                <p class="sc-card__meta">
-                                    Submitted @submittedAt.ToLocalTime().ToString("d MMMM")
-                                </p>
+                                <tr>
+                                    <td class="sc-code">
+                                        @assignment.PlayerCode
+                                        @if (assignment.IsAboutSelf)
+                                        {
+                                            @* The one row that is about the reader. Worth
+                                               marking: a player who is also a guardian has
+                                               their own form somewhere in this list. *@
+                                            <span class="sc-badge sc-badge--muted">You</span>
+                                        }
+                                    </td>
+                                    <td class="sc-muted sc-small">@(assignment.Position ?? "–")</td>
+                                    <td class="sc-small">
+                                        @(string.IsNullOrEmpty(assignment.TeamName) ? "–" : assignment.TeamName)
+                                    </td>
+                                    <td class="sc-num sc-small">@assignment.Age</td>
+                                    <td class="sc-small">@Roles.DisplayName(assignment.Role.ToString())</td>
+                                    @* Stacked, not side by side. A badge does not wrap, so
+                                       the date beside it pushed the column wide enough to
+                                       shove the link off the row. *@
+                                    <td>
+                                        <div class="sc-cell-stack">
+                                            <span class="sc-badge @(assignment.HasAnswered ? "sc-badge--ok" : "")">
+                                                @(assignment.HasAnswered ? "Completed" : "Pending")
+                                            </span>
+                                            @if (assignment.SubmittedAt is { } submittedAt)
+                                            {
+                                                <span class="sc-muted sc-small">
+                                                    @submittedAt.ToLocalTime().ToString("d MMM")
+                                                </span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (Model.SelectedRoundIsOpen)
+                                        {
+                                            <a asp-action="Fill"
+                                               asp-route-roundId="@round.Id"
+                                               asp-route-playerId="@assignment.PlayerId"
+                                               asp-route-role="@assignment.Role">
+                                                @(assignment.HasAnswered ? "View or change" : "Fill out")
+                                            </a>
+                                        }
+                                    </td>
+                                </tr>
                             }
-
-                            @if (Model.SelectedRoundIsOpen)
-                            {
-                                <div class="sc-actions">
-                                    <a class="sc-btn"
-                                       asp-action="Fill"
-                                       asp-route-roundId="@round.Id"
-                                       asp-route-playerId="@assignment.PlayerId"
-                                       asp-route-role="@assignment.Role">
-                                        @(assignment.HasAnswered ? "View or change" : "Fill out form")
-                                    </a>
-                                </div>
-                            }
-                        </article>
-                    }
+                        </tbody>
+                    </table>
                 </div>
             }
 

@@ -5,7 +5,13 @@ using StartPraksisGruppe3Prosjekt.Models.FiveC;
 namespace StartPraksisGruppe3Prosjekt.ViewModels;
 
 /// <summary>
-/// The 5C form: five categories, five statements each, answered on a 1-5 scale.
+/// The 5C form: twenty-five statements answered on a 1-5 scale, and the short reflection
+/// that closes the period -- see <see cref="Reflection"/>.
+///
+/// The statements are NOT in category order. They are shuffled across the whole form, the
+/// same way every time for the same player and period -- see
+/// <see cref="Services.FiveC.IQuestionOrder"/> for what that buys and what it costs. What
+/// <see cref="Sections"/> holds is therefore blocks of five, not the five C's.
 ///
 /// All three respondent types get the same form. What changes is the header -- who is
 /// answering and about whom -- not the statements. See <see cref="Question.TextFor"/> for
@@ -103,11 +109,23 @@ public class SurveyFormViewModel
         public int? Value { get; set; }
     }
 
-    /// <summary>One of the five C's as it is laid out on the page.</summary>
-    /// <param name="Key">Category key, e.g. "commitment".</param>
-    /// <param name="Name">Heading, e.g. "Commitment".</param>
-    /// <param name="Description">One sentence about what the category covers.</param>
-    /// <param name="Questions">The statements in this category, in display order.</param>
+    /// <summary>
+    /// One screenful of statements.
+    ///
+    /// A block, not a category. The statements are shuffled across the whole form -- see
+    /// <see cref="Services.FiveC.IQuestionOrder"/> -- so a panel holds five statements that
+    /// happen to be next to each other in this respondent's sequence, and normally belongs
+    /// to four or five different C's. Which C a statement belongs to is on the statement
+    /// itself, as a colour and a name.
+    /// </summary>
+    /// <param name="Key">Stable key for the block, e.g. "block-1". Not a category key.</param>
+    /// <param name="Name">Heading, e.g. "Statements 1–5".</param>
+    /// <param name="Description">
+    /// One sentence about the block, or empty. Empty is the normal case now: a block is a
+    /// position in the form and there is nothing true to say about it that the heading has
+    /// not already said.
+    /// </param>
+    /// <param name="Questions">The statements in this block, in display order.</param>
     public sealed record Section(
         string Key,
         string Name,
@@ -116,18 +134,39 @@ public class SurveyFormViewModel
 
     /// <summary>One statement on the page, pointing at its slot in <see cref="Answers"/>.</summary>
     /// <param name="Index">Index into <see cref="Answers"/>, for the form field name.</param>
-    /// <param name="Number">Running number across the whole form, 1-25. Display only.</param>
+    /// <param name="Number">
+    /// Position in THIS respondent's form, from 1. Display only, and no longer the same
+    /// number for two people answering about different players -- the order is shuffled per
+    /// player and period. The stable name of a statement is its question key.
+    /// </param>
     /// <param name="Text">The statement, as this respondent should read it.</param>
     /// <param name="Reversed">
     /// Negatively worded. Shown exactly as written -- the reversal is a scoring rule in
     /// <see cref="FiveCRules.Score"/> and is not something the respondent should notice.
     /// Flipping the scale in the form to compensate would reverse it twice.
     /// </param>
+    /// <param name="CategoryName">
+    /// The C this statement belongs to, e.g. "Commitment". Shown on the statement because
+    /// the blocks above no longer say it. Not a hint about the answer: which C a statement
+    /// belongs to is on the front page, and hiding it would only make the form harder to
+    /// read without making it harder to game.
+    /// </param>
+    /// <param name="Color">
+    /// The palette name for the marker, from <see cref="QuestionColors"/>. Colour and name
+    /// together rather than colour alone -- a marker that is only a colour says nothing to
+    /// a reader who cannot tell teal from moss.
+    /// </param>
     public sealed record SectionQuestion(
         int Index,
         int Number,
         string Text,
-        bool Reversed);
+        bool Reversed,
+        string CategoryName,
+        string Color)
+    {
+        /// <summary>The class for the marker, e.g. "sc-qcolor sc-qcolor--teal".</summary>
+        public string ColorClass => QuestionColors.CssClass(Color);
+    }
 
     /// <summary>
     /// One reflection answer. Words rather than a number, and the only two things the
@@ -157,10 +196,16 @@ public class SurveyFormViewModel
     /// <summary>The reflection as one block on the page.</summary>
     /// <param name="Title">Heading, e.g. "End of period". Also the tab label.</param>
     /// <param name="Description">One or two sentences about what the section is for.</param>
+    /// <param name="NoAnswerLabel">
+    /// The label on the option that clears a chosen C, e.g. "Not answered". From the
+    /// question set, like every other word on the form. See
+    /// <see cref="Models.FiveC.ReflectionSection.NoAnswerLabel"/>.
+    /// </param>
     /// <param name="Questions">The reflection questions, in display order.</param>
     public sealed record ReflectionBlock(
         string Title,
         string Description,
+        string NoAnswerLabel,
         IReadOnlyList<ReflectionField> Questions);
 
     /// <summary>

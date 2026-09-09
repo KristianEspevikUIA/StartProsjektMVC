@@ -59,6 +59,15 @@ public sealed class QuestionCategory
     [JsonPropertyName("description")]
     public string Description { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The colour every question in this category is marked with, unless the question names
+    /// its own. One of <see cref="QuestionColors.Palette"/> -- a name, not a hex value, and
+    /// optional: left out, the category is given the palette entry at its own position, so
+    /// an unedited file still gets five distinct markers.
+    /// </summary>
+    [JsonPropertyName("color")]
+    public string? Color { get; init; }
+
     [JsonPropertyName("questions")]
     public IReadOnlyList<Question> Questions { get; init; } = Array.Empty<Question>();
 }
@@ -103,6 +112,16 @@ public sealed class Question
     /// </summary>
     [JsonPropertyName("reversed")]
     public bool Reversed { get; init; }
+
+    /// <summary>
+    /// A colour for this one statement, overriding the category's. One of
+    /// <see cref="QuestionColors.Palette"/>. Normally left out: the useful marker is the
+    /// one that groups a category together, and twenty-five different colours is not a
+    /// code, it is a rainbow. It is here for the question set that genuinely wants to pull
+    /// one statement out of its category.
+    /// </summary>
+    [JsonPropertyName("color")]
+    public string? Color { get; init; }
 
     /// <summary>
     /// The wording this respondent should see.
@@ -186,6 +205,21 @@ public sealed class ReflectionSection
     /// <summary>One or two sentences saying what the section is for.</summary>
     [JsonPropertyName("description")]
     public string Description { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The label on the option that takes a chosen C back off, e.g. "Not answered".
+    ///
+    /// A choice between the five C's is optional like the rest of the section, and a radio
+    /// cannot be unchecked by clicking it again -- so without an option meaning "none of
+    /// these" the first C a respondent touches is the one they are stuck with. It posts an
+    /// empty value, which is stored as no answer at all, exactly as never having chosen.
+    ///
+    /// Editable here for the same reason every other word on the form is: it is read by a
+    /// fourteen-year-old, and the coaching team owns that wording. Not offered on a question
+    /// the file marks as required -- there is nothing to go back to.
+    /// </summary>
+    [JsonPropertyName("noAnswerLabel")]
+    public string NoAnswerLabel { get; init; } = "Not answered";
 
     [JsonPropertyName("questions")]
     public IReadOnlyList<ReflectionQuestion> Questions { get; init; } = Array.Empty<ReflectionQuestion>();

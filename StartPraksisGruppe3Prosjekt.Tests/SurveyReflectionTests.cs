@@ -145,6 +145,90 @@ public sealed class SurveyReflectionTests : IAsyncLifetime
         });
     }
 
+    /// <summary>
+    /// The point of the "Not answered" option: a C that was chosen can be un-chosen.
+    ///
+    /// A radio cannot be unchecked by clicking it again, so an optional question without a
+    /// way out is optional only until the respondent touches it. What the option posts is an
+    /// empty value -- the same thing a question nobody looked at posts -- and the row has to
+    /// go, not sit there holding the answer that was corrected away.
+    /// </summary>
+    [Fact]
+    public async Task A_C_that_was_chosen_can_be_cleared_and_its_row_goes()
+    {
+        var chosen = await SubmitAsync(new Dictionary<string, string>
+        {
+            ["reflection-strength"] = "control",
+            ["reflection-strength-example"] = "I stayed calm after the second yellow.",
+            ["reflection-focus"] = "communication"
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, chosen.StatusCode);
+
+        // What the page posts when "Not answered" is the selected option in the group.
+        var cleared = await SubmitAsync(new Dictionary<string, string>
+        {
+            ["reflection-strength"] = string.Empty,
+            ["reflection-strength-example"] = "I stayed calm after the second yellow.",
+            ["reflection-focus"] = "communication"
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, cleared.StatusCode);
+
+        await _factory.WithServicesAsync(async services =>
+        {
+            var db = services.GetRequiredService<AppDbContext>();
+
+            var stored = await db.FiveCReflectionAnswers
+                .AsNoTracking()
+                .ToDictionaryAsync(a => a.QuestionKey, a => a.Value);
+
+            // Gone entirely, not kept as an empty string: "not answered" is the absence of a
+            // row here, and a blank row would count as an answer everywhere that reads them.
+            Assert.DoesNotContain("reflection-strength", stored.Keys);
+
+            // And only that one. Clearing a choice is not a way to lose the rest of the
+            // reflection, which is the failure a wholesale replace could quietly produce.
+            Assert.Equal("I stayed calm after the second yellow.", stored["reflection-strength-example"]);
+            Assert.Equal("communication", stored["reflection-focus"]);
+            Assert.Equal(2, stored.Count);
+
+            // The statements are untouched by any of it.
+            Assert.Equal(25, await db.FiveCAnswers.CountAsync());
+        });
+    }
+
+    /// <summary>
+    /// The option is on the page, and it comes from the question set rather than from the
+    /// view -- the same rule every other word on this form follows.
+    /// </summary>
+    [Fact]
+    public async Task Every_optional_C_question_offers_the_way_back_out()
+    {
+        var client = _factory.ClientAs(StartCompassFactory.PlayerUserId, Roles.Player);
+
+        var page = await client.GetAsync(
+            $"/Survey/Fill?roundId={_factory.RoundId}&playerId={_factory.PlayerId}");
+
+        await _factory.AssertOkAsync(page);
+
+        var html = await page.Content.ReadAsStringAsync();
+        var catalog = Catalog();
+
+        var optionalChoices = catalog.ReflectionQuestions
+            .Count(q => q.IsCategoryChoice && !q.Required);
+
+        Assert.True(optionalChoices > 0, "The shipped question set has no optional C choice to clear.");
+
+        // One clear option per optional choice, marked so the tab counter can tell it apart
+        // from an answer -- see countIn in survey.js.
+        Assert.Equal(
+            optionalChoices,
+            html.Split("data-reflection-clear").Length - 1);
+
+        Assert.Contains(catalog.Reflection!.NoAnswerLabel, html);
+    }
+
     // -----------------------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------------------

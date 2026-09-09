@@ -34,6 +34,14 @@ public sealed class QuestionCatalog : IQuestionCatalog
     private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
     private readonly IReadOnlyDictionary<string, ReflectionQuestion> _reflectionByKey;
 
+    /// <summary>
+    /// Palette name per question and per category, worked out once. A colour is a property
+    /// of the question set, not of the page it is drawn on -- resolving it here is what
+    /// stops the form and the overview marking the same statement differently.
+    /// </summary>
+    private readonly IReadOnlyDictionary<string, string> _colorByQuestionKey;
+    private readonly IReadOnlyDictionary<string, string> _colorByCategoryKey;
+
     public QuestionCatalog(IWebHostEnvironment environment, ILogger<QuestionCatalog> logger)
     {
         // GetFullPath, not just Combine: RelativePath uses forward slashes, and Combine
@@ -80,6 +88,24 @@ public sealed class QuestionCatalog : IQuestionCatalog
         _reflectionByKey = Questions.ReflectionQuestions.ToDictionary(
             q => q.Key, StringComparer.OrdinalIgnoreCase);
 
+        // Position in the file decides the default, so an unedited question set gets one
+        // distinct colour per C without naming any of them.
+        _colorByCategoryKey = Questions.Categories
+            .Select((category, index) => (
+                category.Key,
+                Color: category.Color is not null
+                    ? QuestionColors.Normalise(category.Color)
+                    : QuestionColors.ByIndex(index)))
+            .ToDictionary(pair => pair.Key, pair => pair.Color, StringComparer.OrdinalIgnoreCase);
+
+        _colorByQuestionKey = Questions.Categories
+            .SelectMany(category => category.Questions.Select(question => (
+                question.Key,
+                Color: question.Color is not null
+                    ? QuestionColors.Normalise(question.Color)
+                    : _colorByCategoryKey[category.Key])))
+            .ToDictionary(pair => pair.Key, pair => pair.Color, StringComparer.OrdinalIgnoreCase);
+
         var questionCount = _questionsByKey.Count;
 
         if (Questions.Categories.Count != ExpectedCategoryCount
@@ -123,6 +149,14 @@ public sealed class QuestionCatalog : IQuestionCatalog
     /// <inheritdoc />
     public ReflectionQuestion? FindReflectionQuestion(string key) =>
         _reflectionByKey.TryGetValue(key, out var question) ? question : null;
+
+    /// <inheritdoc />
+    public string ColorForQuestion(string questionKey) =>
+        _colorByQuestionKey.TryGetValue(questionKey, out var color) ? color : QuestionColors.Fallback;
+
+    /// <inheritdoc />
+    public string ColorForCategory(string categoryKey) =>
+        _colorByCategoryKey.TryGetValue(categoryKey, out var color) ? color : QuestionColors.Fallback;
 
     /// <summary>
     /// Everything that has to hold for the form to be answerable and the answers readable.
@@ -206,6 +240,17 @@ public sealed class QuestionCatalog : IQuestionCatalog
                 problems.Add($"Category '{category.Key}' has no questions.");
             }
 
+            // A colour is a name from a fixed set, not a hex value: the CSP has no
+            // unsafe-inline, so anything the file invents has no class behind it and
+            // renders as nothing. Better to say so at startup than to ship a grey marker
+            // and let somebody wonder why.
+            if (category.Color is not null && !QuestionColors.IsKnown(category.Color))
+            {
+                problems.Add(
+                    $"Category '{category.Key}' has the unknown colour '{category.Color}'. " +
+                    $"Use one of: {QuestionColors.Names}.");
+            }
+
             foreach (var question in category.Questions)
             {
                 if (string.IsNullOrWhiteSpace(question.Key))
@@ -216,6 +261,13 @@ public sealed class QuestionCatalog : IQuestionCatalog
                 if (string.IsNullOrWhiteSpace(question.Text))
                 {
                     problems.Add($"Question '{question.Key}' in '{category.Key}' is missing 'text'.");
+                }
+
+                if (question.Color is not null && !QuestionColors.IsKnown(question.Color))
+                {
+                    problems.Add(
+                        $"Question '{question.Key}' has the unknown colour '{question.Color}'. " +
+                        $"Use one of: {QuestionColors.Names}.");
                 }
             }
         }

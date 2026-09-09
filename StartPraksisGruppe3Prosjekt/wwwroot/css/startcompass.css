@@ -38,6 +38,31 @@
     --sc-alert-wash: #fbeeec;
     --sc-ok: #3f7a54;
 
+    /* The score bands. Red-amber-green, but at the club's saturation rather than a
+       traffic light's: these numbers sit in tables of other numbers, and a signal colour
+       loud enough to stop traffic makes the whole table hard to read.
+       --sc-warn is its own token even though it currently equals --sc-coach: they mean
+       different things, and the day the coach bar changes colour the amber band should
+       not change with it. */
+    --sc-warn: #a06c14;
+    --sc-low-wash: #fbeeec;
+    --sc-mid-wash: #fbf3e2;
+    --sc-strong-wash: #ecf3ee;
+
+    /* The question marker palette. A fixed set, named in five-c-questions.json by name --
+       the CSP has no unsafe-inline, so a colour cannot arrive as a hex value in the markup.
+       See Models/FiveC/QuestionColors.cs, which holds the same names in the same order.
+       Deliberately none of red, amber or green: those three mean a score band above, and a
+       question marked "red" beside a number coloured red would read as a verdict. */
+    --sc-qcolor-indigo: #3b3f8f;
+    --sc-qcolor-teal: #176a6a;
+    --sc-qcolor-plum: #7a3560;
+    --sc-qcolor-rust: #9c4a1f;
+    --sc-qcolor-moss: #4a6b2a;
+    --sc-qcolor-sky: #1f5f8b;
+    --sc-qcolor-sand: #7a6220;
+    --sc-qcolor-slate: #4a5262;
+
     --sc-sans: "Barlow", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
     --sc-display: "Barlow Condensed", "Segoe UI Semibold", "Arial Narrow", var(--sc-sans);
 }
@@ -460,6 +485,119 @@ body {
     border-color: var(--sc-border);
 }
 
+/* ------------------------------------------------- question colour markers ---- */
+
+/* The marker that says which C a statement belongs to.
+
+   It carries the category NAME, not just the colour: the form no longer groups the
+   statements by category, and a marker that is only a swatch tells a colour-blind reader
+   nothing at all. The colour is the fast path; the name is the guarantee.
+
+   Outlined rather than filled. Twenty-five filled chips down a form is a page of
+   confetti, and these sit next to the answer scale, which is the part that should catch
+   the eye. */
+.sc-qcolor {
+    background: transparent;
+    border: 1px solid currentColor;
+    border-left: 4px solid currentColor;
+    color: var(--sc-qcolor-slate);
+    flex: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sc-qcolor--indigo { color: var(--sc-qcolor-indigo); }
+.sc-qcolor--teal { color: var(--sc-qcolor-teal); }
+.sc-qcolor--plum { color: var(--sc-qcolor-plum); }
+.sc-qcolor--rust { color: var(--sc-qcolor-rust); }
+.sc-qcolor--moss { color: var(--sc-qcolor-moss); }
+.sc-qcolor--sky { color: var(--sc-qcolor-sky); }
+.sc-qcolor--sand { color: var(--sc-qcolor-sand); }
+.sc-qcolor--slate { color: var(--sc-qcolor-slate); }
+
+/* A marker with no text -- a dot in a table cell, where the category name is already the
+   row heading and repeating it would double the width of the column. */
+.sc-qcolor--dot {
+    border: 0;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+    height: 10px;
+    padding: 0;
+    vertical-align: baseline;
+    width: 10px;
+}
+
+/* ------------------------------------------------------------ score bands ---- */
+
+/* A mean on the 1-5 scale, coloured by the band it falls in. See FiveCRules.LevelOfScore.
+
+   Named sc-mean and not sc-score: .sc-score is the difference score CARD further down this
+   file, and it is a block with its own padding and border. Two blocks of the same name
+   would have made every number in these tables inherit a card.
+
+   NOT the same colouring as .sc-badge--alert on a difference score, even though both end
+   up red: one says "the squad answered low", the other says "two people disagree". They
+   are told apart by shape -- a score is a number on a tinted ground, a difference is an
+   uppercase badge -- and the legend on each page says which is which.
+
+   Tinted ground rather than coloured text alone: at 13px a red number and a green one are
+   very nearly the same grey to a reader who cannot separate the hues, and these sit in a
+   table where the whole point is scanning down a column. */
+.sc-mean {
+    border-radius: 2px;
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    min-width: 44px;
+    padding: 2px 8px;
+    text-align: right;
+}
+
+.sc-mean--low {
+    background: var(--sc-low-wash);
+    color: var(--sc-alert);
+}
+
+.sc-mean--mid {
+    background: var(--sc-mid-wash);
+    color: var(--sc-warn);
+}
+
+.sc-mean--strong {
+    background: var(--sc-strong-wash);
+    color: var(--sc-ok);
+}
+
+/* Nothing to colour. Kept as a class of its own rather than as a missing class, so a cell
+   with no number is still the same width as one with a number and the column does not
+   jump about. */
+.sc-mean--none {
+    background: transparent;
+    color: var(--sc-muted-foreground);
+    font-weight: 400;
+}
+
+/* The key that explains the three bands, wherever they are shown. */
+.sc-scale-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 0 0 14px;
+}
+
+.sc-scale-legend__item {
+    align-items: center;
+    color: var(--sc-muted-foreground);
+    display: inline-flex;
+    font-size: 13px;
+    gap: 8px;
+}
+
 /* --------------------------------------------------------------- buttons ---- */
 
 .sc-btn {
@@ -554,13 +692,24 @@ body {
     border-top: 0;
 }
 
+/* baseline, not the default stretch: the number and the category marker are both short
+   boxes next to a statement that wraps onto three lines, and stretching them makes a chip
+   as tall as the paragraph. */
 .sc-question__text {
+    align-items: baseline;
     color: var(--sc-foreground);
     display: flex;
+    flex-wrap: wrap;
     font-size: 17px;
-    gap: 12px;
+    gap: 6px 12px;
     line-height: 1.5;
     margin: 0 0 14px;
+}
+
+/* The statement itself takes whatever is left, and takes the whole line on a phone rather
+   than sharing it with the marker and wrapping to a two-word column. */
+.sc-question__text > span:last-child {
+    flex: 1 1 240px;
 }
 
 .sc-question__number {
@@ -736,6 +885,29 @@ body {
 .sc-choice__option input:focus-visible + label {
     outline: 3px solid var(--sc-blue);
     outline-offset: 2px;
+}
+
+/* "Not answered": the way back out of a choice that was optional to begin with.
+
+   Deliberately not a sixth chip. It does not stretch to fill the row like the five C's do,
+   and it stays quiet when it is selected rather than going black and gold -- picking it is
+   the absence of a choice, and it should not look like one of them. */
+.sc-choice__option--none {
+    flex: 0 0 auto;
+}
+
+.sc-choice__option--none label {
+    background: none;
+    border-style: dashed;
+    color: var(--sc-muted-foreground);
+    font-size: 14px;
+}
+
+.sc-choice__option--none input:checked + label {
+    background: var(--sc-muted);
+    border-color: var(--sc-muted-foreground);
+    border-style: solid;
+    color: var(--sc-muted-foreground);
 }
 
 .sc-textarea {
@@ -1165,6 +1337,132 @@ body {
     display: flex;
     gap: 8px;
     margin: 0;
+}
+
+/* A second strip, inside a panel of the first one. The coach overview has one tab per C
+   inside its Overview panel.
+
+   Quieter than the outer strip on purpose: two tab strips of equal weight on one screen
+   read as two navigations competing, and the reader loses track of which one they moved.
+   Smaller type, a lighter rule, and no uppercase. */
+.sc-tabs--sub {
+    border-bottom-width: 1px;
+    gap: 2px;
+    margin-bottom: 18px;
+    margin-top: 4px;
+}
+
+.sc-tabs--sub .sc-tabs__tab {
+    font-family: var(--sc-sans);
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    min-height: 38px;
+    padding: 8px 14px;
+    text-transform: none;
+}
+
+/* The numbers under a chart: role, average, spread, how many people. Narrow columns and
+   tabular figures, so a column of averages lines up on the decimal point. */
+.sc-table--means {
+    font-variant-numeric: tabular-nums;
+}
+
+.sc-table--means th[scope="row"] {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Two things in one cell, one above the other -- a status badge and the date under it.
+   Side by side they set the column's width to the sum of a badge that will not wrap and a
+   date, which was enough to push the last column off the row. */
+.sc-cell-stack {
+    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* A dot marker inside a heading. vertical-align does the work rather than a flex row,
+   because the heading also holds text that has to keep wrapping normally. */
+h3 > .sc-qcolor--dot,
+h5 > .sc-qcolor--dot,
+th > .sc-qcolor--dot,
+td > .sc-qcolor--dot {
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* ------------------------------------------------------------- pentagon ---- */
+
+/* The five C's as one shape. An axis per category, a polygon per respondent.
+
+   The colours are the same three the bars use, from the same tokens: a role is one colour
+   everywhere in this application, and a chart that reassigned them would be a second key
+   to learn for no gain. */
+.sc-pentagon {
+    margin: 0 0 18px;
+}
+
+.sc-pentagon__svg {
+    display: block;
+    height: auto;
+    margin: 0 auto;
+    max-width: 560px;
+    width: 100%;
+}
+
+.sc-pentagon__ring {
+    fill: none;
+    stroke: var(--sc-border);
+    stroke-width: 1;
+}
+
+.sc-pentagon__axis {
+    stroke: var(--sc-border);
+    stroke-width: 1;
+}
+
+/* Outlined, with only a wash of fill. Three solid polygons at this size overlap into one
+   muddy shape and the reader loses whichever was drawn first; at 12% they stay three. */
+.sc-pentagon__shape {
+    fill-opacity: 0.12;
+    stroke-width: 2;
+}
+
+.sc-pentagon__shape--player {
+    fill: var(--sc-player);
+    stroke: var(--sc-player);
+}
+
+.sc-pentagon__shape--guardian {
+    fill: var(--sc-guardian);
+    stroke: var(--sc-guardian);
+}
+
+.sc-pentagon__shape--coach {
+    fill: var(--sc-coach);
+    stroke: var(--sc-coach);
+}
+
+/* Set in the display face at the size the rest of the chart furniture uses. Not scaled
+   with the SVG: the viewBox stretches to the column, and label text that stretched with it
+   would be twice the size on a wide screen. */
+.sc-pentagon__label {
+    fill: var(--sc-muted-foreground);
+    font-family: var(--sc-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sc-pentagon__caption {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    line-height: 1.55;
+    margin: 6px auto 0;
+    max-width: 480px;
+    text-align: center;
 }
 
 /* --------------------------------------------------------------- mobile ---- */

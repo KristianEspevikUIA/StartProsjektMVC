@@ -311,6 +311,8 @@ internal static class TestCatalog
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoriesByKey;
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
         private readonly IReadOnlyDictionary<string, ReflectionQuestion> _reflectionByKey;
+        private readonly IReadOnlyDictionary<string, string> _colorByQuestionKey;
+        private readonly IReadOnlyDictionary<string, string> _colorByCategoryKey;
 
         public ReversedCatalog(QuestionSet source, string questionKey)
         {
@@ -338,6 +340,7 @@ internal static class TestCatalog
                         Key = category.Key,
                         Name = category.Name,
                         Description = category.Description,
+                        Color = category.Color,
                         Questions = category.Questions
                             .Select(question => new Question
                             {
@@ -345,7 +348,8 @@ internal static class TestCatalog
                                 Text = question.Text,
                                 TextAboutPlayer = question.TextAboutPlayer,
                                 TextForGuardian = question.TextForGuardian,
-                                Reversed = question.Reversed || Matches(question, questionKey)
+                                Reversed = question.Reversed || Matches(question, questionKey),
+                                Color = question.Color
                             })
                             .ToList()
                     })
@@ -364,6 +368,17 @@ internal static class TestCatalog
 
             _reflectionByKey = Questions.ReflectionQuestions.ToDictionary(
                 q => q.Key, StringComparer.OrdinalIgnoreCase);
+
+            // Colours are copied from the real catalog rather than worked out again here.
+            // Reversing a statement says nothing about how it is marked, and a stub that
+            // derived its own colours could disagree with the one under test.
+            var real = Load();
+
+            _colorByCategoryKey = Questions.Categories.ToDictionary(
+                c => c.Key, c => real.ColorForCategory(c.Key), StringComparer.OrdinalIgnoreCase);
+
+            _colorByQuestionKey = Questions.AllQuestions.ToDictionary(
+                q => q.Key, q => real.ColorForQuestion(q.Key), StringComparer.OrdinalIgnoreCase);
         }
 
         public QuestionSet Questions { get; }
@@ -379,6 +394,12 @@ internal static class TestCatalog
 
         public ReflectionQuestion? FindReflectionQuestion(string key) =>
             _reflectionByKey.TryGetValue(key, out var question) ? question : null;
+
+        public string ColorForQuestion(string questionKey) =>
+            _colorByQuestionKey.TryGetValue(questionKey, out var color) ? color : QuestionColors.Fallback;
+
+        public string ColorForCategory(string categoryKey) =>
+            _colorByCategoryKey.TryGetValue(categoryKey, out var color) ? color : QuestionColors.Fallback;
 
         private static bool Matches(Question question, string key) =>
             string.Equals(question.Key, key, StringComparison.OrdinalIgnoreCase);
