@@ -46,8 +46,108 @@
                 <article class="sc-card sc-card--top">
                     <h3>@category.Name</h3>
                     <p class="sc-card__meta">@category.Description</p>
+                    <div class="sc-actions">
+                        <button class="sc-btn sc-btn--link" type="button"
+                                data-bs-toggle="modal" data-bs-target="#five-c-details"
+                                data-five-c-key="@category.Key">
+                            Read more
+                        </button>
+                    </div>
                 </article>
             }
         </div>
     </section>
+</div>
+
+<div class="modal fade sc-modal" id="five-c-details" tabindex="-1" role="dialog"
+    aria-modal="true" aria-labelledby="five-c-details-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="five-c-details-title"></h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div data-five-c-content="commitment" data-five-c-norwegian="Forpliktelse" hidden>
+                    <p>Commitment is investing time, energy and effort over time to develop yourself and contribute to others. It is shown through steady work over time, especially when you are tired, when the outcome is uncertain, or when nobody reminds you what to do.</p>
+                    <h3>On the pitch</h3>
+                    <ul>
+                        <li>Keeps the intensity high all the way to the end of the session or match</li>
+                        <li>Carries out repetitions with high effort</li>
+                        <li>Responds and works back immediately after losing the ball</li>
+                    </ul>
+                    <h3>Off the pitch</h3>
+                    <ul>
+                        <li>Arrives mentally and physically ready for training</li>
+                        <li>Follows up agreed individual tasks</li>
+                        <li>Takes responsibility for their own development without needing reminders</li>
+                    </ul>
+                </div>
+
+                <div data-five-c-content="communication" data-five-c-norwegian="Kommunikasjon" hidden>
+                    <p>Communication is informative and clear verbal and non-verbal behaviour that supports, sets demands, and creates positive contact with and influence on others. It's about more than talking a lot - it's clear and appropriate behaviour that supports, demands and creates positive contact with others, helping you, your teammates and your coaches.</p>
+                    <h3>On the pitch</h3>
+                    <ul>
+                        <li>Gives teammates clear information</li>
+                        <li>Encourages teammates after mistakes</li>
+                        <li>Uses positive and constructive body language</li>
+                    </ul>
+                    <h3>Off the pitch</h3>
+                    <ul>
+                        <li>Greets teammates and staff positively</li>
+                        <li>Speaks respectfully to others</li>
+                        <li>Gives and receives constructive feedback</li>
+                    </ul>
+                </div>
+
+                <div data-five-c-content="concentration" data-five-c-norwegian="Konsentrasjon" hidden>
+                    <p>Concentration is the ability to maintain and direct focus toward the task while managing distractions. It's about being present in the task and finding your way back to focus when something disrupts you - after mistakes, transitions, stoppages in play or repeated drills.</p>
+                    <h3>On the pitch</h3>
+                    <ul>
+                        <li>Is present and keeps attention on the task</li>
+                        <li>Quickly finds the way back to focus after transitions or mistakes</li>
+                        <li>Stays mentally engaged through repeated drills</li>
+                    </ul>
+                    <h3>Off the pitch</h3>
+                    <ul>
+                        <li>Pays attention and stays focused in meetings</li>
+                        <li>Listens without interrupting others</li>
+                        <li>Remembers and uses agreed focus points</li>
+                    </ul>
+                </div>
+
+                <div data-five-c-content="control" data-five-c-norwegian="Kontroll" hidden>
+                    <p>Control is the ability to regulate yourself, support others and respond effectively to the situation. It means regulating your own emotions, staying calm and choosing a response that helps both yourself and the team, resetting after mistakes and supporting teammates when pressure increases.</p>
+                    <h3>On the pitch</h3>
+                    <ul>
+                        <li>Responds calmly after mistakes</li>
+                        <li>Stays calm under pressure</li>
+                        <li>Helps teammates calm down in stressful situations</li>
+                    </ul>
+                    <h3>Off the pitch</h3>
+                    <ul>
+                        <li>Receives feedback without becoming defensive</li>
+                        <li>Handles disappointment in a respectful way</li>
+                        <li>Takes responsibility instead of blaming others</li>
+                    </ul>
+                </div>
+
+                <div data-five-c-content="confidence" data-five-c-norwegian="Selvtillit" hidden>
+                    <p>Confidence is the courage to try despite uncertainty, belief in the plan and one's abilities, shown through actions and body language. It is not about being loud or never doubting - it's about daring to act, taking responsibility and standing in situations that feel demanding.</p>
+                    <h3>On the pitch</h3>
+                    <ul>
+                        <li>Wants the ball in difficult situations</li>
+                        <li>Tries again after mistakes</li>
+                        <li>Shows positive body language under pressure</li>
+                    </ul>
+                    <h3>Off the pitch</h3>
+                    <ul>
+                        <li>Tries new tasks without fear of failure</li>
+                        <li>Reflects honestly on strengths and weaknesses</li>
+                        <li>Is authentic and dares to express themselves</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
