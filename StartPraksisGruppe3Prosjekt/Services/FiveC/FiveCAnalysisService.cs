@@ -384,6 +384,7 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
             PlayerCode: playerCode,
             RoundId: roundId,
             Categories: categories,
+            Reflection: ReflectionBetween(player, guardian, coach),
             PlayerSubmittedAt: player?.SubmittedAt,
             GuardianSubmittedAt: guardian?.SubmittedAt,
             CoachSubmittedAt: coach?.SubmittedAt,
@@ -411,6 +412,92 @@ public sealed class FiveCAnalysisService : IFiveCAnalysisService
                 RespondentType.Guardian, guardianScores, RespondentType.Player, playerScores),
             CoachVsGuardian: RespondentGap.Between(
                 RespondentType.Coach, coachScores, RespondentType.Guardian, guardianScores));
+
+    /// <summary>
+    /// The reflection, laid out one question at a time with what each of the three said.
+    ///
+    /// Driven by the question set, not by what happens to be stored: a question nobody
+    /// answered is still a row, so the page can say "nobody answered this" rather than
+    /// silently dropping it, and an answer to a question that has since been removed from
+    /// the file is left out for the same reason a removed statement is -- there is no
+    /// question to put it under.
+    /// </summary>
+    private IReadOnlyList<ReflectionComparison> ReflectionBetween(
+        SurveySubmission? player,
+        SurveySubmission? guardian,
+        SurveySubmission? coach)
+    {
+        var questions = _catalog.Questions.ReflectionQuestions;
+
+        if (questions.Count == 0)
+        {
+            return Array.Empty<ReflectionComparison>();
+        }
+
+        var playerWritten = WrittenByQuestion(player);
+        var guardianWritten = WrittenByQuestion(guardian);
+        var coachWritten = WrittenByQuestion(coach);
+
+        var number = 0;
+
+        return questions
+            .Select(question => new ReflectionComparison(
+                QuestionKey: question.Key,
+                Number: ++number,
+                // The player's own wording, as with a statement: the coach reads the
+                // question the player answered, not the about-the-player rewrite of it.
+                Text: question.Text,
+                IsCategoryChoice: question.IsCategoryChoice,
+                Player: Written(playerWritten, question),
+                Guardian: Written(guardianWritten, question),
+                Coach: Written(coachWritten, question)))
+            .ToList();
+    }
+
+    /// <summary>The written answers in a submission, keyed by question. Blanks left out.</summary>
+    private static Dictionary<string, string> WrittenByQuestion(SurveySubmission? submission)
+    {
+        var written = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (submission is null)
+        {
+            return written;
+        }
+
+        foreach (var answer in submission.Reflection)
+        {
+            if (!string.IsNullOrWhiteSpace(answer.Value))
+            {
+                written[answer.QuestionKey] = answer.Value;
+            }
+        }
+
+        return written;
+    }
+
+    /// <summary>
+    /// One person's answer to one reflection question, ready to be read.
+    ///
+    /// A chosen C is stored as a category key and shown as the heading that category has
+    /// now, so rewriting "Confidence" in the question set rewrites it here too. A key that
+    /// no longer exists falls back to itself rather than disappearing -- it is still what
+    /// somebody chose.
+    /// </summary>
+    private ReflectionResponse Written(
+        IReadOnlyDictionary<string, string> written,
+        ReflectionQuestion question)
+    {
+        if (!written.TryGetValue(question.Key, out var value))
+        {
+            return ReflectionResponse.None;
+        }
+
+        var display = question.IsCategoryChoice
+            ? _catalog.FindCategory(value)?.Name ?? value
+            : value;
+
+        return new ReflectionResponse(value, display);
+    }
 
     /// <summary>
     /// The raw answers in a submission, keyed by question. Unreversed and unscored: this is

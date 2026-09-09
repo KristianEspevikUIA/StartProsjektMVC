@@ -2,6 +2,8 @@
 
 Twenty-five statements in five categories, answered on a 1–5 scale by the player, their
 guardian and their coach — and a coach view that shows where the three of them disagree.
+After the statements comes a short reflection in words: the strongest C, the one to work on
+next, and what would help.
 
 All interface text is English, matching the StartCompass site and the wireframes.
 
@@ -11,7 +13,7 @@ All interface text is English, matching the StartCompass site and the wireframes
 
 | What | Where |
 | --- | --- |
-| **The questions** | `Data/Questions/five-c-questions.json` |
+| **The questions**, and the reflection after them | `Data/Questions/five-c-questions.json` |
 | Loading and validating them | `Services/FiveC/QuestionCatalog.cs` |
 | The form | `Controllers/SurveyController.cs`, `Views/Survey/` |
 | What is sent when a form is submitted | `Contracts/FiveC/SurveySubmission.cs` (+ `.ts` mirror) |
@@ -19,6 +21,8 @@ All interface text is English, matching the StartCompass site and the wireframes
 | Player vs guardian vs coach | `Services/FiveC/FiveCAnalysisService.cs` |
 | The difference scores | `Services/FiveC/FiveCDifference.cs` |
 | Coach views | `CoachController.FiveCTeam` / `.FiveCPlayer`, `Views/Coach/` |
+| The reflection: what it is and how it is stored | `Models/FiveC/QuestionSet.cs`, `Models/FiveCSubmission.cs` |
+| The reflection, as it is read back | `Views/Shared/_FiveCReflection.cshtml` |
 | Scale bounds, the follow-up rule and the difference bands | `Models/FiveC/FiveCRules.cs` |
 | Styling | `wwwroot/css/startcompass.css` |
 
@@ -52,6 +56,69 @@ alternative is discovering it as a half-empty form, mid-round, in front of a 14-
 
 `version` is stored with every submission, so it is knowable afterwards which wording a set
 of answers was given against.
+
+---
+
+## The end-of-period reflection
+
+Five questions after the twenty-five, asked of all three respondents. Two of them are a
+choice between the five C's; three are written in the respondent's own words. Start asked
+for them: the statements say *where* a player is, and a number cannot say what to do next.
+
+They live in the same file, in a `reflection` block after `categories`:
+
+```json
+"reflection": {
+  "title": "End of period",
+  "description": "Five short questions to close the period. …",
+  "questions": [
+    { "key": "reflection-strength", "type": "category",
+      "text": "Which C has been your greatest strength during this meso period?",
+      "textAboutPlayer": "Which C has been the player's greatest strength …" },
+    { "key": "reflection-strength-example", "type": "text", "maxLength": 500,
+      "text": "Please give one example of when you noticed this." }
+  ]
+}
+```
+
+- **`type: "category"`** is answered by picking one of the five C's. What is stored is the
+  category *key* — `confidence`, not `Confidence` — so a choice can be counted without
+  matching on a heading that is expected to be rewritten. The options are built from
+  `categories`, so a sixth C appears here too, with no code change.
+- **`type: "text"`** is answered in words. `maxLength` caps it (1000 by default, never above
+  `FiveCRules.ReflectionTextLimit`, which is the size of the column). The browser gets a
+  `maxlength` attribute and the server checks the same number.
+- **`required` is `false` unless a question says otherwise.** The twenty-five statements are
+  the measurement; a compulsory paragraph after them is answered with a full stop. It is a
+  per-question flag in the file if the club decides differently.
+- The whole block is optional. Remove it and the form is the twenty-five statements it was.
+- Reflection keys share one namespace with the statement keys. The catalog refuses to load a
+  file where one is used twice.
+
+Written answers are **free text about a child**, which is why they are kept apart from the
+numbers: their own table (`FiveCReflectionAnswers`), never scored, never in a mean, and
+carried explicitly through the admin export. They follow the submission, which follows the
+player, so a deletion takes them with it.
+
+The form counts them separately too: the progress bar at the top counts the statements only,
+and the reflection tab is marked optional so nothing flags it as unfinished.
+
+### Who reads it
+
+| Page | Sees |
+| --- | --- |
+| `/Coach/FiveCPlayer` | all three reflections, from the moment they are written |
+| `/Player`, `/Guardian/Player/{id}` | their own and the guardian's — and the coach's **only once the coach has shared** |
+
+The coach's words follow the same release rule as the coach's numbers, and for a stronger
+reason: a sentence about a fourteen-year-old is sharper than an average, not milder.
+`FiveCFeedbackViewModel.Redact` removes it from the model before the view is rendered, so
+there is nothing on that page to leak. Until then the page says the coach has written
+something and will go through it — the same thing it already says about their numbers.
+
+Both pages render `Views/Shared/_FiveCReflection.cshtml`; only the column labels differ. Two
+copies of a page that shows what somebody wrote about a child would be two places to get the
+rule wrong.
 
 ---
 
@@ -114,8 +181,8 @@ hashed, scoped to one player and one round, and revocable. It is not a query par
 
 - **`EfSurveySubmissionStore`** — **the default**, and what runs unless something is
   configured. Answers go in the application's own database, which since the move to Npgsql
-  *is* Supabase: `FiveCSubmissions` and `FiveCAnswers`, with real foreign keys to `Players`
-  and `SurveyRounds`. One credential, one connection, one transaction.
+  *is* Supabase: `FiveCSubmissions`, `FiveCAnswers` and `FiveCReflectionAnswers`, with real
+  foreign keys to `Players` and `SurveyRounds`. One credential, one connection, one transaction.
 - **`SupabaseSurveySubmissionStore`** — used when `FiveC:Supabase:Url` and `:ApiKey` are both
   set, for a *genuinely separate* Supabase project. Talks to PostgREST directly; no client
   library.
@@ -164,6 +231,10 @@ if the two disagree the C# one wins.
   "submitted_at": "2026-08-26T07:30:00+00:00",
   "answers": [
     { "question_key": "commitment-1", "category_key": "commitment", "value": 4 }
+  ],
+  "reflection": [
+    { "question_key": "reflection-strength", "value": "confidence" },
+    { "question_key": "reflection-strength-example", "value": "Took the last penalty at 2-2." }
   ]
 }
 ```
@@ -176,13 +247,19 @@ if the two disagree the C# one wins.
 2. **`value` must be nullable.** Null means "not answered", and null is not 3. A `NOT NULL`
    column turns every blank into a middling opinion and there is no way to tell afterwards.
 
-The expected landing place is two tables:
+The expected landing place is three tables:
 
 ```
 five_c_submissions (id, round_id, player_id, player_code, respondent_role,
                     respondent_user_id, question_set_version, submitted_at)
 five_c_answers     (submission_id -> five_c_submissions, question_key, category_key, value)
+five_c_reflection_answers
+                   (submission_id -> five_c_submissions, question_key, value text)
 ```
+
+The third one holds the written reflection. It is separate because nothing in it is scored
+and because it is free text about a child — see "The end-of-period reflection" above. A
+blank leaves no row: not answered is the absence of a row, not a row holding nothing.
 
 Table and column names are configuration, not constants, so renaming one of them is an
 `appsettings.json` change rather than a code change.

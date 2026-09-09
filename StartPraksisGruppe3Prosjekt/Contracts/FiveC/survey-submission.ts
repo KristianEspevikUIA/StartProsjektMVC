@@ -9,12 +9,15 @@
  * whoever notices should fix this one in the same commit.
  *
  * The database schema is NOT defined here. Victor owns it. This only says what arrives.
- * The natural landing place is two tables -- one row per submission, one row per answer:
+ * The natural landing place is three tables -- one row per submission, one row per answer,
+ * and the written reflection kept apart from the numbers:
  *
  *   five_c_submissions (round_id, player_id, player_code, respondent_role,
  *                       respondent_user_id, question_set_version, submitted_at)
  *   five_c_answers     (submission_id -> five_c_submissions, question_key,
  *                       category_key, value)
+ *   five_c_reflection_answers
+ *                      (submission_id -> five_c_submissions, question_key, value text)
  *
  * Two things worth carrying into whatever the schema ends up being:
  *
@@ -58,6 +61,30 @@ export interface SurveyAnswer {
   value: number | null;
 }
 
+/**
+ * One answer to a reflection question -- the part of the form that is words rather than
+ * numbers.
+ *
+ * Its own table rather than a nullable text column on five_c_answers: nothing here is
+ * scored, and it is free text about a child rather than a number on a scale. The two are
+ * read by different people for different reasons, and only one of them belongs in a mean.
+ */
+export interface ReflectionAnswer {
+  /** Stable key from the question set file, e.g. "reflection-strength". */
+  question_key: string;
+
+  /**
+   * What was answered.
+   *
+   * For a question of type "category" this is a category key -- "confidence", not
+   * "Confidence". For a question of type "text" it is what the respondent wrote, trimmed.
+   *
+   * null means the question was left blank. A blank is not an answer, and it is not stored
+   * as an empty string.
+   */
+  value: string | null;
+}
+
 /** One submitted 5C form. */
 export interface SurveySubmission {
   /** The round being answered. Answers outside an open round are rejected. */
@@ -96,6 +123,12 @@ export interface SurveySubmission {
 
   /** One entry per answered question, in the order the form showed them. */
   answers: SurveyAnswer[];
+
+  /**
+   * The end-of-period reflection, in the order the form showed it. Empty when the question
+   * set has no reflection section, or when the respondent left all of it blank.
+   */
+  reflection: ReflectionAnswer[];
 }
 
 /**
@@ -114,5 +147,10 @@ export const exampleSubmission: SurveySubmission = {
     { question_key: "commitment-1", category_key: "commitment", value: 4 },
     { question_key: "commitment-2", category_key: "commitment", value: 5 },
     { question_key: "confidence-3", category_key: "confidence", value: null },
+  ],
+  reflection: [
+    { question_key: "reflection-strength", value: "confidence" },
+    { question_key: "reflection-strength-example", value: "Took the last penalty at 2-2." },
+    { question_key: "reflection-focus", value: "concentration" },
   ],
 };

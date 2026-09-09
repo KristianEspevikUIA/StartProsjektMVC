@@ -64,8 +64,8 @@
         {
             <div class="sc-notice sc-notice--warn" role="alert">
                 <p>
-                    Some statements are still unanswered. They are marked below —
-                    your other answers have been kept.
+                    Something still needs an answer. It is marked below —
+                    everything else you filled in has been kept.
                 </p>
             </div>
         }
@@ -157,10 +157,17 @@
                                         var optionId = $"{groupId}-{option.Value}";
 
                                         <div class="sc-scale__option">
+                                            @*
+                                                data-survey-scale is what the counter at the
+                                                top of the page counts. The reflection at the
+                                                end has radios too, and "27 of 25 answered"
+                                                is not a progress bar.
+                                            *@
                                             <input type="radio"
                                                    id="@optionId"
                                                    name="@fieldName"
                                                    value="@option.Value"
+                                                   data-survey-scale
                                                    checked="@(input.Value == option.Value)" />
                                             <label for="@optionId">
                                                 <span class="sc-scale__num">@option.Value</span>
@@ -188,11 +195,112 @@
                                                id="@(groupId)-none"
                                                name="@fieldName"
                                                value=""
+                                               data-survey-scale
                                                checked="@(Model.IsCorrection && input.Value is null)" />
                                         <label for="@(groupId)-none">@scale.DontKnowLabel</label>
                                     </div>
                                 }
                             </div>
+
+                            @if (hasError)
+                            {
+                                <span class="sc-field-error">@Html.ValidationMessage(fieldName)</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+
+        @*
+            The reflection, after the 25 and before Save.
+
+            A panel like the five before it, so it is the last tab and the last step of the
+            walk rather than a second page. Nothing here is written in this file either:
+            the questions, the wording per reader, the five C's to choose between and the
+            length of a written answer all come from the question catalog, and a question
+            set without a reflection renders nothing at all.
+
+            data-tab-optional stops survey.js from marking the tab as needing attention:
+            these questions may be left alone, and a dot saying otherwise would be a lie.
+        *@
+        @if (Model.Reflection is { } reflection)
+        {
+            var reflectionHasError = reflection.Questions.Any(q =>
+                ViewData.ModelState[$"ReflectionAnswers[{q.Index}].Value"]?.Errors.Count > 0);
+
+            var openReflection = reflectionHasError && firstWithError;
+            if (openReflection)
+            {
+                firstWithError = false;
+            }
+
+            <section class="sc-section" data-tab-panel
+                     data-tab-label="@reflection.Title"
+                     data-tab-optional="true"
+                     data-tab-open="@(openReflection ? "true" : "false")">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>@reflection.Title</h2>
+                <p class="sc-lead">@reflection.Description</p>
+
+                <div class="sc-card">
+                    @foreach (var question in reflection.Questions)
+                    {
+                        var input = Model.ReflectionAnswers[question.Index];
+                        var fieldName = $"ReflectionAnswers[{question.Index}].Value";
+                        var groupId = $"r{question.Index}";
+                        var hasError = ViewData.ModelState[fieldName]?.Errors.Count > 0;
+
+                        <div class="sc-question">
+                            <input type="hidden"
+                                   name="ReflectionAnswers[@question.Index].QuestionKey"
+                                   value="@input.QuestionKey" />
+
+                            <p class="sc-question__text" id="@(groupId)-label">
+                                <span class="sc-question__number">@question.Number</span>
+                                <span>
+                                    @question.Text
+                                    @if (!question.Required)
+                                    {
+                                        <span class="sc-optional">Optional</span>
+                                    }
+                                </span>
+                            </p>
+
+                            @if (question.IsCategoryChoice)
+                            {
+                                <div role="radiogroup" aria-labelledby="@(groupId)-label" class="sc-choice">
+                                    @foreach (var choice in question.Choices)
+                                    {
+                                        var optionId = $"{groupId}-{choice.Key}";
+
+                                        <div class="sc-choice__option">
+                                            <input type="radio"
+                                                   id="@optionId"
+                                                   name="@fieldName"
+                                                   value="@choice.Key"
+                                                   checked="@(string.Equals(input.Value, choice.Key, StringComparison.OrdinalIgnoreCase))" />
+                                            <label for="@optionId">@choice.Name</label>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                @*
+                                    maxlength is the same number the server checks against.
+                                    The browser stops the 501st character; the server is what
+                                    decides whether the answer is stored.
+                                *@
+                                <textarea class="sc-input sc-textarea"
+                                          id="@groupId"
+                                          name="@fieldName"
+                                          rows="3"
+                                          maxlength="@question.MaxLength"
+                                          placeholder="@question.Placeholder"
+                                          aria-labelledby="@(groupId)-label"
+                                          data-reflection-text>@input.Value</textarea>
+                            }
 
                             @if (hasError)
                             {

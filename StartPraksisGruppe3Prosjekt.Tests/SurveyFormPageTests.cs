@@ -115,6 +115,51 @@ public sealed class SurveyFormPageTests : IAsyncLifetime
         Assert.DoesNotContain("data-tab-open=\"true\"", html);
     }
 
+    [Fact]
+    public async Task The_reflection_is_the_last_panel_and_is_built_from_the_catalog()
+    {
+        var html = await FormAsync();
+
+        // Compared against the last BLOCK, not against a C: the panels are ranges of the
+        // shuffled sequence now, and none of them is named after a category. The reflection
+        // closes the form, after every statement has been asked.
+        var lastBlock = html.LastIndexOf("data-tab-label=\"Statements ", StringComparison.Ordinal);
+        var reflection = html.IndexOf("data-tab-label=\"End of period\"", StringComparison.Ordinal);
+
+        Assert.True(reflection > lastBlock, "The reflection should come after the statements.");
+
+        // Nothing about it is written in the view: the heading, the C's to choose between
+        // and the room for a written answer all come from the question set.
+        Assert.Contains("value=\"confidence\"", html);
+        Assert.Contains("data-reflection-text", html);
+        Assert.Contains("maxlength=\"500\"", html);
+
+        // Save is still outside every panel, this one included.
+        var save = html.IndexOf("Save answers", StringComparison.Ordinal);
+        Assert.True(save > reflection, "Save should sit after the reflection, outside it.");
+    }
+
+    [Fact]
+    public async Task The_reflection_is_not_counted_as_progress_through_the_statements()
+    {
+        var html = await FormAsync();
+
+        // The counter reads data-survey-scale, which only the 1-5 rows carry.
+        Assert.Contains("data-survey-scale", html);
+
+        // The reflection has radios of its own. Counting them would push the form past
+        // "25 of 25 answered", which is a progress bar that lies in both directions.
+        var reflectionPanel = html[html.IndexOf(
+            "data-tab-label=\"End of period\"", StringComparison.Ordinal)..];
+
+        Assert.Contains("value=\"confidence\"", reflectionPanel);
+        Assert.DoesNotContain("data-survey-scale", reflectionPanel);
+
+        // And the tab is marked optional, so survey.js does not flag it as unfinished --
+        // none of it has to be filled in.
+        Assert.Contains("data-tab-optional=\"true\"", html);
+    }
+
     private IQuestionCatalog Catalog()
     {
         using var scope = _factory.Services.CreateScope();

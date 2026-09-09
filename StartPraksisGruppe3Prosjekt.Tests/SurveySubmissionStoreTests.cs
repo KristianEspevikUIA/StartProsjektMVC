@@ -186,6 +186,114 @@ public class SurveySubmissionStoreTests
     }
 
     [Fact]
+    public async Task The_written_reflection_is_stored_and_read_back_with_the_submission()
+    {
+        using var database = new TestDatabase();
+        var player = await database.AddPlayerAsync();
+        var round = await database.AddOpenRoundAsync();
+        var catalog = TestCatalog.Load();
+
+        await using var context = database.NewContext();
+        var store = new EfSurveySubmissionStore(context);
+
+        var submission = Submissions.Filled(
+            catalog, round.Id, player.Id, player.Code, RespondentType.Coach, "coach-1") with
+        {
+            Reflection = new[]
+            {
+                new ReflectionAnswer { QuestionKey = "reflection-strength", Value = "confidence" },
+                new ReflectionAnswer
+                {
+                    QuestionKey = "reflection-strength-example",
+                    Value = "Took the last penalty at 2-2."
+                }
+            }
+        };
+
+        await store.SaveAsync(submission);
+
+        var stored = Assert.Single(await store.GetForPlayerAsync(round.Id, player.Id));
+
+        Assert.Equal(2, stored.Reflection.Count);
+        Assert.Equal(
+            "confidence",
+            stored.Reflection.Single(r => r.QuestionKey == "reflection-strength").Value);
+
+        // The written answers do not end up among the numbers: nothing here is scored, and
+        // a mean is the one thing this row must never reach.
+        await using var assert = database.NewContext();
+        Assert.Equal(
+            catalog.Questions.AllQuestions.Count(),
+            await assert.FiveCAnswers.CountAsync());
+        Assert.Equal(2, await assert.FiveCReflectionAnswers.CountAsync());
+    }
+
+    [Fact]
+    public async Task A_blank_reflection_answer_leaves_no_row_behind()
+    {
+        using var database = new TestDatabase();
+        var player = await database.AddPlayerAsync();
+        var round = await database.AddOpenRoundAsync();
+        var catalog = TestCatalog.Load();
+
+        await using var context = database.NewContext();
+        var store = new EfSurveySubmissionStore(context);
+
+        await store.SaveAsync(Submissions.Filled(
+            catalog, round.Id, player.Id, player.Code, RespondentType.Player, "player-1") with
+        {
+            // What the form posts when somebody answers the statements and leaves the
+            // reflection alone: an entry per question, all of them empty.
+            Reflection = new[]
+            {
+                new ReflectionAnswer { QuestionKey = "reflection-strength", Value = null },
+                new ReflectionAnswer { QuestionKey = "reflection-support", Value = "   " }
+            }
+        });
+
+        await using var assert = database.NewContext();
+
+        // Not answered is the absence of a row, not a row holding nothing.
+        Assert.Equal(0, await assert.FiveCReflectionAnswers.CountAsync());
+    }
+
+    [Fact]
+    public async Task Clearing_a_written_answer_and_saving_again_removes_it()
+    {
+        using var database = new TestDatabase();
+        var player = await database.AddPlayerAsync();
+        var round = await database.AddOpenRoundAsync();
+        var catalog = TestCatalog.Load();
+
+        await using var context = database.NewContext();
+        var store = new EfSurveySubmissionStore(context);
+
+        var first = Submissions.Filled(
+            catalog, round.Id, player.Id, player.Code, RespondentType.Player, "player-1") with
+        {
+            Reflection = new[]
+            {
+                new ReflectionAnswer { QuestionKey = "reflection-support", Value = "More shooting practice." }
+            }
+        };
+
+        await store.SaveAsync(first);
+        await store.SaveAsync(first with
+        {
+            Reflection = new[]
+            {
+                new ReflectionAnswer { QuestionKey = "reflection-support", Value = null }
+            }
+        });
+
+        var stored = Assert.Single(await store.GetForPlayerAsync(round.Id, player.Id));
+
+        // A correction that deletes a sentence has to delete it. Somebody who thinks better
+        // of what they wrote about a child gets to take it back.
+        Assert.Empty(stored.Reflection);
+    }
+
+    [Fact]
     public async Task An_unanswered_question_stays_null_rather_than_becoming_a_middling_opinion()
     {
         using var database = new TestDatabase();

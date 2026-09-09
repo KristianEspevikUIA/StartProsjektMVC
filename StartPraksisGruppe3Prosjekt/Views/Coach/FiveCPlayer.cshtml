@@ -295,6 +295,35 @@
                 score — the averages above already account for it, these raw numbers do not.
             </p>
         </section>
+
+        @*
+            The reflection.
+
+            The numbers say where @Model.Code is; this is the only place on the page where
+            somebody says what to do about it, in their own words. It is last because it is
+            read last — after the disagreement has been found, not instead of finding it.
+
+            The coach sees all three, always. Sharing decides what the PLAYER sees, and that
+            decision is made further down this page.
+        *@
+        @if (comparison.Reflection.Count > 0)
+        {
+            <section class="sc-section" data-tab-panel data-tab-label="Reflection">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>End of period</h2>
+                <p class="sc-lead">
+                    The short questions after the statements: the strongest C, the one worth
+                    working on next, and what would help. Nothing here is scored — it is what
+                    each of them wrote.
+                </p>
+
+                <partial name="_FiveCReflection" model="@(new FiveCReflectionViewModel(
+                    comparison.Reflection,
+                    PlayerLabel: Model.Code,
+                    GuardianLabel: "Guardian",
+                    CoachLabel: "You"))" />
+            </section>
+        }
     }
 
     @if (Model.Trend is { } trend)

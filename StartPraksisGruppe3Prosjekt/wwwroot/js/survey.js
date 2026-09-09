@@ -30,9 +30,13 @@
         function answeredCount() {
             // One group per question. A group counts as answered when any radio in it is
             // checked -- including "Don't know", which is an answer, just not a number.
+            //
+            // Only the 1-5 scale is counted. The reflection at the end of the form is radios
+            // too, and the number at the top is "how far through the statements am I" --
+            // "27 of 25 answered" would be neither true nor useful.
             var groups = {};
 
-            var checked = form.querySelectorAll("input[type=radio]:checked");
+            var checked = form.querySelectorAll("input[type=radio][data-survey-scale]:checked");
             for (var i = 0; i < checked.length; i++) {
                 groups[checked[i].name] = true;
             }
@@ -413,17 +417,29 @@
 
         // Answered means any radio in the group is checked -- including "Do not know",
         // which is an answer, just not a number. Same rule as the bar at the top.
+        //
+        // A written reflection answer counts the same way, on whether anything has been
+        // typed into it: the reflection panel would otherwise say "0/2" with three of its
+        // five questions filled in.
         function countIn(panel) {
             var groups = panel.querySelectorAll("[role=radiogroup]");
+            var written = panel.querySelectorAll("[data-reflection-text]");
             var done = 0;
+            var i;
 
-            for (var i = 0; i < groups.length; i++) {
+            for (i = 0; i < groups.length; i++) {
                 if (groups[i].querySelector("input[type=radio]:checked")) {
                     done++;
                 }
             }
 
-            return { done: done, total: groups.length };
+            for (i = 0; i < written.length; i++) {
+                if (written[i].value.trim() !== "") {
+                    done++;
+                }
+            }
+
+            return { done: done, total: groups.length + written.length };
         }
 
         function refresh() {
@@ -436,8 +452,11 @@
                 tabs.setCount(index, count.done + "/" + count.total);
 
                 // A section with something left in it is marked, so the reader does not
-                // have to open all five to find the one they skipped.
-                tabs.setFlag(index, count.done < count.total);
+                // have to open all five to find the one they skipped. A section nobody has
+                // to fill in is not marked at all -- see data-tab-optional on the panel.
+                var optional = panel.getAttribute("data-tab-optional") === "true";
+
+                tabs.setFlag(index, !optional && count.done < count.total);
             });
         }
 
@@ -479,6 +498,11 @@
         });
 
         form.addEventListener("change", refresh);
+
+        // Typing does not fire "change" until the field is left, and a count that only moves
+        // once you tab away is a count that looks stuck.
+        form.addEventListener("input", refresh);
+
         refresh();
     }
 

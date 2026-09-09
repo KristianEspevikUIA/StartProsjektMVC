@@ -310,6 +310,7 @@ internal static class TestCatalog
         private readonly IReadOnlyDictionary<string, Question> _questionsByKey;
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoriesByKey;
         private readonly IReadOnlyDictionary<string, QuestionCategory> _categoryByQuestionKey;
+        private readonly IReadOnlyDictionary<string, ReflectionQuestion> _reflectionByKey;
         private readonly IReadOnlyDictionary<string, string> _colorByQuestionKey;
         private readonly IReadOnlyDictionary<string, string> _colorByCategoryKey;
 
@@ -329,6 +330,10 @@ internal static class TestCatalog
             {
                 Version = source.Version,
                 Scale = source.Scale,
+                // Carried over untouched. Reversal is about how a rated statement is
+                // scored, and the reflection is not scored at all -- a caller that asks for
+                // one reversed statement still gets the rest of the form it had.
+                Reflection = source.Reflection,
                 Categories = source.Categories
                     .Select(category => new QuestionCategory
                     {
@@ -361,6 +366,9 @@ internal static class TestCatalog
                 .SelectMany(c => c.Questions.Select(q => (q.Key, Category: c)))
                 .ToDictionary(pair => pair.Key, pair => pair.Category, StringComparer.OrdinalIgnoreCase);
 
+            _reflectionByKey = Questions.ReflectionQuestions.ToDictionary(
+                q => q.Key, StringComparer.OrdinalIgnoreCase);
+
             // Colours are copied from the real catalog rather than worked out again here.
             // Reversing a statement says nothing about how it is marked, and a stub that
             // derived its own colours could disagree with the one under test.
@@ -383,6 +391,9 @@ internal static class TestCatalog
 
         public QuestionCategory? FindCategoryForQuestion(string questionKey) =>
             _categoryByQuestionKey.TryGetValue(questionKey, out var category) ? category : null;
+
+        public ReflectionQuestion? FindReflectionQuestion(string key) =>
+            _reflectionByKey.TryGetValue(key, out var question) ? question : null;
 
         public string ColorForQuestion(string questionKey) =>
             _colorByQuestionKey.TryGetValue(questionKey, out var color) ? color : QuestionColors.Fallback;

@@ -28,6 +28,13 @@ public interface IQuestionCatalog
     QuestionCategory? FindCategoryForQuestion(string questionKey);
 
     /// <summary>
+    /// The reflection question with this key, or null if the file no longer contains it.
+    /// Separate from <see cref="FindQuestion"/> because the two are answered differently --
+    /// a statement with a number, a reflection question with a C or with words.
+    /// </summary>
+    ReflectionQuestion? FindReflectionQuestion(string key);
+
+    /// <summary>
     /// The palette name a question is marked with: its own colour if the file gives it one,
     /// otherwise its category's, otherwise the palette entry at the category's position.
     ///
