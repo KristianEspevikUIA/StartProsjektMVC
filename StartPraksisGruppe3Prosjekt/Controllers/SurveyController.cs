@@ -524,6 +524,7 @@ public class SurveyController : Controller
         return new SurveyFormViewModel.ReflectionBlock(
             reflection.Title,
             reflection.Description,
+            reflection.NoAnswerLabel,
             fields);
     }
 

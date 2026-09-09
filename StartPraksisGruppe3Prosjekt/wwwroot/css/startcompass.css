@@ -887,6 +887,29 @@ body {
     outline-offset: 2px;
 }
 
+/* "Not answered": the way back out of a choice that was optional to begin with.
+
+   Deliberately not a sixth chip. It does not stretch to fill the row like the five C's do,
+   and it stays quiet when it is selected rather than going black and gold -- picking it is
+   the absence of a choice, and it should not look like one of them. */
+.sc-choice__option--none {
+    flex: 0 0 auto;
+}
+
+.sc-choice__option--none label {
+    background: none;
+    border-style: dashed;
+    color: var(--sc-muted-foreground);
+    font-size: 14px;
+}
+
+.sc-choice__option--none input:checked + label {
+    background: var(--sc-muted);
+    border-color: var(--sc-muted-foreground);
+    border-style: solid;
+    color: var(--sc-muted-foreground);
+}
+
 .sc-textarea {
     line-height: 1.5;
     min-height: 92px;

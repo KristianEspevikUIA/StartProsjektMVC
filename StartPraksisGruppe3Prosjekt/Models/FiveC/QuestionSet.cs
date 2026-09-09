@@ -206,6 +206,21 @@ public sealed class ReflectionSection
     [JsonPropertyName("description")]
     public string Description { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The label on the option that takes a chosen C back off, e.g. "Not answered".
+    ///
+    /// A choice between the five C's is optional like the rest of the section, and a radio
+    /// cannot be unchecked by clicking it again -- so without an option meaning "none of
+    /// these" the first C a respondent touches is the one they are stuck with. It posts an
+    /// empty value, which is stored as no answer at all, exactly as never having chosen.
+    ///
+    /// Editable here for the same reason every other word on the form is: it is read by a
+    /// fourteen-year-old, and the coaching team owns that wording. Not offered on a question
+    /// the file marks as required -- there is nothing to go back to.
+    /// </summary>
+    [JsonPropertyName("noAnswerLabel")]
+    public string NoAnswerLabel { get; init; } = "Not answered";
+
     [JsonPropertyName("questions")]
     public IReadOnlyList<ReflectionQuestion> Questions { get; init; } = Array.Empty<ReflectionQuestion>();
 }

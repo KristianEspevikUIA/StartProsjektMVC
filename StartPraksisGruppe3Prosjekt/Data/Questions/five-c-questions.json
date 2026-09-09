@@ -51,6 +51,10 @@
     "  * 'required' is false unless a question says otherwise. The 25 statements are the",
     "    measurement; a compulsory paragraph after them is answered with a full stop.",
     "    Turn it on per question if the club decides otherwise.",
+    "  * 'noAnswerLabel' is the option that takes a chosen C back off again -- a radio",
+    "    cannot be unchecked by clicking it, so without it the first C a respondent",
+    "    touches is the one they are stuck with. It is offered on every category question",
+    "    that is not 'required', and choosing it stores no answer at all.",
     "  * Reflection keys share one namespace with the statement keys. They have to be",
     "    unique across the whole file.",
     "  * Written answers are free text about a child. They are stored in a table of their",
@@ -308,6 +312,7 @@
   "reflection": {
     "title": "End of period",
     "description": "Five short questions to close the period. The statements above say where things stand; these say what to do next. Answer the ones you have something to say about — none of them have to be filled in.",
+    "noAnswerLabel": "Not answered",
     "questions": [
       {
         "key": "reflection-strength",

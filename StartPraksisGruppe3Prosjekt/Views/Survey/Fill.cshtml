@@ -283,6 +283,42 @@
                                             <label for="@optionId">@choice.Name</label>
                                         </div>
                                     }
+
+                                    @*
+                                        The way back out of an optional question. A radio
+                                        cannot be unchecked by clicking it again, so without
+                                        this the first C somebody touches is the one they are
+                                        stuck with -- on a question the page has just told
+                                        them they may leave alone.
+
+                                        An option in the same group rather than a button
+                                        beside it: it is answerable with the keyboard like
+                                        the five above it, and it works with JavaScript off,
+                                        which a button that unchecks a group does not.
+
+                                        It posts an empty value, which ReadReflection stores
+                                        as no answer and the store drops the row for --
+                                        indistinguishable from never having chosen. Not
+                                        offered when the question is required: there would be
+                                        nothing to go back to.
+
+                                        Pre-selected only on a form there is a submission
+                                        behind, for the same reason "Don't know" above is:
+                                        on a blank form it would be the system answering
+                                        first.
+                                    *@
+                                    @if (!question.Required)
+                                    {
+                                        <div class="sc-choice__option sc-choice__option--none">
+                                            <input type="radio"
+                                                   id="@(groupId)-none"
+                                                   name="@fieldName"
+                                                   value=""
+                                                   data-reflection-clear
+                                                   checked="@(Model.IsCorrection && string.IsNullOrEmpty(input.Value))" />
+                                            <label for="@(groupId)-none">@reflection.NoAnswerLabel</label>
+                                        </div>
+                                    }
                                 </div>
                             }
                             else

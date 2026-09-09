@@ -196,10 +196,16 @@ public class SurveyFormViewModel
     /// <summary>The reflection as one block on the page.</summary>
     /// <param name="Title">Heading, e.g. "End of period". Also the tab label.</param>
     /// <param name="Description">One or two sentences about what the section is for.</param>
+    /// <param name="NoAnswerLabel">
+    /// The label on the option that clears a chosen C, e.g. "Not answered". From the
+    /// question set, like every other word on the form. See
+    /// <see cref="Models.FiveC.ReflectionSection.NoAnswerLabel"/>.
+    /// </param>
     /// <param name="Questions">The reflection questions, in display order.</param>
     public sealed record ReflectionBlock(
         string Title,
         string Description,
+        string NoAnswerLabel,
         IReadOnlyList<ReflectionField> Questions);
 
     /// <summary>

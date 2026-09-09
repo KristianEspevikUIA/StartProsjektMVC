@@ -418,6 +418,11 @@
         // Answered means any radio in the group is checked -- including "Do not know",
         // which is an answer, just not a number. Same rule as the bar at the top.
         //
+        // The one radio that does NOT count is the reflection's "Not answered": it exists to
+        // take a chosen C back off, so counting it would mean clearing a choice left the tab
+        // reading exactly what it read before. It is marked in the view rather than found by
+        // its empty value, because "Do not know" is empty too and that one is an answer.
+        //
         // A written reflection answer counts the same way, on whether anything has been
         // typed into it: the reflection panel would otherwise say "0/2" with three of its
         // five questions filled in.
@@ -425,10 +430,13 @@
             var groups = panel.querySelectorAll("[role=radiogroup]");
             var written = panel.querySelectorAll("[data-reflection-text]");
             var done = 0;
+            var chosen;
             var i;
 
             for (i = 0; i < groups.length; i++) {
-                if (groups[i].querySelector("input[type=radio]:checked")) {
+                chosen = groups[i].querySelector("input[type=radio]:checked");
+
+                if (chosen && !chosen.hasAttribute("data-reflection-clear")) {
                     done++;
                 }
             }
