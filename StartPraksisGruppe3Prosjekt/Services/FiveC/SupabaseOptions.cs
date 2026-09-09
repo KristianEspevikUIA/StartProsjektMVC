@@ -35,6 +35,13 @@ public sealed class SupabaseOptions
     public string AnswersTable { get; set; } = "five_c_answers";
 
     /// <summary>
+    /// One row per answered reflection question, pointing back at a submission through the
+    /// same column as the answers do. A table of its own for the same reason it is one in
+    /// the application's database: it is text, and it is never scored.
+    /// </summary>
+    public string ReflectionTable { get; set; } = "five_c_reflection_answers";
+
+    /// <summary>
     /// The columns that identify one submission. Used as the conflict target when a form is
     /// submitted a second time, so a correction updates the existing row.
     /// </summary>

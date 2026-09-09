@@ -31,6 +31,13 @@ public class AdminDeletePlayerViewModel
 
     public int FiveCSubmissionCount { get; set; }
 
+    /// <summary>
+    /// Skrevne refleksjonssvar i 5C-innsendingene. Egen linje fordi det er fritekst: et tall
+    /// på hvor mange setninger noen har skrevet om spilleren sier noe annet enn hvor mange
+    /// skjemaer som er levert.
+    /// </summary>
+    public int ReflectionAnswerCount { get; set; }
+
     public int ConsentEventCount { get; set; }
 
     public int AccessEventCount { get; set; }

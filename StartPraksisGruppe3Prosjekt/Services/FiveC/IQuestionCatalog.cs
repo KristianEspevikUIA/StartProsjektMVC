@@ -26,4 +26,11 @@ public interface IQuestionCatalog
     /// stored answers back: an answer knows its question key, not its category.
     /// </summary>
     QuestionCategory? FindCategoryForQuestion(string questionKey);
+
+    /// <summary>
+    /// The reflection question with this key, or null if the file no longer contains it.
+    /// Separate from <see cref="FindQuestion"/> because the two are answered differently --
+    /// a statement with a number, a reflection question with a C or with words.
+    /// </summary>
+    ReflectionQuestion? FindReflectionQuestion(string key);
 }
