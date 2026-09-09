@@ -1,8 +1,17 @@
 @{
     ViewData["Title"] = "Administration";
+
+    var message = TempData["AdminMessage"] as string;
 }
 
 <h1>Administration</h1>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    @* Deleting redirects here. An irreversible action that lands on a silent page reads
+       as though nothing happened. *@
+    <div class="sc-notice" role="status"><p>@message</p></div>
+}
 
 <h2 class="h5">Available</h2>
 <ul>
@@ -19,12 +28,29 @@
 <ul>
     <li>Users and roles <span class="sc-badge sc-badge--muted">Not built yet</span></li>
     <li>Teams and coaches <span class="sc-badge sc-badge--muted">Not built yet</span></li>
-    <li>Data access request <span class="sc-badge sc-badge--muted">Not built yet</span></li>
     <li>Audit log view <span class="sc-badge sc-badge--muted">Not built yet</span></li>
+</ul>
+
+@*
+    Built, but reached per player rather than from a list. Both take a player id in the URL,
+    and the page that would let an admin pick one is the Users work above. Listed here so the
+    two GDPR routes are not invisible until then.
+*@
+<h2 class="h5">Per player, by id</h2>
+<ul>
+    <li>
+        Data access request &mdash; <span class="sc-code">/Admin/Export/{id}</span>.
+        Downloads everything held about one player as JSON.
+    </li>
+    <li>
+        Delete a player &mdash; <span class="sc-code">/Admin/Delete/{id}</span>.
+        Shows what the deletion takes and asks for the player code before it runs.
+    </li>
 </ul>
 
 <p class="text-muted">
     Administrators see every player. Lookups of an individual player's answers are written
     to the audit log (PlayerAccessEvent), which is also what stands in for the consent check
-    coaches used to need.
+    coaches used to need. A deletion is logged separately, in PlayerDeletionEvent, because
+    the audit log rows cascade away with the player they describe.
 </p>

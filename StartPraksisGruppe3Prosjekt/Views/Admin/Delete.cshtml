@@ -1,0 +1,135 @@
+@model AdminDeletePlayerViewModel
+@{
+    ViewData["Title"] = "Delete player";
+}
+
+@*
+    The step in front of the only irreversible operation in the system.
+
+    It exists to be read, not clicked through: the counts below are what the cascade will
+    take, and the typed code is what stops it happening on the wrong row. See
+    AdminController.Delete.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>Delete player</h1>
+        <p class="sc-hero__lead">
+            This removes everything the system holds about
+            <span class="sc-code">@Model.PlayerCode</span>, including the consent history.
+            It cannot be undone.
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section">
+        <div class="sc-notice sc-notice--warn" role="alert">
+            <p>
+                Deleting is the one operation that removes consent events. The record of what
+                was permitted, and when, goes with it. Export the player first if anyone may
+                still need to see what was held.
+            </p>
+        </div>
+    </section>
+
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>What will be deleted</h2>
+
+        <div class="sc-table-wrap">
+            <table class="sc-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Data</th>
+                        <th scope="col">Rows</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Answers (older 25-statement form)</td>
+                        <td class="sc-num">@Model.ResponseCount</td>
+                    </tr>
+                    <tr>
+                        <td>Individual answers inside those</td>
+                        <td class="sc-num">@Model.AnswerCount</td>
+                    </tr>
+                    <tr>
+                        <td>5C submissions</td>
+                        <td class="sc-num">@Model.FiveCSubmissionCount</td>
+                    </tr>
+                    <tr>
+                        <td>Consent events</td>
+                        <td class="sc-num">@Model.ConsentEventCount</td>
+                    </tr>
+                    <tr>
+                        <td>Guardian links</td>
+                        <td class="sc-num">@Model.GuardianshipCount</td>
+                    </tr>
+                    <tr>
+                        <td>Audit log rows (who opened this player)</td>
+                        <td class="sc-num">@Model.AccessEventCount</td>
+                    </tr>
+                    <tr>
+                        <td>Feedback releases</td>
+                        <td class="sc-num">@Model.FeedbackReleaseCount</td>
+                    </tr>
+                    <tr>
+                        <td>Sign-in account</td>
+                        <td class="sc-num">
+                            @if (Model.HasAccount)
+                            {
+                                <span class="sc-badge sc-badge--warn">Deleted too</span>
+                            }
+                            else
+                            {
+                                @* A player can exist long before they have an account. *@
+                                <span class="sc-badge sc-badge--muted">None</span>
+                            }
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <p class="sc-lead sc-small">
+            The difference scores are not listed because they are never stored — they are
+            recalculated from the answers every time, so they go when the answers go.
+        </p>
+    </section>
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>Confirm</h2>
+
+        <div class="sc-card sc-card--alert sc-card--top">
+            <form asp-action="Delete" method="post">
+                <input type="hidden" name="id" value="@Model.PlayerId" />
+
+                <div class="sc-form-field">
+                    <label asp-for="ConfirmCode" class="sc-label">
+                        Type <span class="sc-code">@Model.PlayerCode</span> to confirm
+                    </label>
+                    <input asp-for="ConfirmCode"
+                           name="confirmCode"
+                           class="sc-input"
+                           autocomplete="off"
+                           placeholder="@Model.PlayerCode" />
+                    <span asp-validation-for="ConfirmCode" class="sc-field-error"></span>
+                </div>
+
+                <div class="sc-actions">
+                    <button type="submit" class="sc-btn">Delete permanently</button>
+                    <a class="sc-btn sc-btn--secondary" asp-action="Index">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    @* Same as the periods form: the required-field message should appear before the POST,
+       not after a round trip that could have been a deletion. *@
+    <partial name="_ValidationScriptsPartial" />
+}

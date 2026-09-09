@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System.Net;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Security;
@@ -87,6 +89,26 @@ builder.Services.AddHsts(options =>
 {
     options.MaxAge = TimeSpan.FromDays(365);
     options.IncludeSubDomains = true;
+});
+
+// Forwarded headers are trusted only from explicitly configured proxy addresses.
+// This must be configured before HTTPS redirection and rate limiting, otherwise the
+// application sees the proxy as the client and can accept spoofed scheme/IP headers.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    var configuredProxies = builder.Configuration
+        .GetSection("ForwardedHeaders:KnownProxies")
+        .Get<string[]>() ?? Array.Empty<string>();
+
+    foreach (var address in configuredProxies)
+    {
+        if (IPAddress.TryParse(address, out var ipAddress))
+        {
+            options.KnownProxies.Add(ipAddress);
+        }
+    }
 });
 
 // ---------------------------------------------------------------------------
@@ -234,6 +256,7 @@ else
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
