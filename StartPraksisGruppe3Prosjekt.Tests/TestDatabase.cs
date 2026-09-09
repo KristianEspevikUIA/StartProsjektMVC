@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,39 @@ internal sealed class SqliteAppDbContext : AppDbContext
         base.ConfigureConventions(builder);
 
         builder.Properties<DateTimeOffset>().HaveConversion<DateTimeOffsetToBinaryConverter>();
+    }
+}
+
+/// <summary>
+/// Runs something once, in the moment between a context deciding what to save and the
+/// database being asked to do it. That gap is where a race lives: give this the write
+/// another request would have made, hand it to <see cref="TestDatabase.NewContext"/>, and
+/// the code under test loses the race every time instead of on an unlucky afternoon.
+/// </summary>
+internal sealed class WritesOnceMidSave : SaveChangesInterceptor
+{
+    private readonly Func<Task> _write;
+    private bool _written;
+
+    public WritesOnceMidSave(Func<Task> write)
+    {
+        _write = write;
+    }
+
+    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData,
+        InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+    {
+        // Once, so the retry that follows the failure is not raced as well -- the point is
+        // that the second attempt succeeds.
+        if (!_written)
+        {
+            _written = true;
+            await _write();
+        }
+
+        return result;
     }
 }
 
@@ -72,8 +106,16 @@ public sealed class TestDatabase : IDisposable
     /// <summary>
     /// A context of its own. Tests use one to arrange and another to assert, so a passing
     /// assertion means the row is in the database rather than in a change tracker.
+    ///
+    /// Interceptors are for the tests that need something to happen mid-save -- a second
+    /// request writing the same row, say. They hang off this context only, so a context
+    /// used inside an interceptor does not re-enter it.
     /// </summary>
-    public AppDbContext NewContext() => new SqliteAppDbContext(_options);
+    public AppDbContext NewContext(params IInterceptor[] interceptors) =>
+        new SqliteAppDbContext(
+            new DbContextOptionsBuilder<AppDbContext>(_options)
+                .AddInterceptors(interceptors)
+                .Options);
 
     /// <summary>For services that open their own scope. See PlayerAccessLog.</summary>
     public IServiceScopeFactory ScopeFactory => _provider.GetRequiredService<IServiceScopeFactory>();
