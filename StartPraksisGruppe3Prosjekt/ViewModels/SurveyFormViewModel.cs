@@ -49,12 +49,25 @@ public class SurveyFormViewModel
     /// </summary>
     public List<QuestionInput> Answers { get; set; } = new();
 
+    /// <summary>
+    /// The reflection answers, in display order. Model-bound like <see cref="Answers"/>,
+    /// and empty when the question set has no reflection section.
+    /// <see cref="Reflection"/> points into this list by index.
+    /// </summary>
+    public List<ReflectionInput> ReflectionAnswers { get; set; } = new();
+
     // ---- Rendering only. Never bound from the request: everything below is rebuilt from
     // ---- the question catalog, so a tampered form cannot change what the questions say.
 
     public AnswerScale Scale { get; set; } = new();
 
     public IReadOnlyList<Section> Sections { get; set; } = Array.Empty<Section>();
+
+    /// <summary>
+    /// The reflection as it is laid out on the page, or null when the question set has none.
+    /// Rebuilt from the catalog on every render, exactly like <see cref="Sections"/>.
+    /// </summary>
+    public ReflectionBlock? Reflection { get; set; }
 
     public int QuestionCount => Answers.Count;
 
@@ -115,4 +128,70 @@ public class SurveyFormViewModel
         int Number,
         string Text,
         bool Reversed);
+
+    /// <summary>
+    /// One reflection answer. Words rather than a number, and the only two things the
+    /// browser gets to send back for it.
+    /// </summary>
+    public sealed class ReflectionInput
+    {
+        /// <summary>
+        /// Key from the question set, e.g. "reflection-strength". Validated against the
+        /// catalog on POST, exactly as a statement key is.
+        /// </summary>
+        public string QuestionKey { get; set; } = string.Empty;
+
+        /// <summary>
+        /// A category key for a choice between the five C's, or what was written for a
+        /// written question. Null or blank means the question was left alone.
+        ///
+        /// The attribute is the ceiling the column can hold. The real limit is per question
+        /// and comes from the question set -- see <see cref="ReflectionField.MaxLength"/> --
+        /// and is checked in the controller, which is the side that knows which question
+        /// this is.
+        /// </summary>
+        [StringLength(FiveCRules.ReflectionTextLimit)]
+        public string? Value { get; set; }
+    }
+
+    /// <summary>The reflection as one block on the page.</summary>
+    /// <param name="Title">Heading, e.g. "End of period". Also the tab label.</param>
+    /// <param name="Description">One or two sentences about what the section is for.</param>
+    /// <param name="Questions">The reflection questions, in display order.</param>
+    public sealed record ReflectionBlock(
+        string Title,
+        string Description,
+        IReadOnlyList<ReflectionField> Questions);
+
+    /// <summary>
+    /// One reflection question on the page, pointing at its slot in
+    /// <see cref="ReflectionAnswers"/>.
+    /// </summary>
+    /// <param name="Index">Index into <see cref="ReflectionAnswers"/>, for the field name.</param>
+    /// <param name="Number">Running number within the reflection. Display only.</param>
+    /// <param name="Text">The question, as this respondent should read it.</param>
+    /// <param name="IsCategoryChoice">
+    /// True when it is answered by picking one of the five C's, false when it is written.
+    /// </param>
+    /// <param name="Required">Whether the form refuses to save without it.</param>
+    /// <param name="MaxLength">Longest written answer accepted. Ignored for a choice.</param>
+    /// <param name="Placeholder">Grey text in an empty field. Never a value.</param>
+    /// <param name="Choices">
+    /// The five C's to choose between, taken from the catalog so the choice cannot drift
+    /// from the categories above it. Empty for a written question.
+    /// </param>
+    public sealed record ReflectionField(
+        int Index,
+        int Number,
+        string Text,
+        bool IsCategoryChoice,
+        bool Required,
+        int MaxLength,
+        string? Placeholder,
+        IReadOnlyList<ReflectionChoice> Choices);
+
+    /// <summary>One of the five C's, as an option in a reflection question.</summary>
+    /// <param name="Key">Category key, e.g. "confidence". This is what is stored.</param>
+    /// <param name="Name">Heading, e.g. "Confidence". This is what is read.</param>
+    public sealed record ReflectionChoice(string Key, string Name);
 }
