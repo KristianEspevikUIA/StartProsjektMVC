@@ -32,6 +32,12 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     /// <summary>Append-only. Trenerens frigivelse av egne svar til spilleren.</summary>
     public DbSet<FeedbackRelease> FeedbackReleases => Set<FeedbackRelease>();
 
+    /// <summary>
+    /// Append-only. Hvem som har slettet hvilken spiller. Uten fremmednøkkel med vilje —
+    /// se PlayerDeletionEvent.
+    /// </summary>
+    public DbSet<PlayerDeletionEvent> PlayerDeletionEvents => Set<PlayerDeletionEvent>();
+
     /// <summary>Innsendte 5C-skjemaer. Se EfSurveySubmissionStore.</summary>
     public DbSet<FiveCSubmission> FiveCSubmissions => Set<FiveCSubmission>();
 
@@ -163,6 +169,18 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .OnDelete(DeleteBehavior.Cascade);
         });
 
+        builder.Entity<PlayerDeletionEvent>(e =>
+        {
+            // «Hvem slettet hva, og når» leses kronologisk, og for én spiller når noen spør
+            // hva som skjedde med akkurat den.
+            e.HasIndex(d => d.OccurredAt);
+            e.HasIndex(d => d.PlayerId);
+
+            // INGEN HasOne(...).HasForeignKey(...) her. Raden skal overleve spilleren den
+            // handler om; en fremmednøkkel ville enten blokkert slettingen eller tatt sporet
+            // med i cascaden — og et spor som forsvinner sammen med handlingen er ikke et spor.
+        });
+
         builder.Entity<FeedbackRelease>(e =>
         {
             // Gjeldende tilstand er nyeste rad for (runde, spiller).
@@ -207,6 +225,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         GuardAppendOnly<ConsentEvent>("ConsentEvent");
         GuardAppendOnly<PlayerAccessEvent>("PlayerAccessEvent");
         GuardAppendOnly<FeedbackRelease>("FeedbackRelease");
+        GuardAppendOnly<PlayerDeletionEvent>("PlayerDeletionEvent");
     }
 
     /// <summary>

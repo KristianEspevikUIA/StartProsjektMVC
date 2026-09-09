@@ -17,12 +17,14 @@ valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på t
 **Bygget og i bruk:** 5C-spørreskjemaet (25 påstander, fem kategorier), skjemalisten med
 filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten med snitt per
 kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
-mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, og admin-siden for
-perioder.
+mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, admin-siden for
+perioder, og GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
+`/Admin/Delete/{id}`, begge per spiller — siden som lar admin plukke spiller er en del av
+brukeradministrasjonen og er ikke bygget ennå).
 
 **Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
-`Search` og `ScoringService`), samtykkeskjemaet for foresatte, brukeradministrasjon og
-GDPR-innsyn/sletting i `AdminController`.
+`Search` og `ScoringService`), samtykkeskjemaet for foresatte, og brukeradministrasjon i
+`AdminController`.
 
 Sidene som ikke er bygget, er **ikke lenket til** fra menyen eller fra admin-forsiden. De
 står på lista der som «Not built yet», og selve siden forteller hvem som eier arbeidet, hva
@@ -39,17 +41,42 @@ legger inn seed-data.
 Databasen er **Postgres i Supabase** (byttet fra SQLite 26.08.2026). Tilkoblingsstrengen står
 i `appsettings.json`, men **uten passord** — passordet er en hemmelighet og skal ikke i repoet.
 
-**Steg 1: legg inn databasepassordet.** Hent «Database password» i Supabase under
-*Project Settings → Database* (finner du det ikke, kan det resettes samme sted — men si fra
-til de andre først, en reset gjelder alle). Deretter, med hele strengen fra `appsettings.json`
-pluss `;Password=…` på slutten:
+**Steg 1: hent CA-sertifikatet.** Supabase signerer databasesertifikatet med sin egen CA, og
+den ligger ikke i maskinens rotlager. Uten den kommer du ikke gjennom. Last den ned i Supabase
+under *Project Settings → Database → SSL Configuration* («Download certificate»; fila heter
+typisk `prod-ca-2021.crt`) og legg den et fast sted på egen maskin, f.eks.
+`%APPDATA%\Supabase\prod-ca-2021.crt`. Fila er offentlig og inneholder ingen hemmelighet, men
+den ligger likevel ikke i repoet: et rotsertifikat er et tillitsanker, og det skal hentes
+gjennom en innlogget kanal — ellers vet du ikke at det faktisk er Supabase sitt.
+
+**Steg 2: legg inn databasepassordet og stien til CA-en.** Hent «Database password» i Supabase
+under *Project Settings → Database* (finner du det ikke, kan det resettes samme sted — men si
+fra til de andre først, en reset gjelder alle). Deretter, med hele strengen fra
+`appsettings.json` pluss `;Root Certificate=…` og `;Password=…` på slutten:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=Require;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=VerifyFull;Root Certificate=C:\Users\DITT_BRUKERNAVN\AppData\Roaming\Supabase\prod-ca-2021.crt;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
 ```
 
 Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper
 appen med en melding som forklarer akkurat dette — det er ikke en bug.
+
+> **Satte du secreten før 09.09.2026, må du sette den på nytt.** User-secrets overstyrer
+> `appsettings.json` fullstendig, så en gammel secret kjører videre med `SSL Mode=Require` og
+> `Trust Server Certificate=true` uansett hva som står i repoet. Å starte appen tester derfor
+> ikke denne endringen — kommandoen over er det som gjør det.
+
+**Stien må være full og bokstavelig.** Npgsql utvider ikke miljøvariabler, så
+`Root Certificate=%APPDATA%\Supabase\prod-ca-2021.crt` blir lest som en mappe som heter
+`%APPDATA%` — relativt til der appen kjører. Skriv `C:\Users\<du>\AppData\Roaming\...` i sin
+helhet.
+
+Går det galt, sier feilen hvilken av de to tingene som er feil:
+
+| Feilmelding | Hva som er galt |
+| --- | --- |
+| `FileNotFoundException` / `DirectoryNotFoundException` | stien i `Root Certificate` peker ikke på en fil som finnes |
+| «The remote certificate was rejected…» | fila finnes, men er ikke Supabase-CA-en |
 
 Merk: **anon-/publishable-nøkkelen (`sb_publishable_…`) er ikke databasepassordet.** Den
 gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgres`-rollen.
@@ -57,7 +84,7 @@ gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgr
 Bruk port **5432** (session-pooleren). Port 6543 er transaction-pooleren, og den fungerer
 ikke med EF-migrasjoner.
 
-**Steg 2: kjør.**
+**Steg 3: kjør.**
 
 ```bash
 dotnet run --project StartPraksisGruppe3Prosjekt
@@ -136,6 +163,12 @@ Det som testes er reglene som ikke tåler å bli feil:
   testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
   oppstart.
 - **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
+- **GDPR-innsyn og -sletting** (`AdminGdprTests`): at eksporten har med alle sju tabellene om
+  spilleren og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
+  innsynet havner i revisjonsloggen, at slettingen faktisk tar svar, samtykkelogg,
+  foresattkoblinger, loggrader og Identity-kontoen — kontrollert både før og etter, siden
+  hver eneste påstand ellers ville holdt mot en tom base — at den etterlater et spor som
+  overlever spilleren, og at den ikke skjer uten at spillerkoden er skrevet inn.
 - **Lagsnittet** (`TeamAggregateTests`): at det er et snitt av spillere og ikke av svar, at
   grensen på tre respondenter holder per rolle, at «holdt tilbake» og «ingen har svart» er to
   ulike tilstander, og at et snitt per påstand er skåret slik at en reversert påstand peker
@@ -677,6 +710,29 @@ I tillegg: `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
 
 Kjøres appen bak en proxy må `ForwardedHeaders` settes opp, ellers ser rate limiteren
 bare proxyens IP-adresse.
+
+### Databasetilkoblingen verifiseres, ikke bare krypteres
+
+Strengen i `appsettings.json` bruker `SSL Mode=VerifyFull`, og hver enkelt legger til
+`Root Certificate=<sti til Supabase-CA-en>` i sin egen user-secret. Se «Kom i gang», steg 1–2.
+
+Grunnen er at `Require` ikke betyr det navnet antyder. Fra og med Npgsql 8 følger `Require`
+libpq: den *krever kryptering* og **verifiserer ikke** sertifikatet. `Trust Server Certificate`
+er i samme slengen merket obsolete med «no longer needed and does nothing» — flagget vi hadde
+stående gjorde altså ingenting, og å fjerne det endret heller ingenting. Det som faktisk
+verifiserer, er `VerifyCA` (signatur) og `VerifyFull` (signatur + vertsnavn).
+
+Målt mot pooleren med Npgsql 8.0.6, som er versjonen prosjektet drar inn:
+
+| `SSL Mode` | Resultat |
+| --- | --- |
+| `Require` | kobler til, TLS 1.3, **ingen** verifisering |
+| `VerifyCA` / `VerifyFull` uten CA | avvist — Supabase-kjeden ender i deres egen rot |
+| `VerifyFull` + `Root Certificate` | kobler til, TLS 1.3, verifisert |
+
+Kjeden er `*.pooler.supabase.com` → `Supabase Intermediate 2021 CA` → `Supabase Root 2021 CA`,
+og rota er selvsignert og ligger ikke i noe rotlager. Derfor CA-fila: uten den er det ingen
+forskjell på Supabase og en som står i veien.
 
 ---
 
