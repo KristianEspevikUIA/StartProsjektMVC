@@ -25,7 +25,7 @@ public static class SeedData
     /// <summary>The one coach account. Kept as-is so nobody has to relearn a login.</summary>
     private const string CoachEmail = "trener.senior@ikstart.example";
 
-    /// <summary>The second coach account, folded into <see cref="CoachEmail"/>.</summary>
+    /// <summary>The second coach account, folded into <
     private const string RetiredCoachEmail = "trener.ungdom@ikstart.example";
 
     /// <summary>Dato all alder regnes ut fra i seedingen.</summary>
