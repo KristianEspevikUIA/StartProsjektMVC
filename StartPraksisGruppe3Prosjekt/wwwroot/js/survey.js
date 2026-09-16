@@ -451,11 +451,21 @@
         // than the phone they are being read on -- see .sc-tabs--compact.
         var compact = host.getAttribute("data-tabs-compact") === "true";
 
+        // Whether the strip is a switch between two whole views rather than a row of
+        // sections -- two large side-by-side choices, each with a line under its name saying
+        // what it is. The team page uses it for Team overview and Player overview, which an
+        // underlined tab made too easy to miss. See .sc-tabs--switch.
+        var switcher = host.getAttribute("data-tabs-switch") === "true";
+
         var strip = document.createElement("div");
         strip.className = attribute === "data-tab-panel" ? "sc-tabs" : "sc-tabs sc-tabs--sub";
 
         if (compact) {
             strip.className += " sc-tabs--compact";
+        }
+
+        if (switcher) {
+            strip.className += " sc-tabs--switch";
         }
 
         strip.setAttribute("role", "tablist");
@@ -470,9 +480,10 @@
         var countAttr = base + "-count";
         var openAttr = base + "-open";
         var flagAttr = base + "-flag";
+        var hintAttr = base + "-hint";
 
-        // A page can hold more than one strip -- the coach overview has category tabs
-        // inside its Overview panel -- so ids and the remembered selection are namespaced
+        // A page can hold more than one strip -- the team page has a second strip inside
+        // its Team overview panel -- so ids and the remembered selection are namespaced
         // per group. Without this the second strip would reuse the first one's ids, and
         // aria-controls would point at the wrong panel.
         //
@@ -555,6 +566,16 @@
             // left -- which it does by leaving it hollow. See .sc-tabs--compact.
             if (!dot.hidden) {
                 tab.classList.add("sc-tabs__tab--flagged");
+            }
+
+            // One line under the name, when the panel gives one. Last in the tab so the
+            // stylesheet can put it on a row of its own under the name, count and dot.
+            var hint = panel.getAttribute(hintAttr);
+            if (hint) {
+                var hintText = document.createElement("span");
+                hintText.className = "sc-tabs__hint";
+                hintText.appendChild(document.createTextNode(hint));
+                tab.appendChild(hintText);
             }
 
             tab.addEventListener("click", function () {
@@ -852,8 +873,12 @@
 
     // The nested strips: one per marked container, built AFTER the page-level strip so
     // that a hidden parent panel is already hidden when its children are set up. Nothing
-    // here knows what the groups are for -- the coach overview uses one per C, and the
-    // next page that wants a strip inside a strip marks up a container and gets one.
+    // here knows what the groups are for -- the team page uses one inside Team overview,
+    // and the next page that wants a strip inside a strip marks up a container and gets one.
+    //
+    // Two levels, not three. A group nested inside another group would have its panels
+    // picked up by the outer group's query as well, and a third row of tabs is more than
+    // anybody keeps track of anyway.
     function initNestedTabs() {
         var groups = document.querySelectorAll("[data-subtabs]");
 

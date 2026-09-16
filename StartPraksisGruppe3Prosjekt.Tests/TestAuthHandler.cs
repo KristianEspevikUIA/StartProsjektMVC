@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -57,7 +58,11 @@ public sealed class TestAuthHandler : AuthenticationHandler<AuthenticationScheme
             }
         }
 
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, SchemeName));
+        // The identity carries Identity's own authentication type, which is what the sign-in
+        // cookie produces. SignInManager.IsSignedIn looks for exactly that, so without it
+        // every page rendered for a signed-in test user would show "Log in" in the header.
+        var principal = new ClaimsPrincipal(
+            new ClaimsIdentity(claims, IdentityConstants.ApplicationScheme));
 
         return Task.FromResult(
             AuthenticateResult.Success(new AuthenticationTicket(principal, SchemeName)));
