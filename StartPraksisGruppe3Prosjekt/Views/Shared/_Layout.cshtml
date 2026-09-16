@@ -95,6 +95,14 @@
                                 <a class="@NavClass("Coach")" asp-controller="Coach" asp-action="Index">My teams</a>
                             </li>
                         }
+                        @if (User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin))
+                        {
+                            @* Same roles as IdentityController. The page names players, so the
+                               link is never shown to a player or a guardian. *@
+                            <li class="nav-item">
+                                <a class="@NavClass("Identity")" asp-controller="Identity" asp-action="Index">Identity</a>
+                            </li>
+                        }
                         @if (User.IsInRole(Roles.Guardian))
                         {
                             <li class="nav-item">

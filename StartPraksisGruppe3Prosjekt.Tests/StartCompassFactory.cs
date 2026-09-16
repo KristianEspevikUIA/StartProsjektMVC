@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Services.Identity;
 using Xunit;
 
 namespace StartPraksisGruppe3Prosjekt.Tests;
@@ -93,8 +94,33 @@ public sealed class StartCompassFactory : WebApplicationFactory<Program>
             ReplaceDatabaseWithSqlite(services);
             ReplaceAuthenticationWithTestScheme(services);
             AllowCookiesOverPlainHttp(services);
+            UseFictionalIdentityData(services, _identityMatchDataPath);
         });
     }
+
+    private readonly string _identityMatchDataPath;
+
+    /// <param name="identityMatchDataPath">
+    /// Where the Identity page reads match data from. Defaults to the fictional squad in
+    /// Identity/Fixtures -- see <see cref="UseFictionalIdentityData"/>.
+    /// </param>
+    public StartCompassFactory(string? identityMatchDataPath = null)
+    {
+        _identityMatchDataPath = identityMatchDataPath
+            ?? Path.Combine(AppContext.BaseDirectory, "Identity", "Fixtures");
+    }
+
+    /// <summary>
+    /// Points Identity Benchmarking at the fictional squad instead of the real match data.
+    ///
+    /// The content root is the web project, and its default match data folder is where the
+    /// real, git-ignored files live on a developer's machine. Without this a test would pass or
+    /// fail depending on whether that person had run the extraction script -- and would render
+    /// real players' names into test output. U14 has the fixture; U15 and U17 have no file,
+    /// which is the no-data case.
+    /// </summary>
+    private static void UseFictionalIdentityData(IServiceCollection services, string path) =>
+        services.PostConfigure<IdentityBenchmarkOptions>(options => options.MatchDataPath = path);
 
     /// <summary>
     /// Fails with the application's own error text when a request did not succeed.

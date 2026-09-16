@@ -1,0 +1,169 @@
+{
+  "//": [
+    "THE IK START IDENTITY GOLD STANDARD. The source of truth for the Identity Benchmarking page.",
+    "",
+    "Transcribed from 'IK Start – Identity Gold Standard.pdf' (one page, no text layer -- it was",
+    "read as an image). Every 'name', 'eliteRange', 'bestAtIt', 'tagline' and footnote is word for",
+    "word from that page, in its order. Change them only when the club changes the document.",
+    "",
+    "What is NOT in the PDF, and is ours:",
+    "  * 'target'      -- the elite range as numbers, so a status can be worked out, plus the short",
+    "                     form shown in the Target column. The numbers must agree with 'eliteRange';",
+    "                     IdentityCatalogTests checks that they do.",
+    "  * 'statusRules' -- the thresholds for Strong Alignment and Developing. Adjust them here.",
+    "  * 'measurement' -- which value in the extracted match data answers the marker ('metric'),",
+    "                     or why nothing in a StatsBomb match report can ('notMeasuredReason').",
+    "                     A marker without a metric is shown as 'Not measured'. It is never",
+    "                     estimated, and never stood in for by a different number.",
+    "",
+    "The match data itself is NOT in this file and not in git: see Data/Identity/Matches/README.md."
+  ],
+  "version": "2026-09-16",
+  "source": { "file": "IK Start – Identity Gold Standard.pdf", "page": 1 },
+
+  "eyebrow": "Identity Benchmarking",
+  "title": "Gold Standard – The 10 Identity Markers",
+  "organisation": "IK Start",
+  "methodology": "Academy Methodology",
+  "intro": "Based on tactical analysis of our six professional standard-setter clubs — Barcelona, Bayern München, PSG, Como, Racing Santander & Malmö FF — these are the elite performance levels the IK Start academy aims for across our 10 identity markers.",
+  "referenceClubs": [ "Barcelona", "Bayern München", "PSG", "Como", "Racing Santander", "Malmö FF" ],
+  "why": {
+    "title": "Why these are the gold standards",
+    "text": "Benchmarks combine consistent team averages (the floor of performance) with peak match data (the ceiling). For example, while Malmö FF usually maintain a high volume of progressive passes, their 112-pass match against Skövde AIK shows the absolute maximum vertical courage we want to encourage in our players."
+  },
+
+  "statusRules": {
+    "//": [
+      "Higher is better: above 'max' is Exceptional, from 'min' to 'max' is Elite Alignment, at or",
+      "above strongAlignmentAtFractionOfMin x min is Strong Alignment, at or above",
+      "developingAtFractionOfMin x min is Developing, anything lower is Below Target.",
+      "Lower is better (PPDA) has its own absolute thresholds on the marker, under 'target'."
+    ],
+    "strongAlignmentAtFractionOfMin": 0.90,
+    "developingAtFractionOfMin": 0.75
+  },
+
+  "phases": [
+    {
+      "key": "in-possession",
+      "title": "In Possession",
+      "tagline": "The \"Protagonist\" — controlling the game's climate & vertical intent",
+      "markers": [
+        {
+          "key": "possession",
+          "name": "Possession %",
+          "eliteRange": "58% – 70%",
+          "bestAtIt": "Barcelona / PSG (~70%)",
+          "target": { "direction": "higher-is-better", "min": 58, "max": 70, "unit": "%", "display": "58–70%" },
+          "measurement": { "metric": "possessionPct" }
+        },
+        {
+          "key": "progressive-passes",
+          "name": "Progressive Passes",
+          "eliteRange": "50 – 112 / match",
+          "bestAtIt": "Malmö FF (peak 112)",
+          "target": { "direction": "higher-is-better", "min": 50, "max": 112, "display": "50–112" },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report has no progressive-pass count. Its passing tables split passes by final third, box and long balls, and none of those is a progressive pass."
+          }
+        },
+        {
+          "key": "match-tempo",
+          "name": "Match Tempo",
+          "eliteRange": "15.5 – 19.8 p/min",
+          "bestAtIt": "Bayern München (peak 19.79)",
+          "target": { "direction": "higher-is-better", "min": 15.5, "max": 19.8, "display": "15.5–19.8" },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report has no tempo figure, and no ball-in-play time to work one out from."
+          }
+        },
+        {
+          "key": "pass-accuracy",
+          "name": "Pass Accuracy",
+          "eliteRange": "83% – 91%",
+          "bestAtIt": "Como / Bayern München (~91%)",
+          "target": { "direction": "higher-is-better", "min": 83, "max": 91, "unit": "%", "display": "83–91%" },
+          "measurement": { "metric": "passCompletionPct" }
+        },
+        {
+          "key": "successful-dribbles",
+          "name": "Successful Dribbles",
+          "eliteRange": "10 – 25 / match",
+          "bestAtIt": "Lamine Yamal, Barcelona (23)",
+          "target": { "direction": "higher-is-better", "min": 10, "max": 25, "display": "10–25" },
+          "measurement": { "metric": "successfulDribbles" }
+        }
+      ],
+      "footnotes": [
+        { "term": "Accuracy", "separator": "=", "text": "total successful completions regardless of distance, rewarding overall technical security." },
+        { "term": "Dribbles", "separator": "=", "text": "a successful action that specifically beats an opponent or breaks a defensive line." }
+      ]
+    },
+    {
+      "key": "out-of-possession",
+      "title": "Out of Possession",
+      "tagline": "The \"Defending Forward\" — aggression & tactical reading to suffocate opponents",
+      "markers": [
+        {
+          "key": "ppda",
+          "name": "PPDA (Intensity)",
+          "eliteRange": "Under 10.0",
+          "bestAtIt": "Barcelona (peak 5.04)",
+          "target": {
+            "direction": "lower-is-better",
+            "max": 10.0,
+            "display": "<10.0",
+            "exceptionalAtOrBelow": 5.04,
+            "strongAlignmentAtOrBelow": 11.0,
+            "developingAtOrBelow": 12.5
+          },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report has no PPDA. It counts pressures, which are a different measure, and gives no opponent passes or defensive actions by pitch zone to calculate PPDA from."
+          }
+        },
+        {
+          "key": "opp-half-recoveries",
+          "name": "Opp. Half Recoveries",
+          "eliteRange": "22 – 42 / match",
+          "bestAtIt": "Malmö FF (peak 42)",
+          "target": { "direction": "higher-is-better", "min": 22, "max": 42, "display": "22–42" },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report has no ball recoveries, and does not split any regain by half of the pitch."
+          }
+        },
+        {
+          "key": "total-duels-won",
+          "name": "Total Duels Won",
+          "eliteRange": "44% – 53%",
+          "bestAtIt": "Racing Santander (peak 53%)",
+          "target": { "direction": "higher-is-better", "min": 44, "max": 53, "unit": "%", "display": "44–53%" },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report only gives tackles won out of tackles attempted, which are defensive ground duels. Aerial duels cannot be counted (Aer% is 0 both when a player had none and when they lost them all) and failed dribbles are not recorded, so a total cannot be calculated."
+          }
+        },
+        {
+          "key": "total-regains",
+          "name": "Total Regains",
+          "eliteRange": "70 – 90 / match",
+          "bestAtIt": "Racing Santander (peak 90)",
+          "target": { "direction": "higher-is-better", "min": 70, "max": 90, "display": "70–90" },
+          "measurement": {
+            "notMeasuredReason": "The StatsBomb match report only gives Pressure Regains: possession won back within five seconds of a pressure. That is part of a team's regains, not the total."
+          }
+        },
+        {
+          "key": "interceptions",
+          "name": "Interceptions",
+          "eliteRange": "25 – 56 / match",
+          "bestAtIt": "Racing Santander (peak 56)",
+          "target": { "direction": "higher-is-better", "min": 25, "max": 56, "display": "25–56" },
+          "measurement": { "metric": "interceptions" }
+        }
+      ],
+      "footnotes": [
+        { "term": "PPDA", "separator": "—", "text": "lower = higher pressing intensity; 5.04 (Barcelona) is the elite ceiling for a suffocating high press." },
+        { "term": "Interceptions", "separator": "—", "text": "identifies anticipation & football IQ (\"Malmö style\") rather than physical duels." }
+      ]
+    }
+  ]
+}
