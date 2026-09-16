@@ -280,6 +280,14 @@ til klubben har bestemt hva de virkelige periodene er. Andre perioder fjernes ve
 men **bare hvis de er tomme**. En periode med svar blir stående, for sletting tar svarene med
 seg, og det er ikke en avveining et seed-steg skal gjøre alene.
 
+Plassholderen **holdes** åpen, den blir ikke bare opprettet åpen. Den hadde tidligere et
+vindu på tre uker og stengte seg selv tre uker senere: seedingen spurte bare om det fantes en
+periode med det navnet, så hver senere oppstart hoppet rett forbi den, og en base seedet i
+august hadde ingen åpen periode i september. Nå åpnes den igjen ved oppstart — men **bare når
+ingen annen periode er åpen**. Har klubben laget sine egne perioder, er plassholderen ferdig
+med jobben sin, og en periode som er stengt fra `Admin/Periods` er stengt med vilje. Vinduet
+er 90 dager, som er lenger enn en beslutning om virkelige perioder pleier å ta.
+
 **I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
 oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
 nettopp fordi de er demodata — uten dem er «over time» en tom side, både for spiller og lag.
