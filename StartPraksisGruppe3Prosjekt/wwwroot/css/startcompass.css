@@ -209,6 +209,143 @@ body {
     color: var(--sc-yellow) !important;
 }
 
+/*
+    The account menu: one round button with the user's initial, where the full address and
+    Log out used to take up half the bar. The address is still one click away, at the top of
+    the menu, and in the button's accessible name.
+*/
+.sc-account__toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    display: flex;
+    margin-left: 10px;
+    padding: 3px;
+}
+
+.sc-account__avatar {
+    align-items: center;
+    background: var(--sc-ink);
+    border-radius: 50%;
+    color: var(--sc-yellow);
+    display: inline-flex;
+    font-family: var(--sc-display);
+    font-size: 17px;
+    font-weight: 800;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+}
+
+.sc-account__toggle:hover .sc-account__avatar,
+.sc-account__toggle[aria-expanded="true"] .sc-account__avatar {
+    background: var(--sc-blue);
+    color: #ffffff;
+}
+
+.sc-account__toggle:focus-visible {
+    outline: 3px solid var(--sc-ink);
+    outline-offset: 1px;
+}
+
+.sc-header .sc-account__menu {
+    border: 2px solid var(--sc-ink);
+    border-radius: 0;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+    margin-top: 12px;
+    min-width: 250px;
+    padding: 6px 0;
+}
+
+.sc-account__who {
+    border-bottom: 1px solid var(--sc-border);
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+    padding: 8px 16px 12px;
+}
+
+.sc-account__who-label {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+}
+
+.sc-account__who-name {
+    color: var(--sc-foreground);
+    font-size: 14px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.sc-account__menu .dropdown-item {
+    color: var(--sc-foreground);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 9px 16px;
+}
+
+.sc-account__menu .dropdown-item:hover,
+.sc-account__menu .dropdown-item:focus {
+    background: var(--sc-muted);
+    color: var(--sc-ink);
+}
+
+.sc-account__menu .dropdown-item:active {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+/* Below Bootstrap's lg breakpoint the whole navigation is already folded behind the
+   toggler. A second fold inside it would be two taps to log out, so the button goes and the
+   menu is laid out as ordinary rows under the links. */
+@media (max-width: 991.98px) {
+    .sc-account__toggle {
+        display: none;
+    }
+
+    .sc-header .sc-account__menu {
+        background: transparent;
+        border: 0;
+        border-top: 1px solid rgba(0, 0, 0, 0.18);
+        box-shadow: none;
+        display: block;
+        margin: 8px 0 4px;
+        padding: 8px 0 0;
+        position: static;
+    }
+
+    .sc-account__who {
+        border: 0;
+        margin: 0;
+        padding: 4px 13px 6px;
+    }
+
+    .sc-account__who-label {
+        color: rgba(0, 0, 0, 0.6);
+    }
+
+    .sc-account__who-name {
+        color: var(--sc-ink);
+    }
+
+    .sc-account__menu .dropdown-item {
+        background: transparent;
+        color: rgba(0, 0, 0, 0.6);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 9px 13px;
+        text-transform: uppercase;
+    }
+
+    .sc-account__menu .dropdown-item:hover,
+    .sc-account__menu .dropdown-item:focus {
+        background: transparent;
+        color: var(--sc-ink);
+    }
+}
+
 /* ----------------------------------------------------------------- hero ---- */
 
 .sc-hero {
@@ -259,22 +396,69 @@ body {
     max-width: 660px;
 }
 
+/* What kind of page this is, over the name of what it is about: "5C overview" over the
+   team. The name alone did not say whether you were looking at a team or a player. */
+.sc-hero__eyebrow {
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+/* The way back up, above the heading of a page that sits inside another one. A link and
+   not a button: it goes somewhere, it does not do something. */
+.sc-hero__back {
+    color: var(--sc-ink);
+    display: inline-block;
+    font-size: 14px;
+    font-weight: 600;
+    margin: -20px 0 22px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.sc-hero__back:hover,
+.sc-hero__back:focus {
+    color: var(--sc-blue);
+}
+
+.sc-hero__back:focus-visible {
+    outline: 3px solid var(--sc-ink);
+    outline-offset: 2px;
+}
+
+/* Facts about the page -- the period, how many answered -- as one line of text with dots
+   between. They used to be outlined boxes, which is also what a secondary button looks
+   like: a row of five of them on the team page read as five things to press. */
+/* Every fact starts with its dot, and the list is pulled left by one dot's width and
+   clipped there. Whichever fact starts a line -- the first, or one that wrapped -- has its
+   dot cut off, so no line starts or ends with a stray separator however the row wraps. */
 .sc-hero__meta {
+    clip-path: inset(0 0 0 22px);
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 22px;
+    gap: 2px 0;
+    margin: 18px 0 0 -22px;
 }
 
 .sc-hero__meta span {
-    background: rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(0, 0, 0, 0.18);
-    color: rgba(0, 0, 0, 0.75);
-    font-size: 12px;
+    color: rgba(0, 0, 0, 0.72);
+    font-size: 14px;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 5px 11px;
     white-space: nowrap;
+}
+
+.sc-hero__meta span::before {
+    color: rgba(0, 0, 0, 0.45);
+    content: "\00b7";
+    /* Empty alternative text, so a screen reader does not say "dot" between the facts. */
+    content: "\00b7" / "";
+    display: inline-block;
+    text-align: center;
+    width: 22px;
 }
 
 /* -------------------------------------------------------------- sections ---- */
@@ -561,62 +745,273 @@ body {
     margin: 0;
 }
 
-/*
-    The short answer at the top of a page whose body is method -- see "Where to start" in
-    FiveCTeam.cshtml. A label and a sentence per row, not a card each: three cards would
-    look like three things to compare, and these are three lines to read in order.
-*/
-.sc-summary {
-    border-top: 1px solid var(--sc-border);
-    margin: 0;
+/* ------------------------------------------------------ 5C team overview ---- */
+
+/* A heading inside a tab panel -- "Where to start" in Team overview. */
+.sc-section .sc-subhead {
+    margin-bottom: 14px;
 }
 
-.sc-summary__row {
-    border-bottom: 1px solid var(--sc-border);
+/*
+    The row above the views on the 5C pages: the period picker on the left, the way to the
+    help page on the right. The help link keeps to the right when there is no picker.
+*/
+.sc-toolbar {
+    align-items: center;
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 20px;
-    padding: 14px 0 14px 14px;
+    gap: 12px 24px;
+    justify-content: space-between;
+    padding-top: 28px;
 }
 
-/* The row that means "somebody to talk to", marked down the edge in the same alert the
-   cards and the table rows use. Colour is never the only carrier: the sentence says it. */
-.sc-summary__row--alert {
+.sc-help-link {
+    color: var(--sc-blue);
+    font-size: 14px;
+    font-weight: 600;
+    margin-left: auto;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.sc-help-link::before {
+    /* A question mark in a circle, drawn in CSS so the CSP needs no image. Decorative: the
+       link text says where it goes. */
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    content: "?";
+    content: "?" / "";
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    height: 18px;
+    line-height: 14px;
+    margin-right: 7px;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: 1px;
+    width: 18px;
+}
+
+.sc-help-link:hover,
+.sc-help-link:focus {
+    color: var(--sc-ink);
+}
+
+/* The period picker: a label, a select and a Show button on one line. It replaced a row of
+   buttons, one per period, which grew every season. */
+.sc-period {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+.sc-period .sc-select {
+    min-width: 240px;
+    width: auto;
+}
+
+@media (max-width: 640px) {
+    .sc-period {
+        width: 100%;
+    }
+
+    .sc-period .sc-label {
+        flex: 1 1 100%;
+    }
+
+    /* The select takes the line and Show sits at the end of it, rather than the phone rule
+       that turns every .sc-btn into a full-width bar under it. */
+    .sc-period .sc-select {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .sc-period .sc-btn {
+        width: auto;
+    }
+}
+
+/*
+    Where to start: three small cards, the same shape as the team cards on My teams -- a
+    label, one big number, a line under it. Read in a second; the working is further down.
+*/
+.sc-stats {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.sc-stat {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-blue);
+    padding: 16px 20px 18px;
+}
+
+/* Somebody to talk to. Colour is never the only carrier: the card says it in words. */
+.sc-stat--alert {
     background: var(--sc-alert-wash);
-    border-left: 6px solid var(--sc-alert);
-    padding-left: 18px;
+    border-top-color: var(--sc-alert);
 }
 
-.sc-summary dt {
+.sc-stat__label {
     color: var(--sc-muted-foreground);
-    flex: 0 0 132px;
     font-family: var(--sc-display);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.12em;
-    line-height: 1.7;
+    margin: 0 0 4px;
     text-transform: uppercase;
 }
 
-.sc-summary dd {
-    flex: 1 1 260px;
-    margin: 0;
+.sc-stat__value {
+    color: var(--sc-foreground);
+    font-family: var(--sc-display);
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1.05;
+    margin: 0 0 4px;
+}
+
+.sc-stat__unit {
+    color: var(--sc-muted-foreground);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.sc-stat__line {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 16px;
+    margin: 4px 0;
+}
+
+.sc-stat__note {
+    color: var(--sc-muted-foreground);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 4px 0 0;
 }
 
 /* Player codes read as codes wherever they appear, so they are told apart from the words
    around them at a glance rather than by reading. Same treatment as .sc-code in a table. */
 .sc-summary__codes {
+    color: var(--sc-foreground);
     font-family: var(--sc-display);
     font-weight: 700;
     letter-spacing: 0.04em;
 }
 
-@media (max-width: 640px) {
-    /* The label over the sentence rather than beside it: 132px of the 347px available is
-       most of the line, and these sentences need the width more than the label does. */
-    .sc-summary dt {
-        flex: 1 1 100%;
+/* The five C's as a table, with the squad's shape beside it when there is one. */
+.sc-overview {
+    display: grid;
+    gap: 24px;
+    margin-bottom: 18px;
+}
+
+@media (min-width: 900px) {
+    .sc-overview--with-shape {
+        align-items: start;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     }
+}
+
+.sc-overview__shape .sc-legend {
+    justify-content: center;
+    margin: 0 0 8px;
+}
+
+.sc-overview__shape .sc-pentagon__svg {
+    max-width: 380px;
+}
+
+/* The all-statements row, over the five: the whole questionnaire, read first. */
+.sc-table tbody tr.sc-row--total th,
+.sc-table tbody tr.sc-row--total td {
+    border-bottom-width: 2px;
+}
+
+.sc-table tbody tr th[scope="row"] {
+    background: transparent;
+    color: var(--sc-foreground);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/*
+    Grouped headings on the player list: Answered, Follow-up, How far apart. A group heading
+    spans its columns and sits on a rule, so the three read as three kinds of column.
+*/
+.sc-table--grouped thead th.sc-th-group {
+    border-bottom: 2px solid var(--sc-ink);
+    color: var(--sc-foreground);
+}
+
+.sc-table--grouped thead th[rowspan] {
+    vertical-align: bottom;
+}
+
+.sc-th-note {
+    color: var(--sc-muted-foreground);
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-top: 2px;
+    text-transform: none;
+}
+
+/* One short line under a table or a chart, or over it with --top: what a reader needs to
+   read it, and no more. The longer explanations are on the help page. */
+.sc-footnote {
+    color: var(--sc-muted-foreground);
+    font-size: 14px;
+    line-height: 1.55;
+    margin: 12px 0 0;
+    max-width: 720px;
+}
+
+.sc-footnote--top {
+    margin: 0 0 16px;
+}
+
+/* ------------------------------------------------------------------ help ---- */
+
+.sc-help-toc ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sc-help-toc a {
+    color: var(--sc-blue);
+    font-weight: 600;
+    text-underline-offset: 3px;
+}
+
+.sc-help {
+    max-width: 760px;
+    scroll-margin-top: 16px;
+}
+
+.sc-help h3 {
+    font-size: 20px;
+    margin: 26px 0 6px;
+}
+
+.sc-help p {
+    font-size: 16px;
+    line-height: 1.7;
+    margin: 0;
 }
 
 /* --------------------------------------------------------------- badges ---- */
@@ -1526,8 +1921,8 @@ body {
     margin: 0;
 }
 
-/* A second strip, inside a panel of the first one. The coach overview has one tab per C
-   inside its Overview panel.
+/* A second strip, inside a panel of the first one. The team page has The five C's, Per
+   statement and Over time inside its Team overview panel.
 
    Quieter than the outer strip on purpose: two tab strips of equal weight on one screen
    read as two navigations competing, and the reader loses track of which one they moved.
@@ -1546,6 +1941,73 @@ body {
     min-height: 38px;
     padding: 8px 14px;
     text-transform: none;
+}
+
+/*
+    A switch between two whole views -- Team overview and Player overview.
+
+    As underlined tabs the unselected one was grey text on a grey line, and coaches did not
+    see that there was a second view at all. Two equal boxes side by side, the selected one
+    filled, each with a line saying what it holds, cannot be missed and cannot be mistaken
+    for a heading. Opted into with data-tabs-switch on the element holding the panels.
+*/
+.sc-tabs.sc-tabs--switch {
+    border-bottom: 0;
+    box-shadow: none;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    margin: 18px 0 0;
+}
+
+.sc-tabs--switch .sc-tabs__tab {
+    align-content: flex-start;
+    align-items: center;
+    background: var(--sc-card);
+    border: 2px solid var(--sc-border);
+    color: var(--sc-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 14px 20px 15px;
+    text-align: left;
+    white-space: normal;
+}
+
+.sc-tabs--switch .sc-tabs__tab:hover {
+    border-color: var(--sc-ink);
+    color: var(--sc-foreground);
+}
+
+.sc-tabs--switch .sc-tabs__tab[aria-selected="true"] {
+    background: var(--sc-ink);
+    border-color: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+.sc-tabs--switch .sc-tabs__tab:focus-visible {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 3px;
+}
+
+.sc-tabs--switch .sc-tabs__tab[aria-selected="true"] .sc-tabs__count {
+    color: var(--sc-yellow);
+}
+
+/* The line under the name: what the view holds. Its own row, in plain type. */
+.sc-tabs__hint {
+    color: var(--sc-muted-foreground);
+    flex-basis: 100%;
+    font-family: var(--sc-sans);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    margin-top: 2px;
+    text-transform: none;
+}
+
+.sc-tabs--switch .sc-tabs__tab[aria-selected="true"] .sc-tabs__hint {
+    color: rgba(255, 255, 255, 0.78);
 }
 
 /* The numbers under a chart: role, average, spread, how many people. Narrow columns and
@@ -1799,8 +2261,7 @@ td > .sc-qcolor--dot {
     switch anything would be worse than a long page.
 
     Styled as the underlined strip the club site uses for section navigation rather than as
-    a row of .sc-btn: buttons read as "do something", tabs read as "look at something else",
-    and the round picker directly above is already a row of buttons.
+    a row of .sc-btn: buttons read as "do something", tabs read as "look at something else".
 */
 .sc-tabs {
     border-bottom: 2px solid var(--sc-border);
@@ -1901,6 +2362,12 @@ td > .sc-qcolor--dot {
     outline: none;
 }
 
+/* The rule belongs to the panel's heading, and survey.js hides that heading once the tab
+   says the same thing. Left on its own, the rule was a stray blue dash under the strip. */
+.sc-tabpanel > .sc-rule {
+    display: none;
+}
+
 @media (max-width: 640px) {
     /* One scrolling strip rather than a stack of wrapped rows -- a wrapped tab bar on a
        phone reads as several unrelated rows of words. */
@@ -1912,8 +2379,25 @@ td > .sc-qcolor--dot {
         scrollbar-width: thin;
     }
 
+    /*
+        The line under the strip as an inset shadow rather than a border, and the tabs no
+        longer pulled 2px down over it. A scrolling box clips at its padding edge, so tabs
+        reaching into the border were 2px of vertical overflow -- and a phone drew a
+        scrollbar beside the strip for it. The tab's own underline still paints over the
+        line, because a box's shadow is drawn beneath its children.
+    */
+    .sc-tabs {
+        border-bottom: 0;
+        box-shadow: inset 0 -2px 0 var(--sc-border);
+    }
+
+    .sc-tabs--sub {
+        box-shadow: inset 0 -1px 0 var(--sc-border);
+    }
+
     .sc-tabs__tab {
         font-size: 17px;
+        margin-bottom: 0;
         padding: 11px 12px 9px;
     }
 
@@ -1940,6 +2424,23 @@ td > .sc-qcolor--dot {
         background-size: 34px 100%, 34px 100%, 13px 100%, 13px 100%;
     }
 
+    /* The switch never scrolls -- two boxes share the width -- so it has no scroll shadow,
+       and on a phone the boxes get tighter padding and a smaller name. */
+    .sc-tabs.sc-tabs--switch {
+        background-image: none;
+        gap: 8px;
+        overflow: visible;
+    }
+
+    .sc-tabs--switch .sc-tabs__tab {
+        font-size: 16px;
+        padding: 10px 12px 11px;
+    }
+
+    .sc-tabs__hint {
+        font-size: 13px;
+    }
+
     /*
         The form's strip, on a phone.
 
@@ -1961,6 +2462,7 @@ td > .sc-qcolor--dot {
     */
     .sc-tabs--compact {
         border-bottom: 0;
+        box-shadow: none;
         /* Dots wrap where labels could not: a second row of dots is still one indicator,
            where a second row of words read as a second, unrelated tab bar. Six of them fit
            a phone with room to spare, but the question set is a file somebody can replace
@@ -2102,7 +2604,9 @@ td > .sc-qcolor--dot {
     padding: 26px 28px;
 }
 
-.sc-cta__title {
+/* Two classes, because the title is an h2 inside a .sc-section and ".sc-section h2" -- one
+   class and an element -- otherwise wins and paints it navy on the black ground. */
+.sc-cta .sc-cta__title {
     color: var(--sc-yellow);
     font-family: var(--sc-display);
     font-size: 28px;
@@ -2258,7 +2762,7 @@ td > .sc-qcolor--dot {
     }
 
     .sc-hero__meta span {
-        font-size: 11px;
+        font-size: 13px;
     }
 
     .sc-steps {

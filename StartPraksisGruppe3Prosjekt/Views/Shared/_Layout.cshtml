@@ -64,8 +64,10 @@
 
     <header class="sc-header">
         <nav class="navbar navbar-expand-lg navbar-light">
-            <div class="sc-page d-flex align-items-center justify-content-between w-100">
-                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+            @* flex-wrap so that the folded menu drops onto its own row under the brand on a
+               phone. Without it the open menu squeezed in beside the StartCompass mark. *@
+            <div class="sc-page d-flex flex-wrap align-items-center justify-content-between w-100">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index" aria-label="StartCompass, IK Start – home">
                     <span class="sc-brand__name">StartCompass</span>
                     <span class="sc-brand__sub">IK Start</span>
                 </a>
@@ -77,10 +79,10 @@
                 </button>
 
                 <div class="navbar-collapse collapse" id="sc-nav">
+                    @* No "Home" link: the StartCompass mark above is the way home, as it is on
+                       most sites, and a menu item saying the same thing again was one more
+                       word in a bar that had too many. *@
                     <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="@NavClass("Home")" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
@@ -143,6 +145,11 @@
     <footer class="sc-footer">
         <div class="sc-page">
             StartCompass · IK Start ·
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-area="" asp-controller="Help" asp-action="Index">Help</a>
+                <text>·</text>
+            }
             <a asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>

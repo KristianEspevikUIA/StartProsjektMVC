@@ -68,6 +68,47 @@ public sealed class LayoutPageTests : IAsyncLifetime
         Assert.Contains("id=\"main-content\" tabindex=\"-1\"", html);
     }
 
+    /// <summary>
+    /// The signed-in address is behind one round button, not written across the menu bar.
+    /// It used to be a link as wide as the navigation before it, in the same uppercase,
+    /// letter-spaced type, with Log out beside it.
+    /// </summary>
+    [Fact]
+    public async Task The_signed_in_address_is_in_the_account_menu_and_not_the_bar()
+    {
+        var html = await ChromeAsync();
+
+        // The button says whose account it is to a screen reader, and shows one letter.
+        Assert.Contains($"aria-label=\"Account: {StartCompassFactory.CoachUserId}\"", html);
+        Assert.Contains("<span class=\"sc-account__avatar\" aria-hidden=\"true\">U</span>", html);
+
+        // The address itself is inside the menu, after the button that opens it.
+        var toggle = html.IndexOf("class=\"sc-account__toggle\"", StringComparison.Ordinal);
+        var menu = html.IndexOf("sc-account__menu", StringComparison.Ordinal);
+        var address = html.IndexOf(
+            $"<span class=\"sc-account__who-name\">{StartCompassFactory.CoachUserId}</span>",
+            StringComparison.Ordinal);
+
+        Assert.True(toggle >= 0 && menu > toggle && address > menu,
+            "The address should be inside the account menu.");
+
+        // And Log out is one of the menu's items rather than a link of its own in the bar.
+        Assert.Contains("<button type=\"submit\" class=\"dropdown-item\">Log out</button>", html);
+    }
+
+    /// <summary>
+    /// No "Home" in the menu: the StartCompass mark is the link home, as it is on most sites,
+    /// and the menu item said the same thing again.
+    /// </summary>
+    [Fact]
+    public async Task The_menu_has_no_home_link_because_the_brand_is_one()
+    {
+        var html = await ChromeAsync();
+
+        Assert.Contains("class=\"navbar-brand\"", html);
+        Assert.DoesNotContain(">Home</a>", html);
+    }
+
     private async Task<string> ChromeAsync()
     {
         var response = await _factory

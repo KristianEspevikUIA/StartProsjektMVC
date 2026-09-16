@@ -33,9 +33,8 @@
     <div class="sc-card sc-card--left">
         <h3>Not enough periods yet</h3>
         <p class="sc-card__meta">
-            Development needs at least two periods with answers in them. There are answers
-            from fewer than that for @Model.Subject, so there is a score but no direction yet.
-            New periods are created under Administration.
+            A direction needs answers from at least two periods, and @Model.Subject has
+            fewer than that so far.
         </p>
     </div>
 }
@@ -97,10 +96,7 @@ else
                     }
                     else if (category.Change is not null)
                     {
-                        <text>
-                            Steady around @category.Latest!.Value.ToString("0.0"). A change of
-                            under half a point is not two different answers.
-                        </text>
+                        <text>Steady around @category.Latest!.Value.ToString("0.0").</text>
                     }
                     else
                     {
@@ -111,9 +107,8 @@ else
         }
     </div>
 
-    <p class="sc-lead sc-small">
-        Periods, oldest first: @string.Join(" → ", Model.Periods.Select(p => p.Name)).
-        The vertical scale is the full 1–5 in every chart, so the five can be read against
-        each other. A gap in a line is a period with no answers behind it for @Model.Subject.
+    <p class="sc-footnote">
+        Oldest first: @string.Join(" → ", Model.Periods.Select(p => p.Name)). Every chart runs
+        from 1 to 5; a gap is a period with no answers.
     </p>
 }

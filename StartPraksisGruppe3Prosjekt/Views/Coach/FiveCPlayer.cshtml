@@ -19,6 +19,17 @@
 
 <section class="sc-hero">
     <div class="sc-page">
+        @*
+            Where this page sits, and the way back to it, before anything else. It used to be
+            a button at the very bottom, under six tabs' worth of page. #sc-panel-1 is the
+            team page's Player overview tab -- see the note at the top of FiveCTeam.cshtml.
+        *@
+        <a class="sc-hero__back"
+           asp-action="FiveCTeam"
+           asp-route-id="@Model.TeamId"
+           asp-route-roundId="@Model.RoundId"
+           asp-fragment="sc-panel-1">← @Model.TeamName · Player overview</a>
+
         <div class="sc-rule"></div>
         <h1>@Model.Code</h1>
         <p class="sc-hero__lead">
@@ -59,32 +70,37 @@
     }
     else
     {
+        @*
+            Follow-up is the player's OWN low score, and the sentence says so, with the number.
+            A coach read "needs follow-up" beside a difference of 0.0 as a contradiction; it is
+            not one -- three people can agree on a low score -- and saying what the flag is
+            built on is what stops it reading like one.
+        *@
         @if (comparison.NeedsFollowUp)
         {
             <section class="sc-section">
                 <div class="sc-notice sc-notice--warn" role="status">
                     <p>
                         <strong>Needs follow-up.</strong>
-                        @Model.Code scored an average below
-                        @FiveCRules.FollowUpThreshold.ToString("0") on
-                        @string.Join(", ", comparison.FollowUp.Select(c => c.CategoryName)).
-                        That is the player disagreeing with the positive statements across the
-                        whole category, not a single low answer — the flag needs at least
-                        @FiveCRules.MinimumAnswersForFollowUp answers behind it.
+                        @Model.Code's own average is below
+                        @FiveCRules.FollowUpThreshold.ToString("0") in
+                        @string.Join(", ", comparison.FollowUp.Select(c => $"{c.CategoryName} ({c.PlayerMean!.Value:0.0})")).
+                        This is about a low score, not about disagreement.
+                        <a asp-controller="Help" asp-action="Index" asp-fragment="follow-up">What follow-up means</a>
                     </p>
                 </div>
             </section>
         }
 
+        <div class="sc-toolbar">
+            <a class="sc-help-link" asp-controller="Help" asp-action="Index" asp-fragment="player-page">How to read this page</a>
+        </div>
+
         <section class="sc-section" data-tab-panel data-tab-label="Differences">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Difference scores</h2>
-            <p class="sc-lead">
-                How far apart the answers are, on the same 1–5 scale the statements use. The
-                answers are paired statement by statement, so 0 means the two of them gave the
-                same answer every time and 4 would be opposite ends of the scale throughout.
-                A statement only one of them answered is left out — there is no distance
-                between an answer and a blank.
+            <p class="sc-footnote sc-footnote--top">
+                How far apart the answers are: 0 is the same answers, 4 is opposite ends of the scale.
             </p>
 
             <div class="sc-scores">
@@ -96,10 +112,9 @@
 
             @if (comparison.MostDifferentCategory is { } worst && worst.Differences.Overall is { } worstScore)
             {
-                <p class="sc-lead sc-small">
-                    The difference is widest in <strong>@worst.CategoryName</strong>, at
-                    @worstScore.ToString("0.0"). That is where a conversation with @Model.Code
-                    has the most to work with — the per-category numbers are below.
+                <p class="sc-footnote">
+                    Widest in <strong>@worst.CategoryName</strong>, at @worstScore.ToString("0.0") —
+                    a good place to start the conversation.
                 </p>
             }
         </section>
@@ -107,11 +122,6 @@
         <section class="sc-section" data-tab-panel data-tab-label="The five C's">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>The five C's</h2>
-            <p class="sc-lead">
-                Each bar is an average on the 1–5 scale, after negatively worded statements
-                have been turned round so that a higher bar always means better. A statement
-                nobody answered is left out of the average rather than counted as 3.
-            </p>
 
             <div class="sc-legend">
                 <span class="sc-legend__item">
@@ -146,9 +156,11 @@
                     <article class="sc-compare__card @(category.NeedsFollowUp ? "sc-compare__card--alert" : "")">
                         <div class="sc-compare__head">
                             <h3>@category.CategoryName</h3>
+                            @* With the player's own average in it: this card also prints a
+                               difference, and the two are easy to read as one number. *@
                             @if (category.NeedsFollowUp)
                             {
-                                <span class="sc-badge sc-badge--alert">Follow up</span>
+                                <span class="sc-badge sc-badge--alert">Follow up · own @category.PlayerMean!.Value.ToString("0.0")</span>
                             }
                         </div>
 
@@ -232,10 +244,9 @@
         <section class="sc-section" data-tab-panel data-tab-label="Statements">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Statement by statement</h2>
-            <p class="sc-lead">
-                Every answer as it was given, on the 1–5 scale. A dash means that person did
-                not answer that statement — it is not a zero. Rows two points apart or more
-                are marked; that is a different answer, not a rounding difference.
+            <p class="sc-footnote sc-footnote--top">
+                Every answer exactly as given. Rows two or more points apart are marked;
+                “Reversed” means a high answer is a low score.
             </p>
 
             <div class="sc-table-wrap">
@@ -289,11 +300,6 @@
                     </tbody>
                 </table>
             </div>
-
-            <p class="sc-lead sc-small">
-                “Reversed” marks a negatively worded statement. There, a high answer is a low
-                score — the averages above already account for it, these raw numbers do not.
-            </p>
         </section>
 
         @*
@@ -311,11 +317,7 @@
             <section class="sc-section" data-tab-panel data-tab-label="Reflection">
                 <div class="sc-rule"></div>
                 <h2 data-tab-heading>End of period</h2>
-                <p class="sc-lead">
-                    The short questions after the statements: the strongest C, the one worth
-                    working on next, and what would help. Nothing here is scored — it is what
-                    each of them wrote.
-                </p>
+                <p class="sc-footnote sc-footnote--top">What each of them wrote at the end of the period.</p>
 
                 <partial name="_FiveCReflection" model="@(new FiveCReflectionViewModel(
                     comparison.Reflection,
@@ -331,11 +333,7 @@
         <section class="sc-section" data-tab-panel data-tab-label="Over time">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Over time</h2>
-            <p class="sc-lead">
-                @Model.Code's own averages across the periods they have answered in. Only
-                their own answers — what anyone else thought of them is a different question,
-                and mixing it in would make the line move when the coach changed their mind.
-            </p>
+            <p class="sc-footnote sc-footnote--top">@Model.Code's own averages, period by period.</p>
 
             <partial name="_FiveCTrend" model="trend" />
         </section>
@@ -414,10 +412,8 @@
         @* The second half of the same subject, and so the same panel: two adjacent tabs
            reading "Sharing" and "Share the form" would be a coin toss every time. *@
         <h3 class="sc-mt">Share the form</h3>
-        <p class="sc-lead">
-            The link opens the form with this player and role already chosen. It grants no
-            access on its own: whoever follows it signs in as themselves, and the same checks
-            run again on the server.
+        <p class="sc-footnote sc-footnote--top">
+            Opens the form with this player and role chosen. It gives no access on its own.
         </p>
 
         <div class="sc-table-wrap">
@@ -453,18 +449,9 @@
     </section>
 
     <section class="sc-section sc-section--last">
-        <div class="sc-card sc-card--left">
-            <p class="sc-eyebrow">About these numbers</p>
-            <p class="sc-card__meta">
-                Question set: <strong>@Model.QuestionSetVersion</strong>. Two rounds answered
-                against different question sets are not directly comparable.
-            </p>
-            <div class="sc-actions">
-                <a class="sc-btn sc-btn--secondary"
-                   asp-action="FiveCTeam"
-                   asp-route-id="@Model.TeamId"
-                   asp-route-roundId="@Model.RoundId">Back to @Model.TeamName</a>
-            </div>
-        </div>
+        <p class="sc-footnote">
+            Question set @Model.QuestionSetVersion. Periods answered against different question
+            sets are not directly comparable.
+        </p>
     </section>
 </div>
