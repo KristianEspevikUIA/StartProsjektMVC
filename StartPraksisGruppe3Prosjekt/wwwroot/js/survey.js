@@ -434,8 +434,30 @@
             return null;
         }
 
+        // Two things the strip cannot work out for itself, declared on the element the
+        // panels sit in. A page that says nothing gets what every strip has always done,
+        // which is what keeps the coach pages out of this.
+        var host = panels[0].parentNode;
+
+        // Whether returning to this page should reopen the panel that was last open.
+        // Right when somebody comes back to correct one answer; wrong when somebody opens
+        // a form they have never filled in and lands on block 4 with no sign that three
+        // more sit to the left of it. Nothing is written either when this is off -- a page
+        // that does not read the position has no business leaving one behind.
+        var remembers = host.getAttribute("data-tabs-remember") !== "false";
+
+        // Whether the strip may fall back to a row of dots on a narrow screen. For panels
+        // that are walked in order and named by their position, where six labels are wider
+        // than the phone they are being read on -- see .sc-tabs--compact.
+        var compact = host.getAttribute("data-tabs-compact") === "true";
+
         var strip = document.createElement("div");
         strip.className = attribute === "data-tab-panel" ? "sc-tabs" : "sc-tabs sc-tabs--sub";
+
+        if (compact) {
+            strip.className += " sc-tabs--compact";
+        }
+
         strip.setAttribute("role", "tablist");
         strip.setAttribute("aria-label", label || "Sections");
 
@@ -461,6 +483,23 @@
         var tabs = [];
         var badges = [];
         var dots = [];
+        var labels = [];
+        var current = 0;
+
+        // What the dots cannot say. Only built in compact mode, and only shown by the
+        // stylesheet at the width where the labels come off the tabs.
+        //
+        // aria-hidden because it is a second copy of something the reader already has: a
+        // tablist announces the selected tab's name and its count on every move, and this
+        // line would say all of it again straight afterwards. It is for the reader who can
+        // see the dots and cannot read them.
+        var status = null;
+
+        if (compact) {
+            status = document.createElement("p");
+            status.className = "sc-tabs__status";
+            status.setAttribute("aria-hidden", "true");
+        }
 
         panels.forEach(function (panel, index) {
             var label = panel.getAttribute(labelAttr) || "Section " + (index + 1);
@@ -482,7 +521,15 @@
             tab.id = tabId;
             tab.setAttribute("role", "tab");
             tab.setAttribute("aria-controls", id);
-            tab.appendChild(document.createTextNode(label));
+
+            // Wrapped rather than a bare text node so the stylesheet can take the words
+            // off the tab without taking them out of its accessible name: in compact mode
+            // this span is hidden the visually-hidden way, not with display:none.
+            var text = document.createElement("span");
+            text.className = "sc-tabs__label";
+            text.appendChild(document.createTextNode(label));
+            tab.appendChild(text);
+            labels.push(label);
 
             // Count and dot are created empty and stay in the DOM. A page that never uses
             // them shows nothing -- .sc-tabs__count:empty is display:none -- and a page that
@@ -502,6 +549,13 @@
             dot.hidden = panel.getAttribute(flagAttr) !== "true";
             tab.appendChild(dot);
             dots.push(dot);
+
+            // The same fact on the tab itself. In compact mode everything inside the tab
+            // is hidden, the dot above included, and the flag has to ride on the one mark
+            // left -- which it does by leaving it hollow. See .sc-tabs--compact.
+            if (!dot.hidden) {
+                tab.classList.add("sc-tabs__tab--flagged");
+            }
 
             tab.addEventListener("click", function () {
                 select(index, true);
@@ -549,12 +603,18 @@
                 tabs[i].tabIndex = isCurrent ? 0 : -1;
             });
 
+            current = index;
+            showStatus();
+
             // Remembered per team and round, so that following a player and coming back
-            // returns to the section that was open rather than to the first one.
-            try {
-                window.sessionStorage.setItem(storageKey(), String(index));
-            } catch (e) {
-                // Private mode, or storage turned off. The tabs still work.
+            // returns to the section that was open rather than to the first one. Not
+            // written at all when the page said not to remember -- see data-tabs-remember.
+            if (remembers) {
+                try {
+                    window.sessionStorage.setItem(storageKey(), String(index));
+                } catch (e) {
+                    // Private mode, or storage turned off. The tabs still work.
+                }
             }
 
             // On a phone the strip scrolls sideways, and the selected tab can start off
@@ -578,6 +638,20 @@
                     window.scrollTo(0, top - 12);
                 }
             }
+        }
+
+        // "Statements 11-15 - 3/5": where the reader is, and how far through it they are.
+        // The count is the one on the tab, which compact mode hides along with the label.
+        function showStatus() {
+            if (!status) {
+                return;
+            }
+
+            var count = badges[current].textContent;
+
+            status.textContent = count
+                ? labels[current] + " \u00b7 " + count
+                : labels[current];
         }
 
         function storageKey() {
@@ -605,13 +679,15 @@
                 }
             }
 
-            try {
-                var saved = parseInt(window.sessionStorage.getItem(storageKey()), 10);
-                if (!isNaN(saved) && saved >= 0 && saved < panels.length) {
-                    return saved;
+            if (remembers) {
+                try {
+                    var saved = parseInt(window.sessionStorage.getItem(storageKey()), 10);
+                    if (!isNaN(saved) && saved >= 0 && saved < panels.length) {
+                        return saved;
+                    }
+                } catch (e) {
+                    // Same as above.
                 }
-            } catch (e) {
-                // Same as above.
             }
 
             return 0;
@@ -626,7 +702,12 @@
             }
         });
 
-        panels[0].parentNode.insertBefore(strip, panels[0]);
+        host.insertBefore(strip, panels[0]);
+
+        if (status) {
+            host.insertBefore(status, panels[0]);
+        }
+
         select(initialIndex(), false);
 
         return {
@@ -635,9 +716,19 @@
             select: select,
             setCount: function (index, text) {
                 badges[index].textContent = text;
+
+                // The status line quotes the selected tab's count, so it goes stale the
+                // moment that count moves under it.
+                showStatus();
             },
             setFlag: function (index, on) {
                 dots[index].hidden = !on;
+
+                if (on) {
+                    tabs[index].classList.add("sc-tabs__tab--flagged");
+                } else {
+                    tabs[index].classList.remove("sc-tabs__tab--flagged");
+                }
             }
         };
     }

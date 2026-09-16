@@ -2,15 +2,21 @@
 @{
     ViewData["Title"] = $"5C – {Model.TeamName}";
     ViewData["FullWidth"] = true;
+
+    // How many player codes the summary at the top prints before it gives up and counts
+    // the rest. Enough to chase a normal round's stragglers from the line itself; short of
+    // a whole squad's worth of codes on a page that is meant to be the short answer.
+    const int AwaitingShown = 6;
 }
 
 @*
     The 5C team overview.
 
-    Two halves, and they are governed differently. The squad aggregate at the top names
-    nobody and is decided once by CanViewTeamAggregate; the rows below are about individuals
-    and are decided one at a time by CanViewPlayer. The aggregate comes first because it is
-    the question a coach opens the page with.
+    A short answer, and then two halves that are governed differently. The squad aggregate
+    names nobody and is decided once by CanViewTeamAggregate; the rows below are about
+    individuals and are decided one at a time by CanViewPlayer. The aggregate comes first
+    because it is the question a coach opens the page with -- and "Where to start" above it
+    is that question answered in three lines, from numbers both halves already hold.
 
     Two states that easily collapse into the same grey row are kept apart here: "not
     allowed to see" and "has not answered". The cell says which one it is, in words.
@@ -78,19 +84,142 @@
             </section>
         }
 
-        @if (Model.FollowUpCount > 0)
-        {
-            <section class="sc-section">
-                <div class="sc-notice sc-notice--warn" role="status">
-                    <p>
-                        <strong>@Model.FollowUpCount
-                            player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
-                        scored consistently below @FiveCRules.FollowUpThreshold.ToString("0")
-                        on at least one of the five C's. They are marked in the player list.
-                    </p>
+        @*
+            The short answer, before the working.
+
+            Everything under this is method: how an average is built, what a spread is, why
+            a bar is missing. It is worth reading, it stops a coach misreading data about a
+            child, and it is not what the page is opened for on a Sunday evening -- that is
+            "where does this squad stand, and who do I talk to first". Both facts were
+            already on the page; the strongest and weakest C were two thousand pixels down,
+            behind a tab. This lifts them and leaves the explanation where it was.
+
+            The follow-up sentence lives here rather than in a notice of its own above the
+            tabs. It is the same sentence either way, and saying it twice on one screen
+            makes the reader check whether they are two different things.
+        *@
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Where to start</h2>
+
+            <dl class="sc-summary">
+                @*
+                    Said from the missing end, not the answered one. The hero above already
+                    carries "N of M players answered"; what it cannot carry, and what this
+                    row is for, is WHICH of them are still out -- by code, so they can be
+                    chased without opening the player list to look them up.
+                *@
+                <div class="sc-summary__row">
+                    <dt>Answers</dt>
+                    <dd>
+                        @if (Model.AwaitingPlayers.Count == 0)
+                        {
+                            <text>
+                                All @Model.Players.Count
+                                player@(Model.Players.Count == 1 ? "" : "s")
+                                @(Model.Players.Count == 1 ? "has" : "have")
+                                answered about themselves.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>
+                                @Model.AwaitingPlayers.Count of @Model.Players.Count
+                                @(Model.AwaitingPlayers.Count == 1 ? "has" : "have")
+                                not answered about themselves yet:
+                            </text>
+                            <span class="sc-summary__codes">
+                                @string.Join(", ", Model.AwaitingPlayers
+                                    .Take(AwaitingShown).Select(p => p.Code))@(Model.AwaitingPlayers.Count > AwaitingShown
+                                        ? $", and {Model.AwaitingPlayers.Count - AwaitingShown} more"
+                                        : "").
+                            </span>
+                        }
+                    </dd>
                 </div>
-            </section>
-        }
+
+                <div class="sc-summary__row">
+                    <dt>The squad</dt>
+                    <dd>
+                        @if (Model.Aggregate is { } summary
+                             && summary.StrongestCategory is { } strongest
+                             && summary.WeakestCategory is { } weakest
+                             && strongest.CategoryKey != weakest.CategoryKey)
+                        {
+                            @* The players' own answers, not the adults' -- the same number
+                               the Overview panel charts. Every squad has a lowest C, so it
+                               is said as a place to start rather than as a verdict. *@
+                            <text>
+                                Highest in <strong>@strongest.CategoryName</strong>
+                                (@strongest.Means.PlayerMean!.Value.ToString("0.0")), lowest in
+                                <strong>@weakest.CategoryName</strong>
+                                (@weakest.Means.PlayerMean!.Value.ToString("0.0")), on the
+                                players' own answers.
+                            </text>
+                            @* Kept, and kept quieter. It is the sentence that stops a lowest
+                               C being read as a verdict on a child, so it does not come off
+                               the page -- but it is the caveat, and the two numbers above it
+                               are what the reader came for. *@
+                            <span class="sc-muted sc-small">
+                                Every squad has a lowest C; it is a place to start, not a
+                                problem on its own.
+                            </span>
+                        }
+                        else if (Model.Aggregate is null)
+                        {
+                            @Model.AggregateWithheldReason
+                        }
+                        else
+                        {
+                            @* Everything left: no category with enough of the squad's own
+                               answers to average, only one of them, or five that came out
+                               level. "Does not separate them" is the true thing to say
+                               about all three, and none of them is a squad with a weakest
+                               C the page is failing to name. *@
+                            <text>
+                                The squad's own answers do not separate the five C's yet.
+                            </text>
+                        }
+                    </dd>
+                </div>
+
+                <div class="sc-summary__row @(Model.FollowUpCount > 0 ? "sc-summary__row--alert" : "")">
+                    <dt>Follow-up</dt>
+                    <dd>
+                        @if (Model.FollowUpCount > 0)
+                        {
+                            <text>
+                                <strong>@Model.FollowUpCount
+                                    player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
+                                scored consistently below
+                                @FiveCRules.FollowUpThreshold.ToString("0") on at least one of
+                                the five C's. They are marked in the player list.
+                            </text>
+                        }
+                        else
+                        {
+                            <text>
+                                No player in this squad scored consistently below
+                                @FiveCRules.FollowUpThreshold.ToString("0") on any of the five C's.
+                            </text>
+                        }
+
+                        @if (Model.HiddenCount > 0)
+                        {
+                            @* Said out loud rather than left for the reader to work out: the
+                               count above is over the rows this coach may see, and a squad
+                               with withheld rows can always hold more than it says. *@
+                            <span class="sc-muted sc-small">
+                                Counted over the @(Model.Players.Count - Model.HiddenCount)
+                                player@(Model.Players.Count - Model.HiddenCount == 1 ? "" : "s")
+                                whose numbers you may see; @Model.HiddenCount
+                                @(Model.HiddenCount == 1 ? "is" : "are") withheld.
+                            </span>
+                        }
+                    </dd>
+                </div>
+            </dl>
+        </section>
 
         @*
             The squad as one, before the individuals. Two of the three levels the player page

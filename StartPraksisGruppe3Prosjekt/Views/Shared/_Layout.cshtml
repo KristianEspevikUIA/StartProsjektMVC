@@ -6,10 +6,16 @@
 
     Interface language is English, matching the StartCompass site and the wireframes.
 
-    Two things worth knowing before editing this file:
+    Three things worth knowing before editing this file:
 
       * The CSP has no unsafe-inline. No <style> block and no style="" attribute here.
         Everything visual is in wwwroot/css/startcompass.css.
+
+      * There is deliberately no scoped stylesheet. A _Layout.cshtml.css compiles to
+        "a[b-xxxxx]" selectors -- two classes' worth of specificity, loaded after
+        startcompass.css -- so a single-class .sc- rule loses to it. The template's
+        "a { color: #0077cc }" beat the skip link that way and rendered it blue on black.
+        Anything visual belongs in startcompass.css, where the whole system can see it.
 
       * A view that starts with a full-bleed hero sets ViewData["FullWidth"] = true. Every
         other view keeps the Bootstrap .container it was written against.
@@ -47,7 +53,6 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/startcompass.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/StartPraksisGruppe3Prosjekt.styles.css" asp-append-version="true" />
 </head>
 <body>
     @*

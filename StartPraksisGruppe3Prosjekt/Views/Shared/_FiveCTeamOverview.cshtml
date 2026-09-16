@@ -96,18 +96,10 @@
         </p>
     </div>
 }
-else if (Model.WeakestCategory is { } weakest
-         && Model.StrongestCategory is { } strongest
-         && weakest.CategoryKey != strongest.CategoryKey)
-{
-    <p class="sc-lead sc-small sc-mt">
-        The squad's own answers are highest in <strong>@strongest.CategoryName</strong>
-        (@strongest.Means.PlayerMean!.Value.ToString("0.0")) and lowest in
-        <strong>@weakest.CategoryName</strong>
-        (@weakest.Means.PlayerMean!.Value.ToString("0.0")). Every squad has a lowest C; it is
-        a place to start, not a problem on its own.
-    </p>
-}
+
+@* The highest and lowest C used to be said again here. It is the answer a coach opens the
+   page for, so it has moved to the summary at the top of FiveCTeam.cshtml -- three tabs and
+   two thousand pixels earlier than this. *@
 
 <h3 class="sc-mt">Per category</h3>
 <p class="sc-lead">

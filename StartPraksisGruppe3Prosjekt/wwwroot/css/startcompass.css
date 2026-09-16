@@ -79,12 +79,11 @@
 /* Off-screen rather than display:none -- a hidden element is not focusable, and the whole
    point is that it is reachable by Tab. It parks itself over the header when it gets
    focus, in the same yellow-on-ink the rest of the chrome uses. */
-/* a.sc-skip:link, not .sc-skip: _Layout.cshtml.css ships a scoped "a[b-...]" rule, which
-   is two classes' worth of specificity and loads after this file. A plain .sc-skip loses
-   to it and the link comes out blue on black -- 4.06:1, worse than what it replaced. */
-a.sc-skip,
-a.sc-skip:link,
-a.sc-skip:visited {
+/* One class, as every other rule in this file is. This used to need a.sc-skip:link to beat
+   a scoped "a[b-...]" rule from _Layout.cshtml.css, which loaded after this file and made
+   the link blue on black -- 4.06:1. That stylesheet is gone; see _Layout.cshtml. */
+.sc-skip,
+.sc-skip:visited {
     background: var(--sc-ink);
     color: var(--sc-yellow);
     font-weight: 700;
@@ -97,7 +96,7 @@ a.sc-skip:visited {
     z-index: 1080;
 }
 
-a.sc-skip:focus {
+.sc-skip:focus {
     color: var(--sc-yellow);
     outline: 3px solid var(--sc-blue);
     outline-offset: 2px;
@@ -560,6 +559,64 @@ body {
 
 .sc-notice p {
     margin: 0;
+}
+
+/*
+    The short answer at the top of a page whose body is method -- see "Where to start" in
+    FiveCTeam.cshtml. A label and a sentence per row, not a card each: three cards would
+    look like three things to compare, and these are three lines to read in order.
+*/
+.sc-summary {
+    border-top: 1px solid var(--sc-border);
+    margin: 0;
+}
+
+.sc-summary__row {
+    border-bottom: 1px solid var(--sc-border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 20px;
+    padding: 14px 0 14px 14px;
+}
+
+/* The row that means "somebody to talk to", marked down the edge in the same alert the
+   cards and the table rows use. Colour is never the only carrier: the sentence says it. */
+.sc-summary__row--alert {
+    background: var(--sc-alert-wash);
+    border-left: 6px solid var(--sc-alert);
+    padding-left: 18px;
+}
+
+.sc-summary dt {
+    color: var(--sc-muted-foreground);
+    flex: 0 0 132px;
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.7;
+    text-transform: uppercase;
+}
+
+.sc-summary dd {
+    flex: 1 1 260px;
+    margin: 0;
+}
+
+/* Player codes read as codes wherever they appear, so they are told apart from the words
+   around them at a glance rather than by reading. Same treatment as .sc-code in a table. */
+.sc-summary__codes {
+    font-family: var(--sc-display);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 640px) {
+    /* The label over the sentence rather than beside it: 132px of the 347px available is
+       most of the line, and these sentences need the width more than the label does. */
+    .sc-summary dt {
+        flex: 1 1 100%;
+    }
 }
 
 /* --------------------------------------------------------------- badges ---- */
@@ -1802,6 +1859,12 @@ td > .sc-qcolor--dot {
     color: var(--sc-blue);
 }
 
+/* The line under a compact strip, naming the panel the dots cannot. Hidden at every width
+   where the tabs still carry their own labels, which is every width but the narrowest. */
+.sc-tabs__status {
+    display: none;
+}
+
 /* Flags a section that wants attention from a tab the reader is not on. */
 .sc-tabs__dot {
     background: var(--sc-alert);
@@ -1852,6 +1915,153 @@ td > .sc-qcolor--dot {
     .sc-tabs__tab {
         font-size: 17px;
         padding: 11px 12px 9px;
+    }
+
+    /*
+        A strip that still scrolls says so.
+
+        The classic scroll-shadow: two gradients painted in the page colour and pinned to
+        the CONTENT (background-attachment: local), over two shadows pinned to the
+        SCROLLER. Scrolled to an end, the cover sits on the shadow and it disappears; away
+        from an end, the shadow shows. No JavaScript, and it can never claim there is more
+        to the left when there is not -- which a fixed fade does every time.
+
+        Not on the compact strip: that one is six dots wide and has nothing to scroll.
+    */
+    .sc-tabs:not(.sc-tabs--compact) {
+        background-attachment: local, local, scroll, scroll;
+        background-image:
+            linear-gradient(to right, var(--sc-background) 40%, transparent),
+            linear-gradient(to left, var(--sc-background) 40%, transparent),
+            radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), transparent),
+            radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), transparent);
+        background-position: left center, right center, left center, right center;
+        background-repeat: no-repeat;
+        background-size: 34px 100%, 34px 100%, 13px 100%, 13px 100%;
+    }
+
+    /*
+        The form's strip, on a phone.
+
+        Six labels -- five blocks of statements and the reflection -- are 1274px of tabs in
+        a 347px window. Scrolling them sideways does not fix it: the strip arrives already
+        cut off at the edge, with nothing to say that four more tabs sit past it, and a
+        respondent returning to a remembered panel lands in the middle of that.
+
+        So below this width the labels come off and the strip becomes what it is on a phone
+        anyway -- a position indicator. Back and Next at the foot of each panel are the way
+        through, the dots say how far along it you are and which panel still wants
+        something, and the line underneath names where you are. Tapping a dot still jumps,
+        and the tab keeps its full label for a screen reader, which reads it all as the
+        tablist it has always been.
+
+        Opt-in, per page: the coach pages keep their labels, because "Overview" and
+        "Players" are not positions in a sequence and a dot cannot stand in for either.
+        See data-tabs-compact in survey.js.
+    */
+    .sc-tabs--compact {
+        border-bottom: 0;
+        /* Dots wrap where labels could not: a second row of dots is still one indicator,
+           where a second row of words read as a second, unrelated tab bar. Six of them fit
+           a phone with room to spare, but the question set is a file somebody can replace
+           -- a set long enough to need eleven blocks must not push the page sideways. */
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        margin: 0;
+        /* No scroll container: it would clip the ring on the selected dot. */
+        overflow-x: visible;
+    }
+
+    /* 30px of tap target around a 10px dot. WCAG 2.2 Target Size (Minimum) asks for 24. */
+    .sc-tabs--compact .sc-tabs__tab {
+        border-bottom: 0;
+        height: 30px;
+        margin-bottom: 0;
+        padding: 0;
+        position: relative;
+        width: 30px;
+    }
+
+    /* Hidden the visually-hidden way, not with display:none: the words are the tab's
+       accessible name, and a screen reader is not the reader who ran out of room. */
+    .sc-tabs--compact .sc-tabs__label,
+    .sc-tabs--compact .sc-tabs__count,
+    .sc-tabs--compact .sc-tabs__dot {
+        border: 0;
+        clip: rect(0, 0, 0, 0);
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        position: absolute;
+        white-space: nowrap;
+        width: 1px;
+    }
+
+    /*
+        The dots read as progress, not as alarm.
+
+        A flagged panel means different things to the two pages that can flag one. On the
+        coach pages it is a player to follow up, and it is red. Here it is a block with
+        statements left in it -- which, on a form nobody has started yet, is every block.
+        Five red dots and no words left to explain them would open the form on five errors.
+
+        So here the flag is carried by fill rather than by colour: a solid dot is a block
+        that is finished, a hollow one is a block that is not. Both are drawn in the same
+        ink, so neither state is the one that disappears.
+    */
+    .sc-tabs--compact .sc-tabs__tab::before {
+        background: var(--sc-muted-foreground);
+        border-radius: 50%;
+        content: "";
+        height: 10px;
+        left: 50%;
+        position: absolute;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 10px;
+    }
+
+    .sc-tabs--compact .sc-tabs__tab--flagged::before {
+        background: var(--sc-background);
+        box-shadow: inset 0 0 0 2px var(--sc-muted-foreground);
+    }
+
+    /* Where you are: bigger and blue, finished or not -- the line underneath says which,
+       and it is the one panel whose state the reader can simply look at. */
+    .sc-tabs--compact .sc-tabs__tab[aria-selected="true"]::before {
+        background: var(--sc-blue);
+        box-shadow: 0 0 0 4px var(--sc-muted);
+        height: 14px;
+        width: 14px;
+    }
+
+    .sc-tabs--compact .sc-tabs__tab:focus-visible {
+        border-radius: 50%;
+        outline-offset: 0;
+    }
+
+    .sc-tabs__status {
+        color: var(--sc-muted-foreground);
+        display: block;
+        font-family: var(--sc-display);
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        margin: 10px 0 0;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    /* Back and Next carry the form on a phone, so they take the width rather than sitting
+       in the corner the labels used to point at. */
+    .sc-stepnav {
+        justify-content: space-between;
+    }
+
+    .sc-stepnav .sc-btn {
+        flex: 1 1 0;
     }
 }
 
