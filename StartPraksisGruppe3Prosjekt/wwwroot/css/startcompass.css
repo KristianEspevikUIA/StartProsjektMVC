@@ -70,6 +70,33 @@
     --sc-qcolor-sand: #7a6220;
     --sc-qcolor-slate: #4a5262;
 
+    /* Identity Benchmarking. The five statuses use the colours of the club's U14 Identity
+       Comparison document -- red, orange, blue, green, yellow -- darkened or given ink text
+       where the document's own pairing fails WCAG AA. Every badge is text on its colour:
+         below-target  white on #b23a2e   5.94:1
+         developing    ink   on #ef7d1a   6.85:1   (white on the document's orange: ~2.9:1)
+         strong        white on #24479b   8.57:1
+         elite         white on #2e7d32   5.13:1   (white on the document's green: ~2.6:1)
+         exceptional   ink   on #f5ce00  12.33:1
+       Own tokens rather than --sc-alert / --sc-blue: they mean a status here, and should not
+       move when the alert colour does. */
+    --sc-id-below: #b23a2e;
+    --sc-id-developing: #ef7d1a;
+    --sc-id-strong: #24479b;
+    --sc-id-elite: #2e7d32;
+    --sc-id-exceptional: #f5ce00;
+
+    /* The Gold Standard's striped rows: a yellow wash under In Possession, grey under Out of
+       Possession. --sc-muted-foreground is 5.91:1 and 5.61:1 on them. */
+    --sc-id-row-light: #fdf6dc;
+    --sc-id-row-dark: #f0f0f0;
+    --sc-id-thead: #f4f4f4;
+    /* The Elite range printed in gold, as in the document: 5.77:1 on the yellow row. */
+    --sc-id-gold-text: #7a5c00;
+    /* The elite-range band behind the development charts. Decorative; the range is also
+       written above each chart. */
+    --sc-id-band: #fbeeb3;
+
     --sc-sans: "Barlow", "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
     --sc-display: "Barlow Condensed", "Segoe UI Semibold", "Arial Narrow", var(--sc-sans);
 }
@@ -2884,4 +2911,808 @@ main .form-control:focus {
     stroke: var(--sc-border);
     stroke-dasharray: 3 3;
     stroke-width: 1;
+}
+
+/* ------------------------------------------------- identity benchmarking ---- */
+
+/*
+    Identity Benchmarking (Views/Identity), in the look of the club's Gold Standard
+    document: ink and Start yellow, condensed uppercase headings, light striped rows, pill
+    badges. The condensed face is --sc-display -- Oswald and Inter, which the document uses,
+    cannot be loaded (no CDN, font-src 'self'), and Barlow Condensed is the club's own.
+
+    Contrast for every text colour used here is listed with the --sc-id-* tokens above.
+*/
+
+/* ----- header band */
+
+.sc-id-header {
+    background: var(--sc-ink);
+    color: #ffffff;
+    overflow: hidden;
+    padding: 34px 0;
+}
+
+.sc-id-header__inner {
+    align-items: center;
+    display: flex;
+    gap: 24px;
+    justify-content: space-between;
+}
+
+.sc-id-header__eyebrow {
+    color: var(--sc-yellow);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+}
+
+.sc-id-header__title {
+    color: #ffffff;
+    font-family: var(--sc-display);
+    font-size: clamp(28px, 4.2vw, 44px);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1.02;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.sc-id-header__brand {
+    align-items: flex-end;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    gap: 6px;
+    margin: 0;
+    padding-left: 120px;
+    position: relative;
+    text-align: right;
+}
+
+/* The yellow slash. Runs the full height of the band (its padding is 34px), and stops short
+   of the text -- the document lets it cover the first letters of "Academy". */
+.sc-id-header__brand::before {
+    background: var(--sc-yellow);
+    bottom: -34px;
+    content: "";
+    left: 16px;
+    position: absolute;
+    top: -34px;
+    transform: skewX(-20deg);
+    width: 58px;
+}
+
+.sc-id-header__org {
+    font-family: var(--sc-display);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.sc-id-header__method {
+    color: var(--sc-yellow);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+    .sc-id-header__inner {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .sc-id-header__brand {
+        align-items: flex-start;
+        padding-left: 0;
+        text-align: left;
+    }
+
+    .sc-id-header__brand::before {
+        display: none;
+    }
+}
+
+/* ----- team, match and the reference link */
+
+.sc-id-controls {
+    align-items: flex-end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 32px;
+    padding-top: 28px;
+}
+
+.sc-id-control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sc-id-teams {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sc-id-teams .sc-btn {
+    min-width: 76px;
+    text-align: center;
+}
+
+.sc-id-matchform {
+    align-items: flex-end;
+    flex: 1 1 360px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.sc-id-matchform .sc-form-field {
+    flex: 1 1 260px;
+    min-width: 0;
+}
+
+.sc-id-reference {
+    color: var(--sc-blue);
+    font-weight: 600;
+    padding: 12px 0;
+    text-underline-offset: 3px;
+}
+
+.sc-id-reference:hover,
+.sc-id-reference:focus {
+    color: var(--sc-ink);
+}
+
+.sc-id-reference:focus-visible,
+.sc-id-noteref:focus-visible,
+.sc-id-source summary:focus-visible,
+.sc-id-minitable a:focus-visible {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+}
+
+.sc-id-selection {
+    background: var(--sc-card);
+    border-left: 6px solid var(--sc-yellow);
+    margin-top: 28px;
+    padding: 16px 20px;
+}
+
+.sc-id-selection__label {
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+.sc-id-selection__meta {
+    color: var(--sc-muted-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 14px;
+    gap: 4px 18px;
+    margin: 0;
+}
+
+.sc-id-selection__meta span {
+    overflow-wrap: anywhere;
+}
+
+.sc-id-intro {
+    color: var(--sc-ink);
+    font-size: 17px;
+    line-height: 1.65;
+    margin: 24px 0 0;
+    max-width: 900px;
+}
+
+/* ----- In Possession / Out of Possession */
+
+.sc-id-phase {
+    margin-top: 36px;
+}
+
+.sc-id-phase__head {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+    padding: 18px 24px;
+}
+
+.sc-id-phase--light .sc-id-phase__head {
+    background: var(--sc-yellow);
+    color: var(--sc-ink);
+}
+
+.sc-id-phase--dark .sc-id-phase__head {
+    background: var(--sc-ink);
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.sc-id-phase__title {
+    font-family: var(--sc-display);
+    font-size: clamp(24px, 3vw, 32px);
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+}
+
+.sc-id-phase--light .sc-id-phase__title {
+    color: var(--sc-ink);
+}
+
+.sc-id-phase--dark .sc-id-phase__title {
+    color: var(--sc-yellow);
+}
+
+.sc-id-phase__tagline {
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    margin: 0;
+}
+
+.sc-id-table {
+    background: var(--sc-card);
+    border-collapse: collapse;
+    width: 100%;
+}
+
+/* Fixed columns, so the In Possession and Out of Possession tables line up under each other
+   instead of each sizing itself to its own longest cell. Phones restack below 640px. */
+@media (min-width: 641px) {
+    .sc-id-table {
+        table-layout: fixed;
+    }
+
+    .sc-id-table thead th:nth-child(1) { width: 30%; }
+    .sc-id-table thead th:nth-child(2) { width: 25%; }
+    .sc-id-table thead th:nth-child(3) { width: 17%; }
+    .sc-id-table thead th:nth-child(4) { width: 28%; }
+
+    .sc-id-table--reference thead th:nth-child(1) { width: 30%; }
+    .sc-id-table--reference thead th:nth-child(2) { width: 25%; }
+    .sc-id-table--reference thead th:nth-child(3) { width: 45%; }
+}
+
+.sc-id-table thead th {
+    background: var(--sc-id-thead);
+    border-bottom: 2px solid var(--sc-ink);
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    padding: 12px 24px;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.sc-id-table tbody th,
+.sc-id-table tbody td {
+    border-bottom: 1px solid var(--sc-border);
+    padding: 14px 24px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.sc-id-phase--light .sc-id-table tbody tr:nth-child(odd) {
+    background: var(--sc-id-row-light);
+}
+
+.sc-id-phase--dark .sc-id-table tbody tr:nth-child(odd) {
+    background: var(--sc-id-row-dark);
+}
+
+.sc-id-table__marker {
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.sc-id-value {
+    color: var(--sc-ink);
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.sc-id-value--none {
+    color: var(--sc-muted-foreground);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.sc-id-noteref {
+    color: var(--sc-blue);
+    font-weight: 700;
+    margin-left: 3px;
+    padding: 0 3px;
+    text-decoration: none;
+}
+
+.sc-id-table__target {
+    color: var(--sc-muted-foreground);
+    white-space: nowrap;
+}
+
+.sc-id-phase--light .sc-id-table__range {
+    color: var(--sc-id-gold-text);
+    font-weight: 700;
+}
+
+.sc-id-phase--dark .sc-id-table__range {
+    color: var(--sc-ink);
+    font-weight: 600;
+}
+
+/* Where a number came from. A disclosure rather than a hover tooltip: it opens by keyboard
+   and by touch, and it can hold a list of five files. */
+.sc-id-source {
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.sc-id-source summary {
+    color: var(--sc-blue);
+    cursor: pointer;
+    display: inline-block;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.sc-id-source p {
+    color: var(--sc-muted-foreground);
+    margin: 6px 0 0;
+    max-width: 52ch;
+}
+
+.sc-id-sources {
+    color: var(--sc-muted-foreground);
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+}
+
+.sc-id-sources li,
+.sc-id-sources__file {
+    overflow-wrap: anywhere;
+}
+
+.sc-id-footnotes {
+    color: var(--sc-muted-foreground);
+    font-size: 14px;
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+}
+
+.sc-id-footnotes li {
+    line-height: 1.55;
+    margin-top: 6px;
+    padding-left: 18px;
+    position: relative;
+}
+
+.sc-id-footnotes li::before {
+    content: "–";
+    left: 0;
+    position: absolute;
+}
+
+.sc-id-footnotes .sc-id-footnotes__not-measured::before {
+    content: "*";
+    color: var(--sc-blue);
+    font-weight: 700;
+}
+
+.sc-id-footnotes strong {
+    color: var(--sc-ink);
+}
+
+/* Followed from the asterisk in the table: show which note it was. */
+.sc-id-footnotes li:target {
+    background: var(--sc-mid-wash);
+    outline: 2px solid var(--sc-yellow);
+}
+
+/* ----- statuses */
+
+.sc-id-status {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    padding: 5px 14px;
+    white-space: nowrap;
+}
+
+.sc-id-status--below-target {
+    background: var(--sc-id-below);
+    color: #ffffff;
+}
+
+.sc-id-status--developing {
+    background: var(--sc-id-developing);
+    color: var(--sc-ink);
+}
+
+.sc-id-status--strong-alignment {
+    background: var(--sc-id-strong);
+    color: #ffffff;
+}
+
+.sc-id-status--elite-alignment {
+    background: var(--sc-id-elite);
+    color: #ffffff;
+}
+
+/* A yellow pill on a yellow row needs an edge to be a pill at all. */
+.sc-id-status--exceptional {
+    background: var(--sc-id-exceptional);
+    border-color: rgba(0, 0, 0, 0.3);
+    color: var(--sc-ink);
+}
+
+.sc-id-legend-wrap {
+    margin-top: 28px;
+}
+
+.sc-id-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sc-id-legend li {
+    align-items: center;
+    color: var(--sc-muted-foreground);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 14px;
+    gap: 8px;
+}
+
+/* ----- insights and player highlight */
+
+.sc-id-summary {
+    display: grid;
+    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+    margin-top: 44px;
+}
+
+.sc-id-insights {
+    background: var(--sc-card);
+    border: 2px solid var(--sc-ink);
+    color: var(--sc-ink);
+    padding: 24px 28px;
+}
+
+.sc-id-insights__title {
+    align-items: center;
+    color: var(--sc-ink);
+    display: flex;
+    font-family: var(--sc-display);
+    font-size: 24px;
+    font-weight: 800;
+    gap: 14px;
+    letter-spacing: 0.03em;
+    margin: 0 0 16px;
+    text-transform: uppercase;
+}
+
+.sc-id-insights__title::before {
+    background: var(--sc-yellow);
+    content: "";
+    flex-shrink: 0;
+    height: 16px;
+    transform: rotate(45deg);
+    width: 16px;
+}
+
+.sc-id-insights ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.sc-id-insights li {
+    line-height: 1.6;
+    margin-bottom: 12px;
+}
+
+.sc-id-insights__note {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    margin: 4px 0 0;
+}
+
+.sc-id-highlight {
+    background: var(--sc-ink);
+    color: rgba(255, 255, 255, 0.88);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.6;
+    padding: 28px 30px;
+}
+
+.sc-id-highlight p {
+    margin: 0 0 10px;
+}
+
+.sc-id-highlight__eyebrow {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.sc-id-highlight__name {
+    color: var(--sc-yellow);
+    font-family: var(--sc-display);
+    font-size: clamp(26px, 3vw, 34px);
+    font-weight: 800;
+    line-height: 1.05;
+    margin: 0 0 12px;
+}
+
+.sc-id-highlight strong {
+    color: var(--sc-yellow);
+}
+
+.sc-id-highlight__leaders {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+}
+
+.sc-id-highlight__leaders li {
+    margin-bottom: 6px;
+}
+
+.sc-id-highlight__leaders strong {
+    display: block;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sc-id-highlight .sc-id-source summary {
+    color: var(--sc-yellow);
+}
+
+.sc-id-highlight .sc-id-source p,
+.sc-id-highlight .sc-id-sources {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.sc-id-highlight .sc-id-source summary:focus-visible {
+    outline-color: var(--sc-yellow);
+}
+
+/* ----- development over time */
+
+.sc-id-trends {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+}
+
+.sc-id-trend {
+    background: var(--sc-card);
+    border: 1px solid var(--sc-border);
+    border-top: 5px solid var(--sc-ink);
+    min-width: 0;
+    padding: 18px 20px 16px;
+}
+
+.sc-section .sc-id-trend__title {
+    color: var(--sc-ink);
+    font-size: 20px;
+    margin: 0 0 2px;
+}
+
+.sc-id-trend__meta {
+    color: var(--sc-muted-foreground);
+    font-size: 13px;
+    margin: 0;
+}
+
+.sc-id-trend__chart {
+    display: block;
+    height: auto;
+    margin: 12px 0 6px;
+    width: 100%;
+}
+
+.sc-id-trend__band {
+    fill: var(--sc-id-band);
+}
+
+.sc-id-trend__axis {
+    stroke: var(--sc-muted-foreground);
+    stroke-width: 1;
+}
+
+.sc-id-trend__grid {
+    stroke: var(--sc-border);
+    stroke-dasharray: 3 3;
+    stroke-width: 1;
+}
+
+.sc-id-trend__line {
+    fill: none;
+    stroke: var(--sc-ink);
+    stroke-width: 2;
+}
+
+.sc-id-trend__tick {
+    fill: var(--sc-muted-foreground);
+    font-family: var(--sc-sans);
+    font-size: 10px;
+}
+
+.sc-id-dot {
+    stroke: var(--sc-ink);
+    stroke-width: 1;
+}
+
+.sc-id-dot--below-target { fill: var(--sc-id-below); }
+.sc-id-dot--developing { fill: var(--sc-id-developing); }
+.sc-id-dot--strong-alignment { fill: var(--sc-id-strong); }
+.sc-id-dot--elite-alignment { fill: var(--sc-id-elite); }
+.sc-id-dot--exceptional { fill: var(--sc-id-exceptional); }
+
+.sc-id-dot--selected {
+    stroke-width: 3;
+}
+
+.sc-id-minitable {
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.sc-id-minitable th,
+.sc-id-minitable td {
+    border-bottom: 1px solid var(--sc-border);
+    padding: 6px 8px 6px 0;
+    text-align: left;
+    vertical-align: top;
+}
+
+.sc-id-minitable th {
+    color: var(--sc-muted-foreground);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sc-id-minitable a {
+    color: var(--sc-blue);
+}
+
+.sc-id-minitable a[aria-current] {
+    color: var(--sc-ink);
+    font-weight: 700;
+}
+
+.sc-id-minitable__value {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ----- Gold Standard reference */
+
+.sc-id-why {
+    background: var(--sc-yellow);
+    border: 2px solid var(--sc-ink);
+    color: var(--sc-ink);
+    padding: 26px 32px;
+}
+
+.sc-section .sc-id-why h2 {
+    color: var(--sc-ink);
+    font-size: 26px;
+    letter-spacing: 0.03em;
+    margin: 0 0 10px;
+}
+
+.sc-id-why p {
+    line-height: 1.65;
+    margin: 0;
+}
+
+.sc-id-colophon {
+    margin-top: 16px;
+}
+
+/* ----- phones: one block per marker instead of four columns */
+
+@media (max-width: 640px) {
+    .sc-id-phase__head {
+        padding: 16px;
+    }
+
+    /* Hidden the way .visually-hidden hides, not display: none -- the column headers are
+       still what a screen reader announces for each cell. */
+    .sc-id-table thead {
+        clip: rect(0 0 0 0);
+        height: 1px;
+        overflow: hidden;
+        position: absolute;
+        white-space: nowrap;
+        width: 1px;
+    }
+
+    .sc-id-table,
+    .sc-id-table tbody,
+    .sc-id-table tr,
+    .sc-id-table tbody th,
+    .sc-id-table tbody td {
+        display: block;
+    }
+
+    .sc-id-table tbody tr {
+        border-bottom: 1px solid var(--sc-border);
+        padding: 14px 16px;
+    }
+
+    .sc-id-table tbody th,
+    .sc-id-table tbody td {
+        border-bottom: 0;
+        padding: 3px 0;
+    }
+
+    .sc-id-table tbody th {
+        margin-bottom: 4px;
+    }
+
+    .sc-id-table tbody td[data-label]::before {
+        color: var(--sc-muted-foreground);
+        content: attr(data-label);
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        margin-right: 10px;
+        min-width: 104px;
+        text-transform: uppercase;
+    }
+
+    /* Under the value, not under the label. */
+    .sc-id-table tbody td .sc-id-source {
+        margin-left: 114px;
+    }
+
+    .sc-id-insights,
+    .sc-id-highlight,
+    .sc-id-why {
+        padding: 20px;
+    }
 }

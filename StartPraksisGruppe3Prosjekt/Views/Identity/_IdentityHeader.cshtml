@@ -1,0 +1,20 @@
+@model IdentityHeader
+@*
+    The black band from the Gold Standard document: yellow overline, white title, the club and
+    "Academy Methodology" on the right behind a yellow slash.
+
+    The slash is a pseudo-element and decorative. In the PDF it covers the start of
+    "ACADEMY"; here it sits clear of the text.
+*@
+<section class="sc-id-header">
+    <div class="sc-page sc-id-header__inner">
+        <div>
+            <p class="sc-id-header__eyebrow">@Model.Eyebrow</p>
+            <h1 class="sc-id-header__title">@Model.Title</h1>
+        </div>
+        <p class="sc-id-header__brand">
+            <span class="sc-id-header__org">@Model.Organisation</span>
+            <span class="sc-id-header__method">@Model.Methodology</span>
+        </p>
+    </div>
+</section>

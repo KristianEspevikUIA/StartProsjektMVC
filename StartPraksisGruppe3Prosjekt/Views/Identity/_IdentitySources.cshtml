@@ -1,0 +1,8 @@
+@model IReadOnlyList<SourceReference>
+@* Where a number came from: the report's file name and the page, one line per match. *@
+<ul class="sc-id-sources">
+    @foreach (var source in Model)
+    {
+        <li><span class="sc-id-sources__file">@source.File</span>, page @source.Page</li>
+    }
+</ul>

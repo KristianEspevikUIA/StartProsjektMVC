@@ -1,0 +1,90 @@
+@model GoldStandard
+@{
+    ViewData["Title"] = "Gold Standard";
+    ViewData["FullWidth"] = true;
+
+    // The intro names the six clubs in bold, as the document does. The bold part is the club
+    // list itself, rebuilt from referenceClubs; if the intro is ever reworded so the list no
+    // longer appears in it, the intro is simply printed without bold.
+    var clubs = Model.ReferenceClubs.Count > 1
+        ? string.Join(", ", Model.ReferenceClubs.Take(Model.ReferenceClubs.Count - 1)) + " & " + Model.ReferenceClubs[^1]
+        : string.Join(string.Empty, Model.ReferenceClubs);
+    var clubsAt = clubs.Length > 0 ? Model.Intro.IndexOf(clubs, StringComparison.Ordinal) : -1;
+}
+
+@*
+    The Gold Standard itself, as a reference: Marker | Elite range | Best at it, with the
+    document's footnotes and its "why" box. Everything is read from gold-standard.json, which
+    is transcribed word for word from the club's PDF (IdentityCatalogTests holds it to that).
+*@
+
+<partial name="_IdentityHeader" model="@(new IdentityHeader(Model.Eyebrow, Model.Title, Model.Organisation, Model.Methodology))" />
+
+<div class="sc-page">
+    <div class="sc-id-controls">
+        <a class="sc-id-reference" asp-action="Index">Back to Identity Benchmarking</a>
+    </div>
+
+    <p class="sc-id-intro">
+        @if (clubsAt >= 0)
+        {
+            @(Model.Intro[..clubsAt])<strong>@clubs</strong>@(Model.Intro[(clubsAt + clubs.Length)..])
+        }
+        else
+        {
+            @Model.Intro
+        }
+    </p>
+
+    @foreach (var phase in Model.Phases)
+    {
+        var theme = phase.Key == "out-of-possession" ? "sc-id-phase--dark" : "sc-id-phase--light";
+        var headingId = $"gold-{phase.Key}";
+
+        <section class="sc-id-phase @theme" aria-labelledby="@headingId">
+            <header class="sc-id-phase__head">
+                <h2 class="sc-id-phase__title" id="@headingId">@phase.Title</h2>
+                <p class="sc-id-phase__tagline">@phase.Tagline</p>
+            </header>
+
+            <table class="sc-id-table sc-id-table--reference" role="table">
+                <caption class="visually-hidden">@phase.Title: the Gold Standard</caption>
+                <thead role="rowgroup">
+                    <tr role="row">
+                        <th role="columnheader" scope="col">Marker</th>
+                        <th role="columnheader" scope="col">Elite range</th>
+                        <th role="columnheader" scope="col">Best at it</th>
+                    </tr>
+                </thead>
+                <tbody role="rowgroup">
+                    @foreach (var marker in phase.Markers)
+                    {
+                        <tr role="row">
+                            <th role="rowheader" scope="row" class="sc-id-table__marker">@marker.Name</th>
+                            <td role="cell" class="sc-id-table__range" data-label="Elite range">@marker.EliteRange</td>
+                            <td role="cell" data-label="Best at it">@marker.BestAtIt</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <ul class="sc-id-footnotes">
+                @foreach (var footnote in phase.Footnotes)
+                {
+                    <li><strong>@footnote.Term</strong> @footnote.Separator @footnote.Text</li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-id-why">
+            <h2>@Model.Why.Title</h2>
+            <p>@Model.Why.Text</p>
+        </div>
+
+        <p class="sc-small sc-muted sc-id-colophon">
+            Transcribed from @Model.Source.File, page @Model.Source.Page (version @Model.Version).
+        </p>
+    </section>
+</div>

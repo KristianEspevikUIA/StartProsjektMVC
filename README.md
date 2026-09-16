@@ -564,6 +564,21 @@ en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelse
 
 ---
 
+## Identity Benchmarking
+
+Lagenes kamptall fra StatsBomb-rapportene mot IK Starts Identity Gold Standard, på
+`/Identity`. Bare trener og administrator har tilgang.
+
+- **Gold Standard:** `Data/Identity/gold-standard.json`, transkribert ordrett fra klubbens PDF.
+  `IdentityCatalogTests` holder fila til dokumentet.
+- **Kampdata:** hentes ut med `scripts/identity/extract_stats.py` til `Data/Identity/Matches/`,
+  som er **git-ignorert** fordi rapportene navngir spillere.
+- **Not measured:** 4 av 10 markører kan måles fra rapportene (Possession, Pass Accuracy,
+  Dribbles, Interceptions). De andre seks vises som «Not measured» med begrunnelse, aldri med
+  et estimat.
+
+**Alt om dette: [`docs/identity-benchmarking.md`](docs/identity-benchmarking.md).**
+
 ## Struktur
 
 ```
@@ -573,10 +588,12 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ GuardianController.cs     foresatt ser eget barn
 │  ├─ PlayerController.cs       spiller ser egne svar
 │  ├─ SurveyController.cs       runder, utfylling, lagring
-│  └─ AdminController.cs        brukere, lag, GDPR
+│  ├─ AdminController.cs        brukere, lag, GDPR
+│  └─ IdentityController.cs     Identity Benchmarking
 ├─ Models/                      entiteter, enums og PlayerRules
 ├─ Data/
 │  ├─ AppDbContext.cs
+│  ├─ Identity/                gold-standard.json (+ Matches/, git-ignorert)
 │  ├─ Migrations/
 │  └─ SeedData.cs
 ├─ Services/
@@ -585,13 +602,15 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ IPeriodService.cs + PeriodService.cs          perioder, én vei inn
 │  ├─ IFeedbackReleaseService.cs + …                trenerens frigivelse
 │  ├─ IPlayerAccessLog.cs + PlayerAccessLog.cs      revisjonsloggen
-│  └─ FiveC/                                        spørsmålskatalog, lagring, analyse
+│  ├─ FiveC/                                        spørsmålskatalog, lagring, analyse
+│  └─ Identity/                                     Gold Standard, status, snitt, innsikter
 ├─ Authorization/               policyer, krav og handlere
 ├─ ViewModels/
 ├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Shared/
 └─ Program.cs
 
 StartPraksisGruppe3Prosjekt.Tests/   xUnit, SQLite i minnet. Se «Tester».
+scripts/identity/extract_stats.py    StatsBomb-PDF → kampdata for Identity Benchmarking
 .github/workflows/ci.yml             build + test på push og pull request
 ```
 
