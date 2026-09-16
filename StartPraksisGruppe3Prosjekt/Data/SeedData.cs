@@ -31,6 +31,17 @@ public static class SeedData
     /// <summary>Dato all alder regnes ut fra i seedingen.</summary>
     private static readonly DateOnly Today = DateOnly.FromDateTime(DateTime.UtcNow);
 
+    /// <summary>
+    /// How long the placeholder period stays open for, from the moment it is seeded or
+    /// reopened.
+    ///
+    /// It was three weeks, which is a reasonable length for a real measurement period and
+    /// the wrong length for a placeholder: it is meant to hold the door open until the
+    /// club decides what the real periods are, and that decision takes longer than three
+    /// weeks. A quarter is long enough that a database seeded once stays usable.
+    /// </summary>
+    private const int PlaceholderOpenDays = 90;
+
     public static async Task InitializeAsync(IServiceProvider services)
     {
         var db = services.GetRequiredService<AppDbContext>();
@@ -45,7 +56,7 @@ public static class SeedData
 
         await SeedItemsAsync(db);
         var teams = await SeedTeamsAsync(db);
-        await SeedRoundsAsync(db);
+        await SeedRoundsAsync(db, logger);
 
         if (!environment.IsDevelopment())
         {
@@ -199,7 +210,7 @@ public static class SeedData
     /// Admin/Periods, which does the same thing through <see cref="Services.IPeriodService"/>.
     /// Both go through the same validation, so neither is a special case.
     /// </summary>
-    private static async Task SeedRoundsAsync(AppDbContext db)
+    internal static async Task SeedRoundsAsync(AppDbContext db, ILogger logger)
     {
         var now = DateTimeOffset.UtcNow;
 
@@ -217,11 +228,71 @@ public static class SeedData
             db,
             $"Autumn {now.Year}",
             now.AddDays(-7),
-            now.AddDays(21));
+            now.AddDays(PlaceholderOpenDays));
 
         await db.SaveChangesAsync();
 
         await RemoveEmptyRoundsExceptAsync(db, $"Autumn {now.Year}");
+
+        // Last, so it sees the list as it will actually be: the step above can take a
+        // period away, and whether anything is left open is the whole question here.
+        await KeepPlaceholderOpenAsync(db, $"Autumn {now.Year}", now, logger);
+    }
+
+    /// <summary>
+    /// Keeps the placeholder period answerable.
+    ///
+    /// <see cref="EnsureRoundAsync"/> only ever creates. That is right for a period
+    /// somebody defined -- a seed step has no business moving the window on a real
+    /// measurement period -- but it left the placeholder to expire quietly. Seeded with a
+    /// window of a few weeks, it closed itself a few weeks later, and nothing could reopen
+    /// it: the name existed, so every later start skipped it. A database seeded in August
+    /// had no open period in September, a form nobody could answer, and no way back short
+    /// of the admin page or SQL.
+    ///
+    /// ONLY WHEN NOTHING ELSE IS OPEN. A club that has defined its own periods has
+    /// finished with the placeholder, and a period closed from Admin/Periods was closed on
+    /// purpose -- reopening it on the next start would undo that decision silently. With
+    /// nothing open at all there is no decision to undo; there is only a form nobody can
+    /// answer, which is the exact thing the placeholder exists to prevent.
+    /// </summary>
+    private static async Task KeepPlaceholderOpenAsync(
+        AppDbContext db,
+        string name,
+        DateTimeOffset now,
+        ILogger logger)
+    {
+        if (await db.SurveyRounds.AnyAsync(r => r.OpensAt <= now && r.ClosesAt >= now))
+        {
+            return;
+        }
+
+        var placeholder = await db.SurveyRounds.FirstOrDefaultAsync(r => r.Name == name);
+        if (placeholder is null)
+        {
+            return;
+        }
+
+        var closedAt = placeholder.ClosesAt;
+
+        // Both ends, not just the far one: a window that has not opened yet would stay
+        // shut however far out its end was moved.
+        if (placeholder.OpensAt > now)
+        {
+            placeholder.OpensAt = now;
+        }
+
+        placeholder.ClosesAt = now.AddDays(PlaceholderOpenDays);
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "No period was open, so the placeholder \"{Name}\" was reopened: it closed " +
+            "{ClosedAt:d MMMM yyyy} and now closes {ClosesAt:d MMMM yyyy}. Define the real " +
+            "periods in Admin/Periods and this stops happening.",
+            placeholder.Name,
+            closedAt,
+            placeholder.ClosesAt);
     }
 
     /// <summary>

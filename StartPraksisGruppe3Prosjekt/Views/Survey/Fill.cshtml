@@ -76,7 +76,24 @@
         </div>
     </div>
 
-    <div class="sc-page">
+    @*
+        The panels below sit in here, so this is where survey.js reads what kind of strip
+        they want.
+
+        data-tabs-compact: on a phone the strip drops its labels and becomes a row of dots
+        with Back and Next doing the walking. Five blocks and a reflection are 1274px of
+        tabs in a 347px window, and the blocks are named by their position, so a dot says
+        as much as the label did. The coach pages do not set this -- "Overview" and
+        "Players" are not positions.
+
+        data-tabs-remember: reopen the panel that was last open, but only on a form that
+        has been answered before. Coming back to correct one answer should land where you
+        left off; opening a form for the first time should not start at block 4 because of
+        something left in this tab's storage.
+    *@
+    <div class="sc-page"
+         data-tabs-compact="true"
+         data-tabs-remember="@(Model.IsCorrection ? "true" : "false")">
         @if (!ViewData.ModelState.IsValid)
         {
             <div class="sc-notice sc-notice--warn" role="alert">

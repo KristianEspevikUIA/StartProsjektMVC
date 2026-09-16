@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
+using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using Xunit;
 
@@ -160,12 +161,73 @@ public sealed class SurveyFormPageTests : IAsyncLifetime
         Assert.Contains("data-tab-optional=\"true\"", html);
     }
 
+    /// <summary>
+    /// Five blocks and a reflection are 1274px of tabs in a 347px window, so on a phone the
+    /// form's strip drops its labels and becomes a row of dots with Back and Next doing the
+    /// walking. The blocks are named by their position, which is what a dot can stand in
+    /// for -- the coach pages, whose tabs are named things, do not ask for this.
+    ///
+    /// Asserted as the request, not the result: survey.js and the stylesheet do the rest,
+    /// and with JavaScript off there is no strip to make compact.
+    /// </summary>
+    [Fact]
+    public async Task The_form_asks_for_a_strip_that_fits_a_phone()
+    {
+        var html = await FormAsync();
+
+        Assert.Contains("data-tabs-compact=\"true\"", html);
+
+        // Still nothing hidden server side, and still no strip in the markup.
+        Assert.DoesNotContain("sc-tabs", html);
+    }
+
+    /// <summary>
+    /// Reopening the panel that was last open is right for somebody coming back to correct
+    /// one answer and wrong for somebody opening a form they have never filled in: the
+    /// second one lands on block 4 with no sign that three more sit to the left of it.
+    /// </summary>
+    [Fact]
+    public async Task A_form_nobody_has_answered_yet_does_not_restore_a_panel()
+    {
+        var html = await FormAsync();
+
+        Assert.DoesNotContain("You have answered this form before", html);
+        Assert.Contains("data-tabs-remember=\"false\"", html);
+    }
+
+    [Fact]
+    public async Task A_correction_comes_back_to_the_panel_it_was_left_on()
+    {
+        await AnsweredAsync();
+
+        var html = await FormAsync();
+
+        Assert.Contains("You have answered this form before", html);
+        Assert.Contains("data-tabs-remember=\"true\"", html);
+    }
+
     private IQuestionCatalog Catalog()
     {
         using var scope = _factory.Services.CreateScope();
 
         return scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
     }
+
+    /// <summary>This player's own answers, already stored -- which makes the next GET a
+    /// correction rather than a first fill.</summary>
+    private Task AnsweredAsync() =>
+        _factory.WithServicesAsync(async services =>
+        {
+            var store = services.GetRequiredService<ISurveySubmissionStore>();
+
+            await store.SaveAsync(Submissions.Filled(
+                services.GetRequiredService<IQuestionCatalog>(),
+                _factory.RoundId,
+                _factory.PlayerId,
+                "TS-TEST-01",
+                RespondentType.Player,
+                StartCompassFactory.PlayerUserId));
+        });
 
     /// <summary>
     /// The question keys the form posts back, in the order they appear on the page. The

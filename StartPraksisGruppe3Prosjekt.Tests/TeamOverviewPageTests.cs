@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
+using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Models.FiveC;
@@ -303,12 +305,155 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         Assert.Contains("sc-pentagon", await TeamPageAsync());
     }
 
+    /// <summary>
+    /// The page's body is method -- how an average is built, what a spread is, why a bar is
+    /// missing -- and that prose earns its place. What it does not do is answer the question
+    /// the page is opened with on a Sunday evening. The strongest and weakest C were a
+    /// paragraph three tabs and two thousand pixels down; they are now the second line of
+    /// the page, and they are said once.
+    /// </summary>
+    [Fact]
+    public async Task The_page_opens_with_the_short_answer_and_keeps_the_method_under_it()
+    {
+        await ThreeAnswersWithAWeakCategoryAsync();
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("Where to start", html);
+
+        Assert.True(
+            html.IndexOf("Where to start", StringComparison.Ordinal)
+            < html.IndexOf("Team overview", StringComparison.Ordinal),
+            "The summary should come before the team overview.");
+
+        // Concentration was answered 1 where everything else was answered 5.
+        Assert.Contains("Highest in", html);
+        Assert.Contains("lowest in", html);
+        Assert.Contains("Concentration</strong>", html);
+
+        // Once. Two copies of one sentence on a page makes a reader stop to work out
+        // whether they are two different facts.
+        Assert.Equal(1, Occurrences(html, "Highest in"));
+
+        // And the method is still there, underneath.
+        Assert.Contains("one number per person, then averaged", html);
+    }
+
+    /// <summary>
+    /// Who has not answered, by code, so the coach can chase them without opening the
+    /// player list to find out who they are. Who answered is neutral progress -- it says
+    /// that somebody answered, never what they answered.
+    /// </summary>
+    [Fact]
+    public async Task The_summary_names_the_players_who_have_not_answered()
+    {
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 4);
+
+        var html = await TeamPageAsync();
+
+        Assert.Equal(1, Occurrences(html, "1 of 2 has not answered about themselves yet:"));
+        Assert.Contains("TS-TEST-02", html);
+    }
+
+    /// <summary>
+    /// The follow-up sentence used to be a notice of its own above the tabs. It is now a row
+    /// of the summary, and it is still exactly one sentence on the page.
+    /// </summary>
+    [Fact]
+    public async Task The_follow_up_sentence_is_said_once_and_only_when_there_is_one()
+    {
+        var quiet = await TeamPageAsync();
+
+        Assert.Contains("Follow-up", quiet);
+        Assert.Equal(
+            1,
+            Occurrences(quiet, "No player in this squad scored consistently below 2 on any"));
+        Assert.Equal(0, Occurrences(quiet, "scored consistently below 2 on at least one"));
+
+        // One player answering 1 everywhere is under FiveCRules.FollowUpThreshold on all
+        // five C's.
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 1);
+
+        var flagged = await TeamPageAsync();
+
+        Assert.Equal(1, Occurrences(flagged, "scored consistently below 2 on at least one"));
+        Assert.Contains("sc-summary__row--alert", flagged);
+    }
+
+    /// <summary>
+    /// How many times a sentence appears, counted over the page with its whitespace
+    /// flattened. A sentence written across four lines of a view reaches the browser with
+    /// the view's line breaks and indentation still in it, and asserting on those is
+    /// asserting on how the Razor file happens to be wrapped.
+    /// </summary>
+    private static int Occurrences(string haystack, string needle)
+    {
+        haystack = Squash(haystack);
+        needle = Squash(needle);
+
+        var count = 0;
+        var at = haystack.IndexOf(needle, StringComparison.Ordinal);
+
+        while (at >= 0)
+        {
+            count++;
+            at = haystack.IndexOf(needle, at + needle.Length, StringComparison.Ordinal);
+        }
+
+        return count;
+    }
+
+    private static string Squash(string text) =>
+        Regex.Replace(text, @"\s+", " ");
+
     private IQuestionCatalog Catalog()
     {
         using var scope = _factory.Services.CreateScope();
 
         return scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
     }
+
+    /// <summary>
+    /// Three players again, but answering one category far lower than the other four. The
+    /// shared helper answers every statement with the same number, which leaves the five
+    /// C's exactly level and gives the squad no strongest or weakest to name.
+    /// </summary>
+    private async Task ThreeAnswersWithAWeakCategoryAsync()
+    {
+        var third = await AddPlayerAsync("TS-TEST-03", "user-third");
+
+        await LopsidedAnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId);
+        await LopsidedAnswerAsync(_factory.OtherPlayerId, "TS-TEST-02", StartCompassFactory.OtherPlayerUserId);
+        await LopsidedAnswerAsync(third, "TS-TEST-03", "user-third");
+    }
+
+    private Task LopsidedAnswerAsync(int playerId, string code, string userId) =>
+        _factory.WithServicesAsync(async services =>
+        {
+            var store = services.GetRequiredService<ISurveySubmissionStore>();
+            var catalog = services.GetRequiredService<IQuestionCatalog>();
+
+            var answers = catalog.Questions.Categories
+                .SelectMany(category => category.Questions.Select(question => new SurveyAnswer
+                {
+                    QuestionKey = question.Key,
+                    CategoryKey = category.Key,
+                    Value = category.Key == "concentration" ? 1 : 5
+                }))
+                .ToList();
+
+            await store.SaveAsync(new SurveySubmission
+            {
+                RoundId = _factory.RoundId,
+                PlayerId = playerId,
+                PlayerCode = code,
+                RespondentRole = SurveySubmission.Roles.From(RespondentType.Player),
+                RespondentUserId = userId,
+                QuestionSetVersion = catalog.Questions.Version,
+                SubmittedAt = DateTimeOffset.UtcNow,
+                Answers = answers
+            });
+        });
 
     /// <summary>Three players answering, which is the minimum for an aggregate at all.</summary>
     private async Task ThreeAnswersAsync()
