@@ -277,7 +277,7 @@ public sealed class TeamAggregateTests
             .ToList();
 
         return await new FiveCAnalysisService(new EfSurveySubmissionStore(context), catalog)
-            .GetForTeamAsync(round.Id, teamId, "Senior", playerIds);
+            .GetForTeamAsync(round.Id, teamId, "U17", playerIds);
     }
 
     private static async Task<TeamTrend> TrendAsync(
@@ -296,7 +296,7 @@ public sealed class TeamAggregateTests
         return await new FiveCAnalysisService(new EfSurveySubmissionStore(context), catalog)
             .GetTeamTrendAsync(
                 teamId,
-                "Senior",
+                "U17",
                 playerIds,
                 rounds.Select(r => new TrendPeriod(r.Id, r.Name, r.ClosesAt)).ToList());
     }

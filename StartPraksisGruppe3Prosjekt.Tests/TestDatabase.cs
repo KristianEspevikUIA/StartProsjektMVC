@@ -124,7 +124,7 @@ public sealed class TestDatabase : IDisposable
     public async Task<Player> AddPlayerAsync(
         string code = "TS-08-16",
         string? userId = null,
-        string teamName = "Senior")
+        string teamName = "U17")
     {
         await using var context = NewContext();
 

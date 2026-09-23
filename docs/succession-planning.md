@@ -27,7 +27,7 @@ Beskrivelsen de ga, og hvor i appen det ligger:
 | What would the best 11 in a 4-3-3 look like? | Banen på «Best eleven». 4-3-3 er ett av valgene; siden åpner på 3-5-2 (se neste rad) |
 | Who's in the building to be the best fit for the formation? | Tabellen «Who is next in line» under banen |
 | Where the player is «off» / how many weeks till fit | «Off and weeks to ready» på tavla, banen og spillersiden |
-| Click into a team, say G17, and see the players in a formation | Laglenkene «Choose from» på «Best eleven», og «Best eleven» på hvert lag under My teams |
+| Click into a team, say U17, and see the players in a formation | Laglenkene «Choose from» på «Best eleven», og «Best eleven» på hvert lag under My teams |
 | Formation might be 1-3-5-2 | 3-5-2, og siden åpner nå på den. `?formation=1-3-5-2` virker også, og siden skriver «1-3-5-2 with the goalkeeper» |
 | If we could move players around too. Think of Football Manager | Dra og slipp på banen, eller trykk på en spiller og så dit hen skal. Se «Banen som et spill» |
 | Less on the players: name, position (maybe shirt number) | Hver spiller er en rund markør med posisjonen, fornavnet under og én rating. Draktnummer finnes ikke ennå, se under |
@@ -161,8 +161,8 @@ begge skrivemåtene når navnet er tall (`FormationDefinition.GoalkeeperNotation
 
 ### Et lag i en formasjon
 
-«Choose from» er en rad med lenker, én per lag, over filtrene: ett klikk på G19 gir G19s beste
-ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rated as». Hvert lag under
+«Choose from» er en rad med lenker, én per lag (U14, U15, U17), over filtrene: ett klikk på U15
+gir U15s beste ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rated as». Hvert lag under
 My teams (`/Coach`) har også en knapp «Best eleven». Menyen «Squad board / Best eleven» tar med
 laget og en eldre syklus, så man blir i samme lag når man bytter side.
 

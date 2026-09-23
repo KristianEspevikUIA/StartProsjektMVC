@@ -380,7 +380,7 @@ public sealed class SuccessionPageTests : IAsyncLifetime
     [Fact]
     public async Task A_team_opens_in_a_formation_written_with_the_goalkeeper()
     {
-        // "Click into a team -- say G17 -- and see the players in a 1-3-5-2."
+        // "Click into a team -- say U17 -- and see the players in a 1-3-5-2."
         await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
 
         var html = await Coach().GetStringAsync($"/Succession/Formation?team={_factory.TeamId}&formation=1-3-5-2");

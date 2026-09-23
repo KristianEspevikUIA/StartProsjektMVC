@@ -47,7 +47,7 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
    i raden. Den viser hver trener med egen overall og dato, og lenker til sammenligningen side
    om side (`_SuccessionRaters.cshtml`, `BoardPlayer.Raters`). Trenerne vises med delen av
    e-posten før @, og innlogget trener som «You».
-3. **Et lag i en formasjon, og flytte spillere (Football Manager).** «Click into a team – say G17 –
+3. **Et lag i en formasjon, og flytte spillere (Football Manager).** «Click into a team – say U17 –
    and see the players in a 1-3-5-2 … if we could move players around too.» Laglenker på «Best
    eleven» og under My teams, `?formation=1-3-5-2` godtas, og resten av troppen står ved siden av
    banen. Spillere dras eller trykkes mellom banen og lista (`wwwroot/js/lineup.js`). Ingenting

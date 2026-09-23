@@ -232,7 +232,7 @@ public sealed record TeamCategoryAverage(
 /// answers on every request.
 /// </summary>
 /// <param name="TeamId">The team.</param>
-/// <param name="TeamName">Team name, e.g. "G16". Teams have names; players have codes.</param>
+/// <param name="TeamName">Team name, e.g. "U15". Teams have names; players have codes.</param>
 /// <param name="RoundId">The period.</param>
 /// <param name="SquadSize">How many players are on the team at all.</param>
 /// <param name="PlayersWithAnswers">
