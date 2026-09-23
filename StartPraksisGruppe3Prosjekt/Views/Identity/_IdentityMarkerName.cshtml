@@ -1,0 +1,19 @@
+@model IdentityMarker
+@*
+    A marker's name as its row header. A substitute also says which club marker it replaces,
+    and that line opens to the club's range, why this measure stands in for it, and where its
+    provisional range comes from. On demand, so none of it sits under the table.
+*@
+@Model.Name@if (Model.Replaces is { } replacement)
+{
+    var club = replacement.Marker;
+
+    <details class="sc-id-replaces">
+        <summary>Replaces @club.Name</summary>
+        <p>The club's range: @club.EliteRange, best at it @club.BestAtIt. @replacement.Rationale</p>
+        @if (Model.Target.Provisional)
+        {
+            <p>Provisional range: @Model.Target.Basis</p>
+        }
+    </details>
+}

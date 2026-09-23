@@ -1,0 +1,159 @@
+@model IdentityBenchmarkViewModel
+@{
+    Layout = "_Layout";
+    ViewData["FullWidth"] = true;
+
+    var standard = Model.GoldStandard;
+    var hasTeam = Model.TeamKey.Length > 0;
+
+    // The page being shown -- Index, Insights or Development. The team buttons and the match
+    // form stay on it; only the section buttons move between pages.
+    var shown = ViewContext.RouteData.Values["action"] as string ?? "Index";
+
+    var selectedMatch = Model.Match?.Id ?? IdentityBenchmarkBuilder.AllMatches;
+    var title = hasTeam
+        ? $"{Model.TeamKey} Identity Comparison – vs. Elite Academy Targets"
+        : "Identity Comparison";
+}
+
+@*
+    Identity Benchmarking, in the format of the club's U14 Identity Comparison document, as three
+    pages over the same team and match: Overview (Index.cshtml), Key Insights (Insights.cshtml)
+    and Development over time (Development.cshtml). This layout is what they share -- the
+    header, the team and match pickers, the buttons between the pages and the selection.
+
+    Everything on these pages comes from two files: the Gold Standard (in git) and the extracted
+    match data (not in git -- it names players). No number is written here. A marker the
+    StatsBomb reports cannot answer says "Not measured" with its reason, and is never given
+    another number under its own name: the comparison document showed 191 pressures in the
+    PPDA row, and that is the thing these pages do not do. Where the Gold Standard has a
+    substitute instead -- Pressures in place of PPDA -- it is a marker of its own, with its own
+    range, that says what it replaces and why.
+
+    No JavaScript. The team and the pages are links and the match a GET form, so everything
+    works with scripts off and any view can be linked to.
+*@
+
+<partial name="_IdentityHeader" model="@(new IdentityHeader(standard.Eyebrow, title, standard.Organisation, standard.Methodology))" />
+
+<div class="sc-page">
+    <div class="sc-id-controls">
+        @if (Model.Teams.Count > 0)
+        {
+            <nav class="sc-id-control" aria-label="Team">
+                <span class="sc-label" aria-hidden="true">Team</span>
+                <ul class="sc-id-teams">
+                    @foreach (var team in Model.Teams)
+                    {
+                        var current = string.Equals(team.Key, Model.TeamKey, StringComparison.OrdinalIgnoreCase);
+
+                        <li>
+                            <a class="@(current ? "sc-btn" : "sc-btn sc-btn--secondary")"
+                               asp-action="@shown" asp-route-team="@team.Key"
+                               aria-current="@(current ? "page" : null)">
+                                @team.Key<span class="visually-hidden">@(team.HasData ? string.Empty : ", no match data")</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+
+        @if (Model.HasData)
+        {
+            <form class="sc-id-control sc-id-matchform" method="get" asp-action="@shown">
+                <input type="hidden" name="team" value="@Model.TeamKey" />
+                <div class="sc-form-field">
+                    <label class="sc-label" for="identity-match">Match</label>
+                    <select class="sc-select" id="identity-match" name="match">
+                        @foreach (var option in Model.Matches)
+                        {
+                            <option value="@option.Value" selected="@(option.Value == selectedMatch)">@option.Label</option>
+                        }
+                    </select>
+                </div>
+                <button class="sc-btn" type="submit">Show</button>
+            </form>
+        }
+
+        <a class="sc-id-reference" asp-action="GoldStandard">Gold Standard reference</a>
+    </div>
+
+    @if (!hasTeam)
+    {
+        IgnoreBody();
+
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>No teams configured</h3>
+                <p class="sc-card__meta">
+                    IdentityBenchmark:Teams in appsettings.json is empty, so there is no team to show.
+                </p>
+            </div>
+        </section>
+    }
+    else if (!Model.HasData)
+    {
+        IgnoreBody();
+
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>No match data for @Model.TeamKey</h3>
+                <p class="sc-card__meta">
+                    No StatsBomb match reports have been loaded for @Model.TeamKey yet. They are
+                    extracted with scripts/identity/extract_stats.py (see
+                    docs/identity-benchmarking.md). The
+                    <a asp-action="GoldStandard">Gold Standard</a> itself is always available.
+                </p>
+            </div>
+        </section>
+    }
+    else
+    {
+        @* The three pages, as buttons. Each keeps the team and the match. *@
+        <nav class="sc-id-sections" aria-label="Identity pages">
+            <ul>
+                @foreach (var link in IdentitySection.All)
+                {
+                    var current = link.Action == shown;
+
+                    <li>
+                        <a class="@(current ? "sc-btn" : "sc-btn sc-btn--secondary")"
+                           asp-action="@link.Action" asp-route-team="@Model.TeamKey" asp-route-match="@Model.Match?.Id"
+                           aria-current="@(current ? "page" : null)">@link.Label</a>
+                    </li>
+                }
+            </ul>
+        </nav>
+
+        <section class="sc-id-selection" aria-label="Selection">
+            <p class="sc-id-selection__label">@Model.SelectionLabel</p>
+            <p class="sc-id-selection__meta">
+                @if (Model.Match is { } match)
+                {
+                    <span>@match.Competition</span>
+                    <span>@Model.TeamName @(match.StartIsHome ? "at home" : "away")</span>
+                    <span>@match.File</span>
+                }
+                else
+                {
+                    <span>@Model.MatchCount matches, @IdentityFormat.Date(Model.FirstMatchDate) to @IdentityFormat.Date(Model.LastMatchDate)</span>
+                    <span>Each value is the mean of the per-match values</span>
+                }
+            </p>
+        </section>
+
+        @RenderBody()
+
+        <section class="sc-section sc-section--last">
+            <p class="sc-small sc-muted">
+                Match data extracted from StatsBomb match reports
+                @if (Model.DataGeneratedAt is { } generated)
+                {
+                    <text>on @generated.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</text>
+                }.
+                Gold Standard transcribed from @standard.Source.File (version @standard.Version).
+            </p>
+        </section>
+    }
+</div>

@@ -20,7 +20,8 @@ public interface IIdentityBenchmarkBuilder
 /// Two rules decide what a number on the page is:
 ///
 ///   * A marker without a metric is Not measured. It gets no value, no status, and never a
-///     different number standing in for it.
+///     different number standing in for it under its name. A substitute is a marker of its
+///     own -- its own name, number and range -- that says which club marker it replaces.
 ///   * The average is the plain mean of the per-match values, rounded to one decimal, and the
 ///     status is worked out from that rounded number -- the one printed next to it. Otherwise a
 ///     mean of 57.96 would print as 58.0 and still say Strong Alignment.
@@ -234,40 +235,48 @@ public sealed class IdentityBenchmarkBuilder : IIdentityBenchmarkBuilder
     }
 
     /// <summary>
-    /// One line per measured marker across every match, oldest first. Always the whole season,
+    /// One line per measured marker across every match, oldest first, grouped by phase as the
+    /// tables are. A phase with nothing measured has no group. Always the whole season,
     /// whatever is selected above -- the point is to see the selected match in context.
     /// </summary>
-    private static IReadOnlyList<MarkerTrend> BuildTrends(GoldStandard standard, IReadOnlyList<IdentityMatch> matches)
+    private static IReadOnlyList<PhaseTrends> BuildTrends(GoldStandard standard, IReadOnlyList<IdentityMatch> matches)
     {
         if (matches.Count < 2)
         {
-            return Array.Empty<MarkerTrend>();
+            return Array.Empty<PhaseTrends>();
         }
 
         var ordered = matches.OrderBy(m => m.Date).ToList();
 
-        return standard.AllMarkers
-            .Where(marker => marker.Measurement.IsMeasured)
-            .Select(marker =>
-            {
-                var points = ordered
-                    .Select(m =>
-                    {
-                        var metric = m.Metrics[marker.Measurement.Metric!];
-                        return new TrendPoint(
-                            m.Id,
-                            m.Date,
-                            $"{IdentityFormat.Date(m.Date)} · {(m.StartIsHome ? "vs" : "at")} {m.Opponent}",
-                            metric.Value,
-                            IdentityFormat.Value(metric.Value, marker.Target.Unit, isAverage: false),
-                            IdentityStatusRules.Evaluate(marker, metric.Value, standard.StatusRules),
-                            metric.Source);
-                    })
-                    .ToList();
+        return standard.Phases
+            .Select(phase => new PhaseTrends(
+                phase,
+                phase.Markers
+                    .Where(marker => marker.Measurement.IsMeasured)
+                    .Select(marker => BuildTrend(marker, ordered, standard.StatusRules))
+                    .ToList()))
+            .Where(group => group.Trends.Count > 0)
+            .ToList();
+    }
 
-                return new MarkerTrend(marker, points, AxisMax(marker, points));
+    private static MarkerTrend BuildTrend(IdentityMarker marker, IReadOnlyList<IdentityMatch> ordered, StatusRules rules)
+    {
+        var points = ordered
+            .Select(m =>
+            {
+                var metric = m.Metrics[marker.Measurement.Metric!];
+                return new TrendPoint(
+                    m.Id,
+                    m.Date,
+                    $"{IdentityFormat.Date(m.Date)} · {(m.StartIsHome ? "vs" : "at")} {m.Opponent}",
+                    metric.Value,
+                    IdentityFormat.Value(metric.Value, marker.Target.Unit, isAverage: false),
+                    IdentityStatusRules.Evaluate(marker, metric.Value, rules),
+                    metric.Source);
             })
             .ToList();
+
+        return new MarkerTrend(marker, points, AxisMax(marker, points));
     }
 
     /// <summary>

@@ -20,6 +20,13 @@ public static class IdentityFormat
     public static string Value(double value, string unit, bool isAverage) =>
         value.ToString(isAverage ? "0.0" : "0.#", CultureInfo.InvariantCulture) + unit;
 
+    /// <summary>
+    /// "elite range", or "provisional range" when the range is not the club's. Every sentence
+    /// that names a range takes it from here, so a derived range is never called an elite one.
+    /// </summary>
+    public static string RangeName(IdentityMarker marker) =>
+        marker.Target.Provisional ? "provisional range" : "elite range";
+
     /// <summary>A difference, e.g. "24 percentage points" for a percentage marker, "11" otherwise.</summary>
     public static string Gap(double gap, string unit)
     {

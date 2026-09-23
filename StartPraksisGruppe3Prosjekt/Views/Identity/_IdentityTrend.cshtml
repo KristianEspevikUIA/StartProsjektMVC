@@ -33,16 +33,17 @@
 
     var bandLow = target.Direction == TargetDirection.LowerIsBetter ? 0 : target.Min ?? 0;
     var bandHigh = Math.Min(target.Max ?? trend.AxisMax, trend.AxisMax);
+    var rangeName = IdentityFormat.RangeName(marker);
 
     var summary =
         $"{marker.Name}, match by match, oldest first: " +
         string.Join(", ", points.Select(p => $"{Short(p.Date)} {p.DisplayValue}")) +
-        $". Elite range {marker.EliteRange}.";
+        $". Shaded: {rangeName} {marker.EliteRange}.";
 }
 
 <article class="sc-id-trend">
-    <h3 class="sc-id-trend__title">@marker.Name</h3>
-    <p class="sc-id-trend__meta">Shaded: elite range @marker.EliteRange</p>
+    <h4 class="sc-id-trend__title">@marker.Name</h4>
+    <p class="sc-id-trend__meta">Shaded: @rangeName @marker.EliteRange</p>
 
     <svg class="sc-id-trend__chart" viewBox="0 0 @F(width) @F(height)" role="img" aria-label="@summary">
         <rect class="sc-id-trend__band"
@@ -94,7 +95,7 @@
                 {
                     <tr>
                         <td>
-                            <a asp-action="Index" asp-route-team="@Model.TeamKey" asp-route-match="@point.MatchId"
+                            <a asp-action="Development" asp-route-team="@Model.TeamKey" asp-route-match="@point.MatchId"
                                aria-current="@(point.MatchId == Model.SelectedMatchId ? "true" : null)">@point.Label</a>
                         </td>
                         <td class="sc-id-minitable__value">@point.DisplayValue</td>

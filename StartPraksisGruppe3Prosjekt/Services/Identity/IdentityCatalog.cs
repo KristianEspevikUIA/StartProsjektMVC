@@ -22,8 +22,11 @@ public sealed class IdentityCatalog : IIdentityCatalog
     /// <summary>Relative to the content root.</summary>
     public const string GoldStandardPath = "Data/Identity/gold-standard.json";
 
-    /// <summary>The match data format this code reads. The extraction script writes the same number.</summary>
-    public const int SupportedSchemaVersion = 1;
+    /// <summary>
+    /// The match data format this code reads. The extraction script writes the same number.
+    /// 2 added the six substitute markers' values; a version 1 file has to be extracted again.
+    /// </summary>
+    public const int SupportedSchemaVersion = 2;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -160,9 +163,18 @@ public sealed class IdentityCatalog : IIdentityCatalog
             problems.Add($"The phase key '{duplicate}' is used more than once.");
         }
 
-        foreach (var duplicate in Duplicates(standard.AllMarkers.Select(m => m.Key)))
+        // The club's replaced markers too: a substitute given the key of the marker it replaces
+        // would make it look like the club's own.
+        var keys = standard.AllMarkers.Select(m => m.Key)
+            .Concat(standard.AllMarkers.Where(m => m.IsSubstitute).Select(m => m.Replaces!.Marker.Key));
+        foreach (var duplicate in Duplicates(keys))
         {
             problems.Add($"The marker key '{duplicate}' is used more than once.");
+        }
+
+        if (standard.AllMarkers.Any(m => m.IsSubstitute) && string.IsNullOrWhiteSpace(standard.Substitutes.Text))
+        {
+            problems.Add("'substitutes.text' is missing. Both pages explain the substitute markers with it.");
         }
 
         foreach (var phase in standard.Phases)
@@ -243,6 +255,51 @@ public sealed class IdentityCatalog : IIdentityCatalog
         {
             problems.Add(
                 $"Marker {name} needs exactly one of 'measurement.metric' and 'measurement.notMeasuredReason'.");
+        }
+
+        // A range that is not the club's is shown as provisional, with where it comes from.
+        if (target.Provisional && string.IsNullOrWhiteSpace(target.Basis))
+        {
+            problems.Add($"Marker {name} has a provisional target and needs 'target.basis' to say where it comes from.");
+        }
+
+        if (marker.Replaces is { } replacement)
+        {
+            ValidateReplacement(marker, name, replacement, problems);
+        }
+    }
+
+    /// <summary>
+    /// A substitute stands in for a club marker the reports cannot answer. So it has to be
+    /// measured itself, the club's marker has to be complete -- it is what the page quotes --
+    /// and it has to be one that is not measured; otherwise there was nothing to replace.
+    /// </summary>
+    private static void ValidateReplacement(
+        IdentityMarker substitute, string name, MarkerReplacement replacement, List<string> problems)
+    {
+        var replaced = replacement.Marker;
+
+        if (!substitute.Measurement.IsMeasured)
+        {
+            problems.Add($"Marker {name} replaces '{replaced.Name}' but is not measured itself.");
+        }
+
+        if (string.IsNullOrWhiteSpace(replacement.Rationale))
+        {
+            problems.Add($"Marker {name} needs 'replaces.rationale': why it is the closest measure to '{replaced.Name}'.");
+        }
+
+        ValidateMarker(replaced, problems);
+
+        if (replaced.Measurement.IsMeasured)
+        {
+            problems.Add(
+                $"Marker {name} replaces '{replaced.Key}', which is measured. Move '{replaced.Key}' back out instead.");
+        }
+
+        if (replaced.IsSubstitute)
+        {
+            problems.Add($"Marker {name} replaces '{replaced.Key}', which replaces another marker in turn.");
         }
     }
 
