@@ -50,6 +50,9 @@ public class AdminDeletePlayerViewModel
     /// <summary>Kontrakt og treningsgruppe fra succession planning.</summary>
     public bool HasSuccessionProfile { get; set; }
 
+    /// <summary>Fornavn og bilde til velkomsten.</summary>
+    public bool HasPersonalDetails { get; set; }
+
     /// <summary>
     /// What the admin types to confirm. Has to match <see cref="PlayerCode"/>.
     ///

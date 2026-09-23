@@ -61,6 +61,12 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     /// <summary>Contract and training group, once per player. See PlayerSuccessionProfile.</summary>
     public DbSet<PlayerSuccessionProfile> PlayerSuccessionProfiles => Set<PlayerSuccessionProfile>();
 
+    /// <summary>
+    /// Fornavn og bilde til velkomsten når spilleren logger inn. Det eneste stedet et navn
+    /// lagres om en spiller. Se PlayerPersonalDetails.
+    /// </summary>
+    public DbSet<PlayerPersonalDetails> PlayerPersonalDetails => Set<PlayerPersonalDetails>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -236,6 +242,17 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .WithMany()
              .HasForeignKey(p => p.PlayerId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PlayerPersonalDetails>(e =>
+        {
+            // Én per spiller: én spiller har ett fornavn og ett bilde i velkomsten.
+            e.HasIndex(d => d.PlayerId).IsUnique();
+
+            e.HasOne(d => d.Player)
+             .WithMany()
+             .HasForeignKey(d => d.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller tar navn og bilde med (GDPR)
         });
 
         builder.Entity<PlayerDeletionEvent>(e =>

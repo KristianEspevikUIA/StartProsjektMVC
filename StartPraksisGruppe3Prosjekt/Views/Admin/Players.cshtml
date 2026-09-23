@@ -1,0 +1,89 @@
+@model IReadOnlyList<PersonalDetailsRow>
+@{
+    ViewData["Title"] = "Players";
+    ViewData["FullWidth"] = true;
+
+    var named = Model.Count(p => p.FirstName is not null);
+    var photographed = Model.Count(p => p.HasPhoto);
+}
+
+@*
+    Every player, with whether the welcome has a first name and a photo to show them -- and,
+    for each, the way to the form, the data access request and the deletion. The last two used
+    to be reachable only by typing the player's id into the URL.
+
+    The welcome is only ever shown to the player themselves, and only players with an account
+    can sign in to see it. A row without an account says so, so nobody spends time on a photo
+    that nobody will be shown yet.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>Players</h1>
+        <p class="sc-hero__lead">
+            The first name and photo a player is welcomed with when they sign in. Only the player
+            sees them; everywhere else in StartCompass a player is their code.
+        </p>
+        <div class="sc-hero__meta">
+            <span>@Model.Count players</span>
+            <span>@named with a first name</span>
+            <span>@photographed with a photo</span>
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    <section class="sc-section sc-section--last">
+        <div class="sc-filters" data-player-filter hidden>
+            <div class="sc-form-row">
+                <div class="sc-form-field">
+                    <label class="sc-label" for="admin-player-search">Find a player</label>
+                    <input class="sc-input" id="admin-player-search" type="search" autocomplete="off"
+                           placeholder="TS-10 or G16" />
+                </div>
+            </div>
+            <div class="sc-filters__actions">
+                <button type="button" class="sc-btn sc-btn--secondary" data-player-filter-clear>Clear</button>
+                <p class="sc-filters__summary" data-player-filter-summary role="status" aria-live="polite"></p>
+            </div>
+        </div>
+
+        <div class="sc-table-wrap sc-mt">
+            <table class="sc-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Code</th>
+                        <th scope="col">Team</th>
+                        <th scope="col">First name</th>
+                        <th scope="col">Photo</th>
+                        <th scope="col">Account</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model)
+                    {
+                        <tr data-player-row data-player-search="@row.Code @row.TeamName">
+                            <td class="sc-code">@row.Code</td>
+                            <td class="sc-small">@row.TeamName</td>
+                            <td>@(row.FirstName ?? "–")</td>
+                            <td>
+                                <span class="sc-badge @(row.HasPhoto ? "sc-badge--ok" : "sc-badge--muted")">@(row.HasPhoto ? "Yes" : "No")</span>
+                            </td>
+                            <td class="sc-small">@(row.HasAccount ? "Can sign in" : "No account yet")</td>
+                            <td class="sc-small">
+                                <a asp-action="PlayerDetails" asp-route-id="@row.PlayerId">Name and photo</a>
+                                · <a asp-action="Export" asp-route-id="@row.PlayerId">Export</a>
+                                · <a asp-action="Delete" asp-route-id="@row.PlayerId">Delete</a>
+                            </td>
+                        </tr>
+                    }
+                    <tr data-player-filter-empty hidden>
+                        <td colspan="6" class="sc-muted sc-small">No player matches that. The search covers code and team.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>

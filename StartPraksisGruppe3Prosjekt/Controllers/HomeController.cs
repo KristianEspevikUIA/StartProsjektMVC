@@ -1,7 +1,11 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Services;
+using StartPraksisGruppe3Prosjekt.ViewModels;
 
 namespace StartPraksisGruppe3Prosjekt.Controllers;
 
@@ -14,15 +18,31 @@ namespace StartPraksisGruppe3Prosjekt.Controllers;
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
+    private readonly IPlayerWelcomeService _welcome;
 
-    public HomeController(ILogger<HomeController> logger)
+    public HomeController(ILogger<HomeController> logger, IPlayerWelcomeService welcome)
     {
         _logger = logger;
+        _welcome = welcome;
     }
 
-    public IActionResult Index()
+    /// <summary>
+    /// The front page, which is also where signing in lands. A player the club has entered a
+    /// first name or a photo for is welcomed with them; everyone else sees the page as it was.
+    ///
+    /// Only for the player role, and only ever the signed-in player's own: the lookup goes
+    /// through Player.UserId, so there is no id here for anybody to change.
+    /// </summary>
+    public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
-        return View();
+        var model = new HomeViewModel();
+
+        if (User.IsInRole(Roles.Player) && User.FindFirstValue(ClaimTypes.NameIdentifier) is { } userId)
+        {
+            model.Welcome = await _welcome.GetForUserAsync(userId, cancellationToken);
+        }
+
+        return View(model);
     }
 
     public IActionResult Privacy()

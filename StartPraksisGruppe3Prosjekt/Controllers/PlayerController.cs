@@ -29,19 +29,54 @@ public class PlayerController : Controller
     private readonly IPeriodService _periods;
     private readonly IPeriodSelection _selection;
     private readonly IFiveCFeedbackBuilder _feedback;
+    private readonly IPlayerWelcomeService _welcome;
 
     public PlayerController(
         AppDbContext db,
         IAuthorizationService authz,
         IPeriodService periods,
         IPeriodSelection selection,
-        IFiveCFeedbackBuilder feedback)
+        IFiveCFeedbackBuilder feedback,
+        IPlayerWelcomeService welcome)
     {
         _db = db;
         _authz = authz;
         _periods = periods;
         _selection = selection;
         _feedback = feedback;
+        _welcome = welcome;
+    }
+
+    /// <summary>
+    /// The signed-in player's own photo, for the welcome on the front page.
+    ///
+    /// No id, like <see cref="Index"/>: the player is found through Player.UserId, so this can
+    /// only ever return the photo of whoever is asking. There is no URL that shows somebody
+    /// else's child. An administrator has no player row and gets a 404 here -- the admin page
+    /// has its own preview.
+    ///
+    /// Cached privately for an hour: the URL carries the photo's version, so a replaced photo
+    /// gets a new URL, and "private" keeps it out of any shared cache between here and the phone.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Photo(CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var playerId = await _db.Players
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => (int?)p.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (playerId is null || await _welcome.GetPhotoAsync(playerId.Value, cancellationToken) is not { } photo)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "private, max-age=3600";
+
+        return File(photo.Bytes, photo.ContentType);
     }
 
     /// <summary>

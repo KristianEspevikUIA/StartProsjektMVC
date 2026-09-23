@@ -29,24 +29,155 @@ public class AdminController : Controller
     private readonly IPeriodService _periods;
     private readonly IPlayerAccessLog _accessLog;
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly IPlayerWelcomeService _welcome;
 
     public AdminController(
         AppDbContext db,
         IConsentService consent,
         IPeriodService periods,
         IPlayerAccessLog accessLog,
-        UserManager<IdentityUser> userManager)
+        UserManager<IdentityUser> userManager,
+        IPlayerWelcomeService welcome)
     {
         _db = db;
         _consent = consent;
         _periods = periods;
         _accessLog = accessLog;
         _userManager = userManager;
+        _welcome = welcome;
     }
 
     public IActionResult Index()
     {
         return View();
+    }
+
+    // -----------------------------------------------------------------------------------
+    // Navn og bilde til velkomsten
+    // -----------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Alle spillerne, med om fornavn og bilde er lagt inn -- og veien videre til skjemaet,
+    /// innsyn og sletting for hver av dem. Den siste delen er det «plukk en spiller»-trinnet
+    /// Admin-forsiden har manglet: innsyn og sletting fantes, men bare for den som visste ID-en.
+    ///
+    /// Lista navngir spillerne der fornavn er lagt inn. Det er admin, på siden der navnene
+    /// legges inn, og ikke logget per spiller -- det er ingen svar, vurderinger eller bilder her.
+    /// </summary>
+    public async Task<IActionResult> Players(CancellationToken cancellationToken) =>
+        View(await _welcome.ListAsync(cancellationToken));
+
+    /// <summary>Skjemaet for én spillers fornavn og bilde.</summary>
+    [HttpGet]
+    public async Task<IActionResult> PlayerDetails(int id, CancellationToken cancellationToken)
+    {
+        var player = await _db.Players
+            .AsNoTracking()
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        // Et navn og et bilde av en mindreårig er nettopp den typen oppslag loggen finnes for.
+        await _accessLog.RecordAsync(User, id, "Admin/PlayerDetails", cancellationToken: cancellationToken);
+
+        var summary = await _welcome.GetSummaryAsync(id, cancellationToken);
+
+        return View(AdminPlayerDetailsViewModel.For(player, summary));
+    }
+
+    /// <summary>
+    /// Lagrer fornavn og kilde, og bytter eller fjerner bildet.
+    ///
+    /// Bildet sjekkes og renses av <see cref="PlayerPhotoRules"/> før noe lagres: formatet leses
+    /// av filens egne bytes, og metadata som GPS og bildetekst tas ut. Et bilde som ikke går
+    /// gjennom, gir skjemaet tilbake med beskjeden -- og ingenting av skjemaet lagres, slik at
+    /// admin ikke tror et nytt navn er på plass når bare halve innsendingen gikk gjennom.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    [RequestSizeLimit(PlayerPhotoRules.MaxBytes + 256 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = PlayerPhotoRules.MaxBytes + 256 * 1024)]
+    public async Task<IActionResult> PlayerDetails(
+        int id,
+        AdminPlayerDetailsViewModel form,
+        IFormFile? photo,
+        CancellationToken cancellationToken)
+    {
+        var player = await _db.Players
+            .AsNoTracking()
+            .Include(p => p.Team)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+        if (player is null)
+        {
+            return NotFound();
+        }
+
+        PhotoCheck? checkedPhoto = null;
+
+        if (photo is { Length: > 0 })
+        {
+            if (photo.Length > PlayerPhotoRules.MaxBytes)
+            {
+                ModelState.AddModelError(nameof(photo), $"The photo is too large. The largest that can be used is {PlayerPhotoRules.MaxBytes / 1024 / 1024} MB.");
+            }
+            else
+            {
+                using var buffer = new MemoryStream((int)photo.Length);
+                await photo.CopyToAsync(buffer, cancellationToken);
+
+                checkedPhoto = PlayerPhotoRules.Prepare(buffer.ToArray());
+
+                if (!checkedPhoto.IsAccepted)
+                {
+                    ModelState.AddModelError(nameof(photo), checkedPhoto.Error!);
+                }
+            }
+        }
+
+        if (!ModelState.IsValid)
+        {
+            var again = AdminPlayerDetailsViewModel.For(player, await _welcome.GetSummaryAsync(id, cancellationToken));
+            again.FirstName = form.FirstName;
+            again.PhotoSource = form.PhotoSource;
+
+            return View(again);
+        }
+
+        await _welcome.SaveAsync(
+            id,
+            form.FirstName,
+            form.PhotoSource,
+            checkedPhoto,
+            form.RemovePhoto,
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+            cancellationToken);
+
+        TempData["AdminMessage"] = $"Name and photo for {player.Code} are saved.";
+
+        return RedirectToAction(nameof(PlayerDetails), new { id });
+    }
+
+    /// <summary>
+    /// Bildet slik det er lagret, til forhåndsvisningen i skjemaet. Ikke lagret i noen cache:
+    /// dette er admin på en delt maskin, og bildet skal ikke bli liggende etter at siden er lukket.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> PlayerPhoto(int id, CancellationToken cancellationToken)
+    {
+        if (await _welcome.GetPhotoAsync(id, cancellationToken) is not { } photo)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store";
+
+        return File(photo.Bytes, photo.ContentType);
     }
 
     /// <summary>
@@ -157,9 +288,10 @@ public class AdminController : Controller
     /// Innsyn: alt systemet har registrert om én spiller, som en nedlastbar JSON-fil.
     ///
     /// Samler Player, Guardianships, Responses med Answers, FiveCSubmissions med sine svar
-    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen og frigivelsene, og
-    /// trenernes succession-vurderinger med kontraktsopplysningene. Avviket er ikke med —
-    /// det er ikke lagret, det regnes ut hver gang (se ScoringService).
+    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen, frigivelsene,
+    /// trenernes succession-vurderinger med kontraktsopplysningene, og fornavn og bilde til
+    /// velkomsten. Avviket er ikke med — det er ikke lagret, det regnes ut hver gang (se
+    /// ScoringService).
     ///
     /// Oppslaget logges før dokumentet bygges. Et innsyn er nettopp den typen oppslag
     /// revisjonsloggen finnes for, og raden skal stå der også om nedlastingen ryker etterpå.
@@ -334,6 +466,24 @@ public class AdminController : Controller
             })
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Fornavn og bilde til velkomsten. Bildet er med som det er lagret (base64 i JSON-fila):
+        // det er en opplysning om spilleren som alt annet, og et innsyn som sa «det finnes et
+        // bilde» uten å vise det, ville ikke vært et svar.
+        var personalDetails = await _db.PlayerPersonalDetails
+            .AsNoTracking()
+            .Where(d => d.PlayerId == id)
+            .Select(d => new
+            {
+                d.FirstName,
+                d.PhotoSource,
+                d.PhotoContentType,
+                d.PhotoUpdatedAt,
+                d.Photo,
+                d.UpdatedByUserId,
+                d.UpdatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         var people = new Pseudonyms(player.UserId);
 
         // Rekkefølgen HER, ikke rekkefølgen i dokumentet, bestemmer løpenumrene. Kildene som
@@ -347,6 +497,7 @@ public class AdminController : Controller
         foreach (var a in successionAssessments) people.For(a.RaterUserId, Roles.Coach);
         foreach (var a in accessEvents) people.For(a.ViewedByUserId, a.ViewedByRole);
         if (successionProfile is not null) people.For(successionProfile.UpdatedByUserId, Pseudonyms.UnknownRole);
+        if (personalDetails is not null) people.For(personalDetails.UpdatedByUserId, Roles.Admin);
         foreach (var c in consentEvents) people.For(c.ChangedByUserId, Pseudonyms.UnknownRole);
 
         var export = new
@@ -456,6 +607,18 @@ public class AdminController : Controller
                     successionProfile.TrainingGroup,
                     UpdatedBy = people.For(successionProfile.UpdatedByUserId, Pseudonyms.UnknownRole),
                     successionProfile.UpdatedAt
+                },
+            PersonalDetails = personalDetails is null
+                ? null
+                : new
+                {
+                    personalDetails.FirstName,
+                    personalDetails.PhotoSource,
+                    personalDetails.PhotoContentType,
+                    personalDetails.PhotoUpdatedAt,
+                    Photo = personalDetails.Photo,
+                    UpdatedBy = people.For(personalDetails.UpdatedByUserId, Roles.Admin),
+                    personalDetails.UpdatedAt
                 }
         };
 
@@ -488,7 +651,8 @@ public class AdminController : Controller
     /// Sletting av en spiller og alt som hører til.
     ///
     /// Cascade i databasen tar svar, 5C-innsendinger, samtykkelogg, foresattkoblinger,
-    /// revisjonslogg, frigivelser og succession-vurderingene med kontraktsopplysningene.
+    /// revisjonslogg, frigivelser, succession-vurderingene med kontraktsopplysningene, og
+    /// fornavn og bilde til velkomsten.
     /// Identity-brukeren håndteres for seg, i samme transaksjon, fordi den ligger utenfor
     /// spillerens fremmednøkler.
     ///
@@ -608,7 +772,9 @@ public class AdminController : Controller
             SuccessionAssessmentCount = await _db.SuccessionAssessments
                 .CountAsync(a => a.PlayerId == id, cancellationToken),
             HasSuccessionProfile = await _db.PlayerSuccessionProfiles
-                .AnyAsync(p => p.PlayerId == id, cancellationToken)
+                .AnyAsync(p => p.PlayerId == id, cancellationToken),
+            HasPersonalDetails = await _db.PlayerPersonalDetails
+                .AnyAsync(d => d.PlayerId == id, cancellationToken)
         };
     }
 

@@ -16,6 +16,10 @@
 <h2 class="h5">Available</h2>
 <ul>
     <li><a asp-action="Periods">Periods</a></li>
+    <li>
+        <a asp-action="Players">Players</a> &mdash; the first name and photo a player is welcomed
+        with, and each player's data access request and deletion.
+    </li>
 </ul>
 
 @*
@@ -32,9 +36,8 @@
 </ul>
 
 @*
-    Built, but reached per player rather than from a list. Both take a player id in the URL,
-    and the page that would let an admin pick one is the Users work above. Listed here so the
-    two GDPR routes are not invisible until then.
+    Built, and reached per player. Both take a player id in the URL; the Players page above
+    links to them for every player, so the id no longer has to be known.
 *@
 <h2 class="h5">Per player, by id</h2>
 <ul>

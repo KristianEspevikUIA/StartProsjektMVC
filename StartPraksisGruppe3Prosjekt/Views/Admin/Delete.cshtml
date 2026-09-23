@@ -88,6 +88,10 @@
                         <td class="sc-num">@(Model.HasSuccessionProfile ? 1 : 0)</td>
                     </tr>
                     <tr>
+                        <td>First name and photo (the welcome)</td>
+                        <td class="sc-num">@(Model.HasPersonalDetails ? 1 : 0)</td>
+                    </tr>
+                    <tr>
                         <td>Sign-in account</td>
                         <td class="sc-num">
                             @if (Model.HasAccount)

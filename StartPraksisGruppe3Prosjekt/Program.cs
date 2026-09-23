@@ -182,6 +182,10 @@ builder.Services.AddScoped<IPeriodService, PeriodService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IPeriodSelection, PeriodSelection>();
 
+// Velkomsten når en spiller logger inn: fornavn og bilde, lagt inn av admin. Det eneste stedet
+// et navn lagres om en spiller -- se PlayerPersonalDetails og docs/player-welcome.md.
+builder.Services.AddScoped<IPlayerWelcomeService, PlayerWelcomeService>();
+
 // Spiller- og foresattsiden. Bygger begge, slik at avgjørelsen om hva som skal skjules
 // før treneren har frigitt, tas ett sted og ikke i to views.
 builder.Services.AddScoped<IFiveCFeedbackBuilder, FiveCFeedbackBuilder>();
