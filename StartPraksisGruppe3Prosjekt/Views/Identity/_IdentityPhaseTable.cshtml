@@ -1,0 +1,102 @@
+@model PhaseTableModel
+@{
+    // In Possession: yellow band, black title. Out of Possession: black band, yellow title.
+    // As in the Gold Standard document.
+    var phase = Model.Reading.Phase;
+    var theme = phase.Key == "out-of-possession" ? "sc-id-phase--dark" : "sc-id-phase--light";
+    var headingId = $"identity-{phase.Key}";
+    var notMeasured = Model.Reading.Readings.Where(r => !r.IsMeasured).ToList();
+}
+
+@*
+    Marker | team | Target | Status, in the Gold Standard's order.
+
+    The explicit roles are not decoration. On a phone the table is restacked into one block per
+    marker with display: block, and Safari drops table semantics when that happens -- the
+    roles keep "row", "column header" and "cell" for a screen reader either way.
+
+    A marker the reports cannot answer says "Not measured", points to the reason below the
+    table, and has no status. Not a dash that could be read as zero, and not a badge.
+*@
+<section class="sc-id-phase @theme" aria-labelledby="@headingId">
+    <header class="sc-id-phase__head">
+        <h2 class="sc-id-phase__title" id="@headingId">@phase.Title</h2>
+        <p class="sc-id-phase__tagline">@phase.Tagline</p>
+    </header>
+
+    <table class="sc-id-table" role="table">
+        <caption class="visually-hidden">
+            @phase.Title: @Model.ValueHeading
+            @(Model.IsAverage ? $"(average of {Model.MatchCount} matches)" : string.Empty)
+            against the Gold Standard
+        </caption>
+        <thead role="rowgroup">
+            <tr role="row">
+                <th role="columnheader" scope="col">Marker</th>
+                <th role="columnheader" scope="col">@Model.ValueHeading</th>
+                <th role="columnheader" scope="col">Target</th>
+                <th role="columnheader" scope="col">Status</th>
+            </tr>
+        </thead>
+        <tbody role="rowgroup">
+            @foreach (var reading in Model.Reading.Readings)
+            {
+                var marker = reading.Marker;
+
+                <tr role="row">
+                    <th role="rowheader" scope="row" class="sc-id-table__marker">@marker.Name</th>
+
+                    <td role="cell" class="sc-id-table__value" data-label="@Model.ValueHeading">
+                        @if (reading.IsMeasured)
+                        {
+                            <span class="sc-id-value">@reading.DisplayValue</span>
+
+                            <details class="sc-id-source">
+                                <summary>Source<span class="visually-hidden"> of @marker.Name</span></summary>
+                                <p>@reading.Formula</p>
+                                @if (Model.IsAverage && reading.MatchesAtOrAboveRange is { } inRange)
+                                {
+                                    <p>In or above the elite range in @inRange of @Model.MatchCount matches.</p>
+                                }
+                                <partial name="_IdentitySources" model="reading.Sources" />
+                            </details>
+                        }
+                        else
+                        {
+                            <span class="sc-id-value sc-id-value--none">Not measured</span><a class="sc-id-noteref"
+                               href="#identity-not-measured-@marker.Key"
+                               aria-label="Why @marker.Name is not measured">*</a>
+                        }
+                    </td>
+
+                    <td role="cell" class="sc-id-table__target" data-label="Target">@marker.Target.Display</td>
+
+                    <td role="cell" class="sc-id-table__status" data-label="Status">
+                        @if (reading.Status is { } status)
+                        {
+                            <partial name="_IdentityStatusBadge" model="status" />
+                        }
+                        else
+                        {
+                            <span class="sc-muted" aria-hidden="true">–</span>
+                            <span class="visually-hidden">No status, not measured</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <ul class="sc-id-footnotes">
+        @foreach (var footnote in phase.Footnotes)
+        {
+            <li><strong>@footnote.Term</strong> @footnote.Separator @footnote.Text</li>
+        }
+        @foreach (var reading in notMeasured)
+        {
+            <li class="sc-id-footnotes__not-measured" id="identity-not-measured-@reading.Marker.Key">
+                <strong>@reading.Marker.Name — not measured.</strong> @reading.Marker.Measurement.NotMeasuredReason
+            </li>
+        }
+    </ul>
+</section>

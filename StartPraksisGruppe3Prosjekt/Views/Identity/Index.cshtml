@@ -1,0 +1,243 @@
+@model IdentityBenchmarkViewModel
+@{
+    var standard = Model.GoldStandard;
+    var hasTeam = Model.TeamKey.Length > 0;
+
+    ViewData["Title"] = hasTeam ? $"Identity – {Model.TeamName}" : "Identity";
+    ViewData["FullWidth"] = true;
+
+    var selectedMatch = Model.Match?.Id ?? IdentityBenchmarkBuilder.AllMatches;
+    var title = hasTeam
+        ? $"{Model.TeamKey} Identity Comparison – vs. Elite Academy Targets"
+        : "Identity Comparison";
+
+    string ManyNames(IReadOnlyList<string> names) =>
+        names.Count > 3 ? $"{names.Count} players" : IdentityFormat.JoinNames(names);
+}
+
+@*
+    Identity Benchmarking, in the format of the club's U14 Identity Comparison document.
+
+    Everything on this page comes from two files: the Gold Standard (in git) and the extracted
+    match data (not in git -- it names players). No number is written here. A marker the
+    StatsBomb reports cannot answer says "Not measured" with its reason, and is never given a
+    stand-in: the comparison document showed 191 pressures in the PPDA row, and that is the
+    thing this page does not do.
+
+    No JavaScript. The team is a set of links and the match a GET form, so the page works with
+    scripts off and any view can be linked to.
+*@
+
+<partial name="_IdentityHeader" model="@(new IdentityHeader(standard.Eyebrow, title, standard.Organisation, standard.Methodology))" />
+
+<div class="sc-page">
+    <div class="sc-id-controls">
+        @if (Model.Teams.Count > 0)
+        {
+            <nav class="sc-id-control" aria-label="Team">
+                <span class="sc-label" aria-hidden="true">Team</span>
+                <ul class="sc-id-teams">
+                    @foreach (var team in Model.Teams)
+                    {
+                        var current = string.Equals(team.Key, Model.TeamKey, StringComparison.OrdinalIgnoreCase);
+
+                        <li>
+                            <a class="@(current ? "sc-btn" : "sc-btn sc-btn--secondary")"
+                               asp-action="Index" asp-route-team="@team.Key"
+                               aria-current="@(current ? "page" : null)">
+                                @team.Key<span class="visually-hidden">@(team.HasData ? string.Empty : ", no match data")</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+
+        @if (Model.HasData)
+        {
+            <form class="sc-id-control sc-id-matchform" method="get" asp-action="Index">
+                <input type="hidden" name="team" value="@Model.TeamKey" />
+                <div class="sc-form-field">
+                    <label class="sc-label" for="identity-match">Match</label>
+                    <select class="sc-select" id="identity-match" name="match">
+                        @foreach (var option in Model.Matches)
+                        {
+                            <option value="@option.Value" selected="@(option.Value == selectedMatch)">@option.Label</option>
+                        }
+                    </select>
+                </div>
+                <button class="sc-btn" type="submit">Show</button>
+            </form>
+        }
+
+        <a class="sc-id-reference" asp-action="GoldStandard">Gold Standard reference</a>
+    </div>
+
+    @if (!hasTeam)
+    {
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>No teams configured</h3>
+                <p class="sc-card__meta">
+                    IdentityBenchmark:Teams in appsettings.json is empty, so there is no team to show.
+                </p>
+            </div>
+        </section>
+    }
+    else if (!Model.HasData)
+    {
+        <section class="sc-section sc-section--last">
+            <div class="sc-card sc-card--left">
+                <h3>No match data for @Model.TeamKey</h3>
+                <p class="sc-card__meta">
+                    No StatsBomb match reports have been loaded for @Model.TeamKey yet. They are
+                    extracted with scripts/identity/extract_stats.py (see
+                    docs/identity-benchmarking.md). The
+                    <a asp-action="GoldStandard">Gold Standard</a> itself is always available.
+                </p>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="sc-id-selection" aria-label="Selection">
+            <p class="sc-id-selection__label">@Model.SelectionLabel</p>
+            <p class="sc-id-selection__meta">
+                @if (Model.Match is { } match)
+                {
+                    <span>@match.Competition</span>
+                    <span>@Model.TeamName @(match.StartIsHome ? "at home" : "away")</span>
+                    <span>@match.File</span>
+                }
+                else
+                {
+                    <span>@Model.MatchCount matches, @IdentityFormat.Date(Model.FirstMatchDate) to @IdentityFormat.Date(Model.LastMatchDate)</span>
+                    <span>Each value is the mean of the per-match values</span>
+                }
+            </p>
+        </section>
+
+        @foreach (var phase in Model.Phases)
+        {
+            <partial name="_IdentityPhaseTable" model="@(new PhaseTableModel(phase, Model.TeamKey, Model.IsAverage, Model.MatchCount))" />
+        }
+
+        <section class="sc-id-legend-wrap" aria-labelledby="identity-legend">
+            <h2 class="visually-hidden" id="identity-legend">Status</h2>
+            <ul class="sc-id-legend">
+                @foreach (var entry in Model.Legend)
+                {
+                    <li>
+                        <partial name="_IdentityStatusBadge" model="entry.Status" />
+                        <span>@entry.Description</span>
+                    </li>
+                }
+            </ul>
+        </section>
+
+        <div class="sc-id-summary">
+            <section class="sc-id-insights" aria-labelledby="identity-insights">
+                <h2 class="sc-id-insights__title" id="identity-insights">Key Tactical Insights</h2>
+
+                @if (Model.Insights.Count == 0)
+                {
+                    <p>None of the measured markers has a value for this selection.</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var insight in Model.Insights)
+                        {
+                            <li><strong>@insight.Label – @insight.MarkerName:</strong> @insight.Text</li>
+                        }
+                    </ul>
+                    <p class="sc-id-insights__note">
+                        Written from the numbers on this page. Markers that are not measured are left out.
+                    </p>
+                }
+            </section>
+
+            <section class="sc-id-highlight" aria-labelledby="identity-highlight">
+                <p class="sc-id-highlight__eyebrow" id="identity-highlight">Player Highlight</p>
+
+                @if (Model.Highlight is not { } highlight)
+                {
+                    <p>No Start player completed a dribble or made an interception in this selection.</p>
+                }
+                else if (highlight.Player is { } player)
+                {
+                    <h2 class="sc-id-highlight__name">@player</h2>
+                    @* Player is only set when one person leads both player-level markers, so there
+                       are exactly two leaders here. *@
+                    var first = highlight.Leaders[0];
+                    var second = highlight.Leaders[1];
+                    <p>
+                        @(Model.IsAverage ? "Across all matches" : "In this match"), leading the team in both
+                        <strong>@first.MarkerName (@first.Value)</strong> and <strong>@second.MarkerName (@second.Value)</strong>.
+                    </p>
+                }
+                else
+                {
+                    <h2 class="sc-id-highlight__name">Team leaders</h2>
+                    <ul class="sc-id-highlight__leaders">
+                        @foreach (var leader in highlight.Leaders)
+                        {
+                            <li>
+                                <strong>@leader.MarkerName</strong>
+                                @ManyNames(leader.Players)
+                                (@leader.Value@(leader.Players.Count > 1 ? " each" : string.Empty))
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @if (Model.Highlight is { } shown)
+                {
+                    <details class="sc-id-source">
+                        <summary>Source<span class="visually-hidden"> of the player highlight</span></summary>
+                        <p>
+                            @shown.Scope. Drib and I per player, from Appendix, Player Stats: Defensive
+                            Actions / Other.
+                        </p>
+                        <partial name="_IdentitySources" model="shown.Sources" />
+                    </details>
+                }
+            </section>
+        </div>
+
+        <section class="sc-section" aria-labelledby="identity-development">
+            <div class="sc-rule"></div>
+            <h2 id="identity-development">Development over time</h2>
+
+            @if (Model.Trends.Count == 0)
+            {
+                <p class="sc-lead">Development needs at least two matches. @Model.TeamName has one.</p>
+            }
+            else
+            {
+                <p class="sc-lead">
+                    Every match for @Model.TeamName, oldest first, for the markers the match reports
+                    can answer. Each dot is coloured by its status@(Model.Match is null ? string.Empty : "; the selected match is ringed").
+                </p>
+
+                <div class="sc-id-trends">
+                    @foreach (var trend in Model.Trends)
+                    {
+                        <partial name="_IdentityTrend" model="@(new TrendChartModel(trend, Model.TeamKey, Model.Match?.Id))" />
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="sc-section sc-section--last">
+            <p class="sc-small sc-muted">
+                Match data extracted from StatsBomb match reports
+                @if (Model.DataGeneratedAt is { } generated)
+                {
+                    <text>on @generated.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</text>
+                }.
+                Gold Standard transcribed from @standard.Source.File (version @standard.Version).
+            </p>
+        </section>
+    }
+</div>

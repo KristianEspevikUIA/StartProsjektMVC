@@ -493,3 +493,9 @@ $RECYCLE.BIN/
 
 # Lokale hemmeligheter
 appsettings.Local.json
+
+# Identity Benchmarking: kampdata hentet ut av StatsBomb-rapportene. Rapportene navngir
+# spillerne, de fleste er mindreårige, og repoet er offentlig. Bare README-en følger med.
+# Se docs/identity-benchmarking.md.
+StartPraksisGruppe3Prosjekt/Data/Identity/Matches/*
+!StartPraksisGruppe3Prosjekt/Data/Identity/Matches/README.md

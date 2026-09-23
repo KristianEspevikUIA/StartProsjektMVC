@@ -7,6 +7,7 @@ using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
+using StartPraksisGruppe3Prosjekt.Services.Succession;
 using Xunit;
 
 namespace StartPraksisGruppe3Prosjekt.Tests;
@@ -47,7 +48,7 @@ public sealed class AdminGdprTests : IAsyncLifetime
 
         var json = await ExportAsync();
 
-        // The seven sections the README promises. A missing one is an unanswered request.
+        // The sections the README promises. A missing one is an unanswered request.
         Assert.Contains("\"Player\"", json);
         Assert.Contains("\"Guardianships\"", json);
         Assert.Contains("\"Responses\"", json);
@@ -55,6 +56,8 @@ public sealed class AdminGdprTests : IAsyncLifetime
         Assert.Contains("\"ConsentEvents\"", json);
         Assert.Contains("\"AccessEvents\"", json);
         Assert.Contains("\"FeedbackReleases\"", json);
+        Assert.Contains("\"SuccessionAssessments\"", json);
+        Assert.Contains("\"SuccessionProfile\"", json);
 
         // Present is not the same as populated: an empty array would satisfy every assertion
         // above. These are the contents.
@@ -62,6 +65,9 @@ public sealed class AdminGdprTests : IAsyncLifetime
         Assert.Contains("\"Answers\"", json);                // inside Responses and submissions
         Assert.Contains("\"QuestionKey\": \"commitment-1\"", json);
         Assert.Contains("\"Context\": \"Coach/FiveCPlayer\"", json);
+        Assert.Contains("\"RatingKey\": \"physical\"", json);
+        Assert.Contains("Fictional note for the export test.", json);
+        Assert.Contains("\"ContractType\": \"youth\"", json);
 
         // The gap is never stored, so it cannot be exported. Said out loud because "it is
         // missing" and "it does not exist" look identical in a JSON file.
@@ -130,7 +136,7 @@ public sealed class AdminGdprTests : IAsyncLifetime
     // -----------------------------------------------------------------------------------
 
     [Fact]
-    public async Task Deleting_takes_the_answers_the_consent_log_the_guardians_and_the_audit_rows()
+    public async Task Deleting_takes_the_answers_the_consent_log_the_guardians_the_audit_rows_and_the_succession_ratings()
     {
         var seeded = await SeedOneOfEverythingAsync();
         var playerId = _factory.PlayerId;
@@ -148,6 +154,9 @@ public sealed class AdminGdprTests : IAsyncLifetime
             Assert.True(await db.Guardianships.AnyAsync(g => g.PlayerId == playerId));
             Assert.True(await db.PlayerAccessEvents.AnyAsync(a => a.PlayerId == playerId));
             Assert.True(await db.FeedbackReleases.AnyAsync(f => f.PlayerId == playerId));
+            Assert.True(await db.SuccessionAssessments.AnyAsync(a => a.PlayerId == playerId));
+            Assert.True(await db.SuccessionRatings.AnyAsync());
+            Assert.True(await db.PlayerSuccessionProfiles.AnyAsync(p => p.PlayerId == playerId));
         });
 
         var response = await DeleteAsync("TS-TEST-01");
@@ -165,6 +174,9 @@ public sealed class AdminGdprTests : IAsyncLifetime
             Assert.False(await db.Guardianships.AnyAsync(g => g.PlayerId == playerId));
             Assert.False(await db.PlayerAccessEvents.AnyAsync(a => a.PlayerId == playerId));
             Assert.False(await db.FeedbackReleases.AnyAsync(f => f.PlayerId == playerId));
+            Assert.False(await db.SuccessionAssessments.AnyAsync(a => a.PlayerId == playerId));
+            Assert.False(await db.SuccessionRatings.AnyAsync());
+            Assert.False(await db.PlayerSuccessionProfiles.AnyAsync(p => p.PlayerId == playerId));
 
             // The other player is the control. A cascade that took the whole table would
             // satisfy every assertion above.
@@ -427,6 +439,23 @@ public sealed class AdminGdprTests : IAsyncLifetime
 
             responseId = answered.Id;
             itemId = item.Id;
+        });
+
+        // A coach's succession assessment -- with a written note, the kind of free text an
+        // access request cannot skip -- and the contract details, through the real service.
+        await _factory.WithServicesAsync(async services =>
+        {
+            var planning = services.GetRequiredService<ISuccessionPlanningService>();
+            var catalog = services.GetRequiredService<ISuccessionCatalog>();
+            var cycle = catalog.CycleOf(DateOnly.FromDateTime(DateTime.UtcNow));
+
+            var assessment = SuccessionMathTests.Assessment(StartCompassFactory.CoachUserId, 7, 7, 7, 7, 7, 7);
+            assessment.FirstPosition = "RB";
+            assessment.Notes = "Fictional note for the export test.";
+
+            await planning.SaveAsync(_factory.PlayerId, StartCompassFactory.CoachUserId, cycle, assessment);
+            await planning.SaveProfileAsync(
+                _factory.PlayerId, "youth", new DateOnly(2027, 6, 30), "u17", StartCompassFactory.CoachUserId);
         });
 
         // An audit row, written by a coach actually opening the player rather than by hand.

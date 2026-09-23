@@ -85,6 +85,12 @@ internal sealed class FakePlayerAccessLog : IPlayerAccessLog
         int? roundId = null,
         CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    public Task RecordManyAsync(
+        ClaimsPrincipal user,
+        IReadOnlyCollection<int> playerIds,
+        string context,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     public Task<IReadOnlyList<PlayerAccessEvent>> GetForPlayerAsync(
         int playerId,
         int take = 100,

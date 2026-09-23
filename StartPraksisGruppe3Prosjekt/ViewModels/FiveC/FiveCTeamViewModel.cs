@@ -70,6 +70,17 @@ public class FiveCTeamViewModel
     public int CoachAnsweredCount => Players.Count(p => p.CoachHasAnswered);
 
     /// <summary>
+    /// The players nobody has answered about yet, in the page's own order -- the list a
+    /// coach chases before the round closes.
+    ///
+    /// Rows the coach may not see the numbers for are in here too. Who answered is neutral
+    /// progress, the same fact the tick column carries for every row: it says that somebody
+    /// answered, never what they answered, so it needs no consent to show.
+    /// </summary>
+    public IReadOnlyList<PlayerRow> AwaitingPlayers =>
+        Players.Where(p => !p.PlayerHasAnswered).ToList();
+
+    /// <summary>
     /// How many players are flagged for follow-up among the rows this coach may see.
     /// Necessarily an undercount when some rows are withheld, which the view says out loud.
     /// </summary>

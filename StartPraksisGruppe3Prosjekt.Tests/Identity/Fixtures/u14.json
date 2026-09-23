@@ -1,0 +1,81 @@
+{
+  "//": [
+    "A FICTIONAL squad in the format scripts/identity/extract_stats.py writes. No real team,",
+    "player or match. The real files are not in git -- they name players -- so every test that",
+    "needs match data reads this one. The numbers are chosen to land on known statuses; see",
+    "IdentityBenchmarkBuilderTests before changing any of them."
+  ],
+  "schemaVersion": 1,
+  "team": "U14",
+  "teamName": "Start U14",
+  "generatedAt": "2026-09-16T12:00:00Z",
+  "generatedBy": "test fixture",
+  "sourceFormat": "Statsbomb Match Report Version 1.1",
+  "matches": [
+    {
+      "id": "2026-05-01-away-provestad-u14",
+      "date": "2026-05-01",
+      "competition": "Testserien G14 2026",
+      "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf",
+      "homeTeam": "Prøvestad U14",
+      "awayTeam": "Start U14",
+      "startIsHome": false,
+      "goals": { "start": 3, "opponent": 1, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 } },
+      "metrics": {
+        "possessionPct": { "value": 45, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "passCompletionPct": { "value": 84, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
+        "successfulDribbles": { "value": 30, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 22 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "interceptions": { "value": 26, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 22 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
+      },
+      "players": [
+        { "name": "Alfa Testspiller", "successfulDribbles": 20, "interceptions": 13 },
+        { "name": "Bravo Testspiller", "successfulDribbles": 10, "interceptions": 13 },
+        { "name": "Charlie Testspiller", "successfulDribbles": 0, "interceptions": 0 }
+      ],
+      "playersSource": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 22 }
+    },
+    {
+      "id": "2026-04-01-home-testby-u14",
+      "date": "2026-04-01",
+      "competition": "Testserien G14 2026",
+      "file": "Testserien G14 2026 Start U14 Testby U14.pdf",
+      "homeTeam": "Start U14",
+      "awayTeam": "Testby U14",
+      "startIsHome": true,
+      "goals": { "start": 2, "opponent": 2, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 } },
+      "metrics": {
+        "possessionPct": { "value": 60, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "passCompletionPct": { "value": 80, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
+        "successfulDribbles": { "value": 12, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 23 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "interceptions": { "value": 20, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 23 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
+      },
+      "players": [
+        { "name": "Alfa Testspiller", "successfulDribbles": 7, "interceptions": 5 },
+        { "name": "Bravo Testspiller", "successfulDribbles": 5, "interceptions": 9 },
+        { "name": "Charlie Testspiller", "successfulDribbles": 0, "interceptions": 6 }
+      ],
+      "playersSource": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 23 }
+    },
+    {
+      "id": "2026-06-01-home-eksempel-u14",
+      "date": "2026-06-01",
+      "competition": "Testserien G14 2026",
+      "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf",
+      "homeTeam": "Start U14",
+      "awayTeam": "Eksempel U14",
+      "startIsHome": true,
+      "goals": { "start": 0, "opponent": 4, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 } },
+      "metrics": {
+        "possessionPct": { "value": 51, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "passCompletionPct": { "value": 86, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
+        "successfulDribbles": { "value": 3, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 24 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "interceptions": { "value": 10, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 24 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
+      },
+      "players": [
+        { "name": "Alfa Testspiller", "successfulDribbles": 3, "interceptions": 10 },
+        { "name": "Bravo Testspiller", "successfulDribbles": 0, "interceptions": 0 }
+      ],
+      "playersSource": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 24 }
+    }
+  ]
+}

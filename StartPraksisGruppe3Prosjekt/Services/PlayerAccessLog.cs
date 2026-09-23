@@ -91,6 +91,66 @@ public sealed class PlayerAccessLog : IPlayerAccessLog
     }
 
     /// <inheritdoc />
+    public async Task RecordManyAsync(
+        ClaimsPrincipal user,
+        IReadOnlyCollection<int> playerIds,
+        string context,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId) || playerIds.Count == 0)
+        {
+            return;
+        }
+
+        var ids = playerIds.Distinct().ToList();
+
+        // The same rule as one at a time: a player looking at a page that lists them is not
+        // somebody else looking at them.
+        var self = await _db.Players
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.Id) && p.UserId == userId)
+            .Select(p => p.Id)
+            .ToListAsync(cancellationToken);
+
+        var toLog = ids.Except(self).ToList();
+        if (toLog.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            // A context of its own, for the reasons given in RecordAsync.
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var role = RoleOf(user);
+            var now = DateTimeOffset.UtcNow;
+
+            db.PlayerAccessEvents.AddRange(toLog.Select(playerId => new PlayerAccessEvent
+            {
+                PlayerId = playerId,
+                ViewedByUserId = userId,
+                ViewedByRole = role,
+                Context = context,
+                OccurredAt = now
+            }));
+
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to record {Count} player access events: user {UserId} viewed them from {Context}.",
+                toLog.Count,
+                userId,
+                context);
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<PlayerAccessEvent>> GetForPlayerAsync(
         int playerId,
         int take = 100,

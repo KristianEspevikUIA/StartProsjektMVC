@@ -2,25 +2,55 @@
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
 
+@*
+    The account menu.
+
+    The signed-in address used to sit in the menu bar as a link of its own, in the same
+    uppercase, letter-spaced type as the navigation -- about as wide as the four links before
+    it put together, for something nobody clicks twice a season. It is now one round button
+    with the first letter on it, and the address, the account page and Log out are behind it.
+
+    On a phone the menu is already folded away behind the toggler, so the button would be a
+    second fold inside the first. Below the navbar breakpoint the stylesheet hides it and
+    shows the three items as ordinary menu rows -- see .sc-account.
+*@
 <ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
-    <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index" title="My account">
-            @UserManager.GetUserName(User)
-        </a>
-    </li>
-    <li class="nav-item">
-        <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout"
-              asp-route-returnUrl="@Url.Action("Index", "Home")" method="post">
-            <button type="submit" class="nav-link btn btn-link text-dark border-0">Log out</button>
-        </form>
+    var userName = UserManager.GetUserName(User) ?? "";
+    var initial = userName.Length > 0 ? char.ToUpperInvariant(userName[0]).ToString() : "?";
+
+    <li class="nav-item dropdown sc-account">
+        <button class="sc-account__toggle" type="button" id="sc-account-toggle"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-label="Account: @userName" title="@userName">
+            <span class="sc-account__avatar" aria-hidden="true">@initial</span>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-end sc-account__menu" aria-labelledby="sc-account-toggle">
+            <li class="sc-account__who">
+                <span class="sc-account__who-label">Signed in as</span>
+                <span class="sc-account__who-name">@userName</span>
+            </li>
+            <li>
+                <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">My account</a>
+            </li>
+            <li>
+                <a class="dropdown-item" asp-area="" asp-controller="Help" asp-action="Index">Help</a>
+            </li>
+            <li>
+                <form asp-area="Identity" asp-page="/Account/Logout"
+                      asp-route-returnUrl="@Url.Action("Index", "Home")" method="post">
+                    <button type="submit" class="dropdown-item">Log out</button>
+                </form>
+            </li>
+        </ul>
     </li>
 }
 else
 {
     <li class="nav-item">
-        <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+        <a class="nav-link" asp-area="Identity" asp-page="/Account/Login">Log in</a>
     </li>
 }
 </ul>

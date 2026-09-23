@@ -6,10 +6,16 @@
 
     Interface language is English, matching the StartCompass site and the wireframes.
 
-    Two things worth knowing before editing this file:
+    Three things worth knowing before editing this file:
 
       * The CSP has no unsafe-inline. No <style> block and no style="" attribute here.
         Everything visual is in wwwroot/css/startcompass.css.
+
+      * There is deliberately no scoped stylesheet. A _Layout.cshtml.css compiles to
+        "a[b-xxxxx]" selectors -- two classes' worth of specificity, loaded after
+        startcompass.css -- so a single-class .sc- rule loses to it. The template's
+        "a { color: #0077cc }" beat the skip link that way and rendered it blue on black.
+        Anything visual belongs in startcompass.css, where the whole system can see it.
 
       * A view that starts with a full-bleed hero sets ViewData["FullWidth"] = true. Every
         other view keeps the Bootstrap .container it was written against.
@@ -47,7 +53,6 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/startcompass.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/StartPraksisGruppe3Prosjekt.styles.css" asp-append-version="true" />
 </head>
 <body>
     @*
@@ -59,8 +64,10 @@
 
     <header class="sc-header">
         <nav class="navbar navbar-expand-lg navbar-light">
-            <div class="sc-page d-flex align-items-center justify-content-between w-100">
-                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+            @* flex-wrap so that the folded menu drops onto its own row under the brand on a
+               phone. Without it the open menu squeezed in beside the StartCompass mark. *@
+            <div class="sc-page d-flex flex-wrap align-items-center justify-content-between w-100">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index" aria-label="StartCompass, IK Start – home">
                     <span class="sc-brand__name">StartCompass</span>
                     <span class="sc-brand__sub">IK Start</span>
                 </a>
@@ -72,10 +79,10 @@
                 </button>
 
                 <div class="navbar-collapse collapse" id="sc-nav">
+                    @* No "Home" link: the StartCompass mark above is the way home, as it is on
+                       most sites, and a menu item saying the same thing again was one more
+                       word in a bar that had too many. *@
                     <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="@NavClass("Home")" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
                         @if (User.Identity?.IsAuthenticated == true)
                         {
                             <li class="nav-item">
@@ -86,6 +93,20 @@
                         {
                             <li class="nav-item">
                                 <a class="@NavClass("Coach")" asp-controller="Coach" asp-action="Index">My teams</a>
+                            </li>
+                        }
+                        @if (User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin))
+                        {
+                            @* Same roles as IdentityController. The page names players, so the
+                               link is never shown to a player or a guardian. *@
+                            <li class="nav-item">
+                                <a class="@NavClass("Identity")" asp-controller="Identity" asp-action="Index">Identity</a>
+                            </li>
+
+                            @* Same roles as SuccessionController. The coaches' ratings of each
+                               player are staff-only, so a player or a guardian never sees the link. *@
+                            <li class="nav-item">
+                                <a class="@NavClass("Succession")" asp-controller="Succession" asp-action="Index">Succession</a>
                             </li>
                         }
                         @if (User.IsInRole(Roles.Guardian))
@@ -138,6 +159,11 @@
     <footer class="sc-footer">
         <div class="sc-page">
             StartCompass · IK Start ·
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a asp-area="" asp-controller="Help" asp-action="Index">Help</a>
+                <text>·</text>
+            }
             <a asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>

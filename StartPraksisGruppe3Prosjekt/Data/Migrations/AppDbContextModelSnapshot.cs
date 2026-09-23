@@ -607,6 +607,44 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.ToTable("PlayerDeletionEvents");
                 });
 
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.PlayerSuccessionProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("ContractEndsOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ContractType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TrainingGroup")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlayerId")
+                        .IsUnique();
+
+                    b.ToTable("PlayerSuccessionProfiles");
+                });
+
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Response", b =>
                 {
                     b.Property<int>("Id")
@@ -639,6 +677,131 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Responses");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SuccessionAssessment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AbilityCategory")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("CatalogVersion")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateOnly>("CycleStartsOn")
+                        .HasColumnType("date");
+
+                    b.Property<bool?>("ExternalNeeded")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FirstPosition")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("KeyDevelopmentFocus")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool?>("PathwayBlocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("PersonalReadiness")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Projection0To6Months")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Projection18To36Months")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Projection6To18Months")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("RatedAs")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("RaterUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("SecondPosition")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SuccessionRisk")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("SuperStrengths")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ThirdPosition")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WhatNow")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CycleStartsOn");
+
+                    b.HasIndex("PlayerId", "CycleStartsOn", "RaterUserId")
+                        .IsUnique();
+
+                    b.ToTable("SuccessionAssessments");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SuccessionRating", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssessmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RatingKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssessmentId", "RatingKey")
+                        .IsUnique();
+
+                    b.ToTable("SuccessionRatings");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SurveyRound", b =>
@@ -878,6 +1041,17 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Round");
                 });
 
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.PlayerSuccessionProfile", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
+                });
+
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Response", b =>
                 {
                     b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
@@ -895,6 +1069,28 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Navigation("Player");
 
                     b.Navigation("Round");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SuccessionAssessment", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SuccessionRating", b =>
+                {
+                    b.HasOne("StartPraksisGruppe3Prosjekt.Models.SuccessionAssessment", "Assessment")
+                        .WithMany("Ratings")
+                        .HasForeignKey("AssessmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Assessment");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.FiveCSubmission", b =>
@@ -921,6 +1117,11 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.Response", b =>
                 {
                     b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SuccessionAssessment", b =>
+                {
+                    b.Navigation("Ratings");
                 });
 
             modelBuilder.Entity("StartPraksisGruppe3Prosjekt.Models.SurveyRound", b =>

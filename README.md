@@ -19,9 +19,10 @@ refleksjonen som avslutter perioden), skjemalisten med
 filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten med snitt per
 kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
 mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, admin-siden for
-perioder, og GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
+perioder, GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
 `/Admin/Delete/{id}`, begge per spiller — siden som lar admin plukke spiller er en del av
-brukeradministrasjonen og er ikke bygget ennå).
+brukeradministrasjonen og er ikke bygget ennå), Identity Benchmarking, og **succession
+planning** — trenernes Excel-ark som sider i appen (se under).
 
 **Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
 `Search` og `ScoringService`), samtykkeskjemaet for foresatte, og brukeradministrasjon i
@@ -106,7 +107,8 @@ Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.Ens
 oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
 først bestemmer passordet for alle.
 
-**Det er én trenerkonto.** Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
+**Det er én trenerkonto for lagene.** (Succession planning har to ekstra, se under tabellen.)
+Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
 den gjenværende: lagene ble flyttet over, og kontoen fjernet. Sammenslåingen ligger i
 `SeedData.ConsolidateCoachAsync` og kjører ved hver oppstart, ikke bare på en tom base —
 den delte basen hadde begge kontoene lenge før steget fantes. Dukker kontoen opp i en
@@ -117,9 +119,14 @@ som gjorde hva.
 | --- | --- |
 | `admin@ikstart.example` | Admin |
 | `trener.senior@ikstart.example` | Trener (alle lag) |
+| `trener.akademi@ikstart.example`, `trener.utvikling@ikstart.example` | Trener, for succession planning |
 | `spiller.ts0816@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
 | `foresatt.ts1019@example.test` m.fl. | Foresatt |
+
+De to siste trenerkontoene finnes fordi succession planning sammenligner trenere, og én konto
+kan ikke være uenig med seg selv. De har vurderinger i demodataene, og man kan logge inn som en
+av dem og se sin egen kolonne. Se `Data/SeedSuccession.cs`.
 
 Spillerkontoen utledes av koden: `TS-08-16` blir `spiller.ts0816@ikstart.example`. De fire
 kontoene som ble seedet for hånd tidligere følger allerede den regelen, så de gjenkjennes og
@@ -164,12 +171,18 @@ Det som testes er reglene som ikke tåler å bli feil:
   testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
   oppstart.
 - **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
-- **GDPR-innsyn og -sletting** (`AdminGdprTests`): at eksporten har med alle sju tabellene om
-  spilleren og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
+- **GDPR-innsyn og -sletting** (`AdminGdprTests`): at eksporten har med alle tabellene om
+  spilleren — også trenernes succession-vurderinger og kontraktsopplysningene — og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
   innsynet havner i revisjonsloggen, at slettingen faktisk tar svar, samtykkelogg,
-  foresattkoblinger, loggrader og Identity-kontoen — kontrollert både før og etter, siden
+  foresattkoblinger, loggrader, succession-vurderinger og Identity-kontoen — kontrollert både før og etter, siden
   hver eneste påstand ellers ville holdt mot en tom base — at den etterlater et spor som
   overlever spilleren, og at den ikke skjer uten at spillerkoden er skrevet inn.
+- **Succession planning** (`SuccessionMathTests`, `SuccessionCatalogTests`,
+  `SuccessionPageTests`): at overall er snittet av de seks vurderingene og at en tom vurdering
+  ikke teller som 0, at hver trener teller én gang, at uavgjort kategori er «Split», uker til
+  klar ut fra trenden, at beste ellever aldri bruker en spiller to ganger og foretrekker en
+  naturlig i posisjonen, at fila holder arkets lister, og at bare trenere vurderer — spillere og
+  foresatte får 403, også om seg selv.
 - **Lagsnittet** (`TeamAggregateTests`): at det er et snitt av spillere og ikke av svar, at
   grensen på tre respondenter holder per rolle, at «holdt tilbake» og «ingen har svart» er to
   ulike tilstander, og at et snitt per påstand er skåret slik at en reversert påstand peker
@@ -279,6 +292,14 @@ Seedingen ligger på **én** periode i alle miljøer: `Autumn <år>`, åpen. Det
 til klubben har bestemt hva de virkelige periodene er. Andre perioder fjernes ved oppstart —
 men **bare hvis de er tomme**. En periode med svar blir stående, for sletting tar svarene med
 seg, og det er ikke en avveining et seed-steg skal gjøre alene.
+
+Plassholderen **holdes** åpen, den blir ikke bare opprettet åpen. Den hadde tidligere et
+vindu på tre uker og stengte seg selv tre uker senere: seedingen spurte bare om det fantes en
+periode med det navnet, så hver senere oppstart hoppet rett forbi den, og en base seedet i
+august hadde ingen åpen periode i september. Nå åpnes den igjen ved oppstart — men **bare når
+ingen annen periode er åpen**. Har klubben laget sine egne perioder, er plassholderen ferdig
+med jobben sin, og en periode som er stengt fra `Admin/Periods` er stengt med vilje. Vinduet
+er 90 dager, som er lenger enn en beslutning om virkelige perioder pleier å ta.
 
 **I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
 oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
@@ -556,6 +577,40 @@ en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelse
 
 ---
 
+## Identity Benchmarking
+
+Lagenes kamptall fra StatsBomb-rapportene mot IK Starts Identity Gold Standard, på
+`/Identity`. Bare trener og administrator har tilgang.
+
+- **Gold Standard:** `Data/Identity/gold-standard.json`, transkribert ordrett fra klubbens PDF.
+  `IdentityCatalogTests` holder fila til dokumentet.
+- **Kampdata:** hentes ut med `scripts/identity/extract_stats.py` til `Data/Identity/Matches/`,
+  som er **git-ignorert** fordi rapportene navngir spillere.
+- **Not measured:** 4 av 10 markører kan måles fra rapportene (Possession, Pass Accuracy,
+  Dribbles, Interceptions). De andre seks vises som «Not measured» med begrunnelse, aldri med
+  et estimat.
+
+**Alt om dette: [`docs/identity-benchmarking.md`](docs/identity-benchmarking.md).**
+
+## Succession planning
+
+Trenernes Excel-ark «IK Start Succession Planning» som sider i appen, på `/Succession`. Trener
+og administrator har tilgang, men bare trenere vurderer.
+
+- **Hver trener vurderer hver spiller hver åttende uke:** seks vurderinger fra 1 til 10,
+  posisjoner, kategori, prognoser og notater, altså de samme kolonnene som arket. Vurderingene
+  lagres hver for seg, og å vurdere på nytt i samme syklus er en retting.
+- **Squad board** legger trenerne sammen: én rad per spiller, med arkets fargeskala, og en fane
+  med spillerne der trenerne er uenige.
+- **Best eleven** plukker de beste i 4-3-3 (eller 4-2-3-1, 3-5-2) fra de vurderte spillerne, og
+  viser hvem som er nestemann i hver posisjon.
+- **Off og uker til klar:** hvor langt unna 8 spilleren er, og hvor mange uker det tar med
+  trenden så langt.
+- **Lister og terskler** ligger i `Data/Succession/succession-planning.json`, validert ved oppstart.
+- **Ingen navn.** Arket har ekte navn, appen har koder. Arket ligger ikke i repoet.
+
+**Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
+
 ## Struktur
 
 ```
@@ -565,25 +620,33 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ GuardianController.cs     foresatt ser eget barn
 │  ├─ PlayerController.cs       spiller ser egne svar
 │  ├─ SurveyController.cs       runder, utfylling, lagring
-│  └─ AdminController.cs        brukere, lag, GDPR
+│  ├─ AdminController.cs        brukere, lag, GDPR
+│  ├─ IdentityController.cs     Identity Benchmarking
+│  └─ SuccessionController.cs   succession planning
 ├─ Models/                      entiteter, enums og PlayerRules
 ├─ Data/
 │  ├─ AppDbContext.cs
+│  ├─ Identity/                gold-standard.json (+ Matches/, git-ignorert)
+│  ├─ Succession/              succession-planning.json (lister, terskler, formasjoner)
 │  ├─ Migrations/
-│  └─ SeedData.cs
+│  ├─ SeedData.cs
+│  └─ SeedSuccession.cs         oppdiktede succession-vurderinger
 ├─ Services/
 │  ├─ IScoringService.cs + ScoringService.cs
 │  ├─ IConsentService.cs + ConsentService.cs
 │  ├─ IPeriodService.cs + PeriodService.cs          perioder, én vei inn
 │  ├─ IFeedbackReleaseService.cs + …                trenerens frigivelse
 │  ├─ IPlayerAccessLog.cs + PlayerAccessLog.cs      revisjonsloggen
-│  └─ FiveC/                                        spørsmålskatalog, lagring, analyse
+│  ├─ FiveC/                                        spørsmålskatalog, lagring, analyse
+│  ├─ Identity/                                     Gold Standard, status, snitt, innsikter
+│  └─ Succession/                                   lister, utregninger, lagring
 ├─ Authorization/               policyer, krav og handlere
 ├─ ViewModels/
-├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Shared/
+├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Succession/ Shared/
 └─ Program.cs
 
 StartPraksisGruppe3Prosjekt.Tests/   xUnit, SQLite i minnet. Se «Tester».
+scripts/identity/extract_stats.py    StatsBomb-PDF → kampdata for Identity Benchmarking
 .github/workflows/ci.yml             build + test på push og pull request
 ```
 
@@ -604,6 +667,12 @@ Views-mappene følger controlleren: eier du `CoachController`, eier du `Views/Co
 `ConsentService.GetCurrentLevelsAsync` (Brage), `CoachController` og `Views/Coach/` (Taavi),
 `PlayerController` og `GuardianController` (Brage), `SurveyController` (Victor),
 `Views/Shared/_Layout.cshtml` (Taavi). De eldre ti-påstands-TODO-ene er urørt.
+
+**Rørt på tvers av eierskapet** under succession planning: menypunktet i
+`Views/Shared/_Layout.cshtml` (Taavi), `SeedData` (Brage: ett kall og tre hjelpere gjort
+`internal`), `IPlayerAccessLog` med `RecordManyAsync`, søkefilteret i `wwwroot/js/survey.js`
+(teller spillere og ikke rader), og en seksjon i `Views/Help/Index.cshtml` som bare vises for
+trenere og administratorer.
 
 ### Migrations: bare én person genererer dem
 

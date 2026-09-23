@@ -93,6 +93,53 @@ public sealed class ScoreCardTests : IAsyncLifetime
         Assert.DoesNotContain("sc-tabs", html);
     }
 
+    /// <summary>
+    /// The way back to the squad is above the player's code, and it lands on Player overview
+    /// -- where the coach came from -- rather than on the team page's first tab. It used to be
+    /// a button under the last section of a six-tab page.
+    /// </summary>
+    [Fact]
+    public async Task The_way_back_is_at_the_top_and_opens_player_overview()
+    {
+        var html = await CoachPageAsync();
+
+        Assert.Contains("class=\"sc-hero__back\"", html);
+        Assert.Contains("#sc-panel-1\"", html);
+        Assert.Contains("Test team · Player overview</a>", html);
+
+        Assert.True(
+            html.IndexOf("sc-hero__back", StringComparison.Ordinal)
+            < html.IndexOf("<h1>", StringComparison.Ordinal),
+            "The way back should come before the heading.");
+
+        Assert.DoesNotContain("Back to Test team", html);
+    }
+
+    /// <summary>
+    /// Three people who agree on a low score: a difference of 0.0 and a follow-up on every
+    /// C. That read as a contradiction, so the notice and the badge both say the flag is the
+    /// player's own average, with the number, and that it is not about disagreement.
+    /// </summary>
+    [Fact]
+    public async Task Follow_up_says_it_is_the_players_own_score_and_not_disagreement()
+    {
+        await AnswerAsync(RespondentType.Player, StartCompassFactory.PlayerUserId, value: 1);
+        await AnswerAsync(RespondentType.Guardian, StartCompassFactory.GuardianUserId, value: 1);
+        await AnswerAsync(RespondentType.Coach, StartCompassFactory.CoachUserId, value: 1);
+
+        // Whitespace flattened: the sentence is wrapped over several lines of the view.
+        var html = System.Text.RegularExpressions.Regex.Replace(await CoachPageAsync(), @"\s+", " ");
+
+        Assert.Contains("TS-TEST-01's own average is below 2 in", html);
+        Assert.Contains("(1.0)", html);
+        Assert.Contains("This is about a low score, not about disagreement.", html);
+        Assert.Contains("href=\"/Help#follow-up\"", html);
+
+        // On the card, beside the difference it is easy to read it as.
+        Assert.Contains("Follow up · own 1.0", html);
+        Assert.Contains("Difference 0.0 across everyone who answered.", html);
+    }
+
     private async Task<string> CoachPageAsync()
     {
         var response = await _factory

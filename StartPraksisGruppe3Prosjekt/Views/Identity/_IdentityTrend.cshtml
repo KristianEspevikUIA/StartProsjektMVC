@@ -1,0 +1,108 @@
+@model TrendChartModel
+@using System.Globalization
+@{
+    // Development over time for one marker: every match, oldest first, against the Elite range.
+    //
+    // Inline SVG, like the 5C charts. The CSP has no unsafe-inline, so every coordinate is a
+    // geometry attribute and every colour is a class.
+    //
+    // Matches are spaced evenly, not by date: the question is "did the next match go better",
+    // and a four-week gap drawn as four times the distance says nothing about that.
+    //
+    // The vertical scale starts at zero and fits the whole Elite range (see AxisMax), so a line
+    // near the top of the chart really is near the top of the range.
+
+    const double width = 320;
+    const double height = 150;
+    const double left = 34;
+    const double right = 10;
+    const double top = 12;
+    const double bottom = 24;
+
+    var trend = Model.Trend;
+    var marker = trend.Marker;
+    var target = marker.Target;
+    var points = trend.Points;
+    var plotWidth = width - left - right;
+    var plotHeight = height - top - bottom;
+
+    string F(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+    double X(int index) => left + (points.Count == 1 ? plotWidth / 2 : index * plotWidth / (points.Count - 1));
+    double Y(double value) => top + plotHeight - Math.Clamp(value, 0, trend.AxisMax) / trend.AxisMax * plotHeight;
+    string Short(DateOnly date) => date.ToString("d MMM", CultureInfo.InvariantCulture);
+
+    var bandLow = target.Direction == TargetDirection.LowerIsBetter ? 0 : target.Min ?? 0;
+    var bandHigh = Math.Min(target.Max ?? trend.AxisMax, trend.AxisMax);
+
+    var summary =
+        $"{marker.Name}, match by match, oldest first: " +
+        string.Join(", ", points.Select(p => $"{Short(p.Date)} {p.DisplayValue}")) +
+        $". Elite range {marker.EliteRange}.";
+}
+
+<article class="sc-id-trend">
+    <h3 class="sc-id-trend__title">@marker.Name</h3>
+    <p class="sc-id-trend__meta">Shaded: elite range @marker.EliteRange</p>
+
+    <svg class="sc-id-trend__chart" viewBox="0 0 @F(width) @F(height)" role="img" aria-label="@summary">
+        <rect class="sc-id-trend__band"
+              x="@F(left)" y="@F(Y(bandHigh))"
+              width="@F(plotWidth)" height="@F(Y(bandLow) - Y(bandHigh))" />
+
+        <line class="sc-id-trend__grid" x1="@F(left)" y1="@F(Y(trend.AxisMax))" x2="@F(width - right)" y2="@F(Y(trend.AxisMax))" />
+        <line class="sc-id-trend__axis" x1="@F(left)" y1="@F(Y(0))" x2="@F(width - right)" y2="@F(Y(0))" />
+
+        <text class="sc-id-trend__tick" x="@F(left - 6)" y="@F(Y(trend.AxisMax) + 3)" text-anchor="end">@F(trend.AxisMax)@target.Unit</text>
+        <text class="sc-id-trend__tick" x="@F(left - 6)" y="@F(Y(0) + 3)" text-anchor="end">0</text>
+
+        @* Always two or more points: the builder draws no chart for a single match. The SVG
+           <text> elements also have to stay outside any @if -- inside a code block Razor reads
+           <text> as its own tag. *@
+        <text class="sc-id-trend__tick" x="@F(X(0))" y="@F(height - 6)" text-anchor="start">@Short(points[0].Date)</text>
+        <text class="sc-id-trend__tick" x="@F(X(points.Count - 1))" y="@F(height - 6)" text-anchor="end">@Short(points[^1].Date)</text>
+
+        <polyline class="sc-id-trend__line"
+                  points="@string.Join(" ", points.Select((p, i) => $"{F(X(i))},{F(Y(p.Value))}"))" />
+
+        @for (var i = 0; i < points.Count; i++)
+        {
+            var point = points[i];
+            var selected = point.MatchId == Model.SelectedMatchId;
+
+            <circle class="sc-id-dot sc-id-dot--@IdentityStatuses.CssKey(point.Status)@(selected ? " sc-id-dot--selected" : string.Empty)"
+                    cx="@F(X(i))" cy="@F(Y(point.Value))" r="@(selected ? "6" : "4")">
+                <title>@point.Label: @point.DisplayValue (@IdentityStatuses.Label(point.Status))</title>
+            </circle>
+        }
+    </svg>
+
+    @* The same numbers as text: for a screen reader, for exact values, and as the way to jump
+       to a match. *@
+    <details class="sc-id-source">
+        <summary>Match by match<span class="visually-hidden">: @marker.Name</span></summary>
+        <table class="sc-id-minitable">
+            <thead>
+                <tr>
+                    <th scope="col">Match</th>
+                    <th scope="col">Value</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var point in points)
+                {
+                    <tr>
+                        <td>
+                            <a asp-action="Index" asp-route-team="@Model.TeamKey" asp-route-match="@point.MatchId"
+                               aria-current="@(point.MatchId == Model.SelectedMatchId ? "true" : null)">@point.Label</a>
+                        </td>
+                        <td class="sc-id-minitable__value">@point.DisplayValue</td>
+                        <td>@IdentityStatuses.Label(point.Status)</td>
+                        <td class="sc-id-sources__file">page @point.Source.Page</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </details>
+</article>

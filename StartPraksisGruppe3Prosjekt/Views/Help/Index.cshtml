@@ -1,0 +1,343 @@
+@inject ISuccessionCatalog Succession
+@{
+    ViewData["Title"] = "Help";
+    ViewData["FullWidth"] = true;
+
+    // Every threshold is read from the rules rather than typed here, so this page cannot
+    // come to describe a line the pages no longer draw.
+    var low = FiveCRules.FollowUpThreshold.ToString("0.0");
+    var strong = FiveCRules.StrongScoreThreshold.ToString("0.0");
+    var agree = FiveCRules.AgreementThreshold.ToString("0.0");
+    var large = FiveCRules.LargeDifferenceThreshold.ToString("0.0");
+    var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
+    var followUpAnswers = FiveCRules.MinimumAnswersForFollowUp;
+
+    // Succession planning is for coaches and administrators, and so is its help. A player
+    // reading how the staff rank players would be reading about a page they cannot open.
+    var showSuccession = User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin);
+    var succession = Succession.Settings;
+    var penalty = succession.PositionRankPenalty;
+}
+
+@*
+    How to read the numbers, as questions and short answers.
+
+    This is the method that used to sit as a paragraph above every table on the 5C pages.
+    The pages now say what they show in a line and link here, to the section for that page;
+    the anchors below are those links' targets, so rename one only together with its link.
+
+      #scores           the scale and the colours          (every 5C page)
+      #team-page        Team overview                      (Coach/FiveCTeam)
+      #player-overview  Player overview, and follow-up     (Coach/FiveCTeam)
+      #follow-up        what follow-up is and is not       (Coach/FiveCTeam, Coach/FiveCPlayer)
+      #player-page      one player's page                  (Coach/FiveCPlayer)
+      #succession       succession planning                (Succession/Index, Succession/Player)
+      #succession-eleven how the best eleven is picked     (Succession/Formation)
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <h1>Help</h1>
+        <p class="sc-hero__lead">
+            How to read the numbers in StartCompass: what a score, a difference and a
+            follow-up mean, and why a number is sometimes missing.
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <nav class="sc-section sc-help-toc" aria-label="On this page">
+        <p class="sc-eyebrow">On this page</p>
+        <ul>
+            <li><a href="#scores">Scores and colours</a></li>
+            <li><a href="#team-page">Team overview</a></li>
+            <li><a href="#player-overview">Player overview</a></li>
+            <li><a href="#follow-up">Follow-up</a></li>
+            <li><a href="#player-page">One player's page</a></li>
+            @if (showSuccession)
+            {
+                <li><a href="#succession">Succession planning</a></li>
+                <li><a href="#succession-eleven">The best eleven</a></li>
+            }
+        </ul>
+    </nav>
+
+    <section class="sc-section sc-help" id="scores">
+        <div class="sc-rule"></div>
+        <h2>Scores and colours</h2>
+
+        <h3>What does a score mean?</h3>
+        <p>
+            Every statement is answered on a scale from 1 to 5, from Never to Always. Some
+            statements are worded negatively; in every average those are turned round, so a
+            higher number always means better.
+        </p>
+
+        <h3>What about statements nobody answered?</h3>
+        <p>
+            A statement left blank, or answered “Don't know”, is left out of the average. It is
+            not counted as a 3.
+        </p>
+
+        <h3>What do the colours mean?</h3>
+        <p>
+            An average below @low is <strong>@ScoreLevels.DisplayName(ScoreLevel.Low)</strong>,
+            from @low up to @strong is <strong>@ScoreLevels.DisplayName(ScoreLevel.Middling)</strong>,
+            and @strong or more is <strong>@ScoreLevels.DisplayName(ScoreLevel.Strong)</strong>.
+            The number is rounded to one decimal before it is coloured, so the colour always
+            matches the number you see.
+        </p>
+
+        <h3>What does a dash mean?</h3>
+        <p>
+            A dash is never a zero. It means there is nothing to show: nobody answered, too few
+            answered to show an average, or there is nobody to compare with.
+        </p>
+    </section>
+
+    <section class="sc-section sc-help" id="team-page">
+        <div class="sc-rule"></div>
+        <h2>Team overview</h2>
+
+        <h3>What is the difference between Team overview and Player overview?</h3>
+        <p>
+            <strong>Team overview</strong> is the squad as a whole. It only shows averages, so
+            no single player's answers can be read from it. <strong>Player overview</strong> is
+            one row per player: who has answered, how far apart the answers are, and who needs
+            following up.
+        </p>
+
+        <h3>How is a team average worked out?</h3>
+        <p>
+            It is an average of players, not of answers. Each player's own average is worked
+            out first, and those are then averaged. A player who answered the whole form does
+            not count for more than one who answered half of it.
+        </p>
+
+        <h3>Why is a team number missing?</h3>
+        <p>
+            A number is only shown when at least @minimum people of that role answered. With
+            fewer, the average is close enough to one person's answers to be read as theirs.
+        </p>
+
+        <h3>What is the spread (±)?</h3>
+        <p>
+            How far a typical player is from the squad's average, on the same 1–5 scale. A small
+            spread means the squad answers much the same; a large one means the average describes
+            nobody in particular, and Player overview is where the picture is. A spread is not
+            good or bad on its own: a squad that all answered 1 has a spread of zero.
+        </p>
+
+        <h3>What do “highest” and “lowest” mean?</h3>
+        <p>
+            The C where the players' own average is highest and lowest. Every squad has a lowest
+            C, so it is a place to start, not a problem on its own.
+        </p>
+
+        <h3>What does Over time show?</h3>
+        <p>
+            The players' own averages for each C, period by period. Only what the players said
+            about themselves: a line that mixed in the adults' answers would move when a coach
+            changed their mind. A period where fewer than @minimum players answered has no
+            point, which shows as a gap, not a drop. A change under half a point is shown as
+            steady.
+        </p>
+    </section>
+
+    <section class="sc-section sc-help" id="player-overview">
+        <div class="sc-rule"></div>
+        <h2>Player overview</h2>
+
+        <h3>What do the ticks mean?</h3>
+        <p>
+            That the player, their guardian or you have answered in this period. A tick says who
+            answered, never what they answered.
+        </p>
+
+        <h3>What is a difference score?</h3>
+        <p>
+            How far apart two people's answers are. The answers are paired statement by
+            statement: 0 means they gave the same answer every time, and 4 would be opposite ends
+            of the scale on every statement. <strong>All</strong> is the average across everyone
+            who answered. Below @agree is <strong>@AgreementLevels.DisplayName(AgreementLevel.Agree)</strong>,
+            up to @large is <strong>@AgreementLevels.DisplayName(AgreementLevel.SomeDifference)</strong>,
+            and @large or more is <strong>@AgreementLevels.DisplayName(AgreementLevel.LargeDifference)</strong>.
+        </p>
+
+        <h3>Why does a row have no numbers?</h3>
+        <p>
+            Either the player's consent does not cover it, or nobody has answered yet. The row
+            says which of the two it is. The player is still listed, so you can see that they
+            are on the team.
+        </p>
+    </section>
+
+    <section class="sc-section sc-help" id="follow-up">
+        <div class="sc-rule"></div>
+        <h2>Follow-up</h2>
+
+        <h3>What does follow-up mean?</h3>
+        <p>
+            A player is marked for follow-up in a C when <strong>their own</strong> average in
+            that C is below @low, over at least @followUpAnswers answered statements. It is based
+            only on what the player said about themselves. One low answer is a bad day; an
+            average below @low across a whole C is the player disagreeing with every positive
+            statement in it.
+        </p>
+
+        <h3>Why can a player need follow-up when the difference is 0?</h3>
+        <p>
+            Because follow-up and difference measure different things. The difference is how far
+            apart people's answers are; follow-up is how low the player's own score is. If the
+            player, their guardian and you all answer low, you agree with each other, so the
+            difference is 0 — and the player still needs following up. That is the case where
+            everyone sees the same thing.
+        </p>
+    </section>
+
+    <section class="sc-section @(showSuccession ? "" : "sc-section--last") sc-help" id="player-page">
+        <div class="sc-rule"></div>
+        <h2>One player's page</h2>
+
+        <h3>Differences</h3>
+        <p>
+            The same difference scores as in Player overview, one card per pair: player and
+            coach, player and guardian, coach and guardian, and between all three. A statement
+            only one of them answered is left out, because there is no distance between an
+            answer and a blank.
+        </p>
+
+        <h3>The five C's</h3>
+        <p>
+            One average per C for the player, the guardian and the coach. The shape at the top
+            joins the five averages up; each ring is one point on the scale, and the outer edge
+            is 5.
+        </p>
+
+        <h3>Statements</h3>
+        <p>
+            Every answer exactly as it was given. <strong>Reversed</strong> marks a negatively
+            worded statement: there, a high answer is a low score. The averages already account
+            for it; these raw numbers do not. Rows two or more points apart are marked.
+        </p>
+
+        <h3>Reflection</h3>
+        <p>
+            What each of them wrote at the end of the period: the strongest C, the one to work
+            on next, and what would help. Nothing here is scored.
+        </p>
+
+        <h3>Sharing</h3>
+        <p>
+            Until you share, the player and their guardian only see that you have answered.
+            Sharing lets them see your scores and where you differ — best done alongside a
+            conversation, not instead of one. Stopping hides them again, but does not undo that
+            they were shared.
+        </p>
+
+        <h3>Share the form</h3>
+        <p>
+            A link that opens the form with the player and role already chosen. It gives no
+            access on its own: whoever follows it signs in as themselves.
+        </p>
+    </section>
+
+    @if (showSuccession)
+    {
+        <section class="sc-section sc-help" id="succession">
+            <div class="sc-rule"></div>
+            <h2>Succession planning</h2>
+
+            <h3>Where does it come from?</h3>
+            <p>
+                It is the coaches' succession planning workbook: the same columns, the same lists and
+                the same colours. What is different is that each coach fills in their own row, and the
+                pages put the rows together. Players are shown by code; there are no names in StartCompass.
+            </p>
+
+            <h3>How often?</h3>
+            <p>
+                Every @succession.Cycle.LengthWeeks weeks. Each cycle has fixed dates, and you rate in the one
+                that is open now. Rating a player again in the same cycle replaces your rating; earlier
+                cycles are kept as history. Only coaches rate. Players and guardians never see this.
+            </p>
+
+            <h3>What is overall readiness?</h3>
+            <p>
+                The average of the @succession.Ratings.Count ratings, as in the workbook. The one difference
+                is that a blank rating is left out instead of counted as 0, but the form asks for all of
+                them anyway. @succession.ReadyAt.ToString("0") or more is <strong>Ready</strong>,
+                @succession.DevelopingAt.ToString("0") to @succession.ReadyAt.ToString("0") is
+                <strong>Developing</strong>, and below that is <strong>Not yet</strong>. These are the
+                workbook's green, amber and red lights.
+            </p>
+
+            <h3>What does "together" mean?</h3>
+            <p>
+                The average of the coaches who rated the player in the cycle, with each coach counting
+                once. For the ability category and "rated as", the answer most coaches gave wins. If
+                there is a tie, the page says <strong>Split</strong> and does not pick one. For succession
+                risk, the page shows the most severe one any coach gave.
+            </p>
+
+            <h3>When do coaches disagree?</h3>
+            <p>
+                When two coaches are @succession.DisagreementAt.ToString("0") or more points apart on a
+                rating, or split on the ability category. The board lists these players under
+                <strong>Where coaches disagree</strong>. That is a reason to talk, not a mistake to fix.
+            </p>
+
+            <h3>What do "off" and "weeks to ready" mean?</h3>
+            <p>
+                <strong>Off</strong> is how far below @succession.ReadyAt.ToString("0") the player's overall
+                readiness is. <strong>Weeks to ready</strong> is a straight line through every cycle the
+                player has been rated in, extended until it reaches @succession.ReadyAt.ToString("0").
+                It needs at least two cycles. If the line is flat or going down, the page says the
+                player is not closing the gap. If it would take more than @succession.HorizonWeeks weeks,
+                the page gives no number. It is the current rate, not a promise.
+            </p>
+
+            <h3>Why does a row look grey?</h3>
+            <p>
+                Nobody has rated the player in this cycle yet. The row shows the last cycle they were
+                rated in, and says which one.
+            </p>
+        </section>
+
+        <section class="sc-section sc-section--last sc-help" id="succession-eleven">
+            <div class="sc-rule"></div>
+            <h2>The best eleven</h2>
+
+            <h3>Who can play where?</h3>
+            <p>
+                A player can fill a position if any coach listed it among their three positions. It
+                counts as the best rank any coach gave it: if one coach put RB first, RB is a first
+                position for that player.
+            </p>
+
+            <h3>How is the eleven picked?</h3>
+            <p>
+                Each player gets a fit score for each position: their overall readiness, minus
+                @penalty.ElementAtOrDefault(1).ToString("0.0") if it is their second position and
+                @penalty.ElementAtOrDefault(2).ToString("0.0") if it is their third. So a natural in the
+                position goes ahead of someone slightly better who is only covering there. The highest
+                fit is placed first, then the next highest, and so on. Nobody is placed twice. If nobody
+                is listed for a position, it stays empty and says so.
+            </p>
+
+            <h3>What is "next in line"?</h3>
+            <p>
+                The next @SuccessionRules.NextInLine best fits for that position, even if they start
+                somewhere else. That shows who would replace the starter, and whether anyone is ready to.
+                A position with nobody next in line has no successor in the club yet.
+            </p>
+
+            <h3>What does "rated as" do?</h3>
+            <p>
+                It only uses ratings where the coach judged the player against that level, for example
+                1st team. A 7 as a U17 player and a 7 as a 1st team player mean different things.
+            </p>
+        </section>
+    }
+</div>

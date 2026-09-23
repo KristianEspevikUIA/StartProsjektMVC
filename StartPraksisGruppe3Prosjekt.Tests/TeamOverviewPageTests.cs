@@ -1,5 +1,7 @@
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
+using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Models.FiveC;
@@ -41,16 +43,24 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         var html = await TeamPageAsync();
 
         Assert.Contains("Team overview", html);
-        Assert.Contains("All statements", html);
-        Assert.Contains("Per category", html);
+        Assert.Contains("<th scope=\"row\">All statements</th>", html);
         Assert.Contains("Per statement", html);
+
+        // One table, a row per C -- laid out like the player list, which is the part of the
+        // page coaches found easy to read -- rather than a card of bars and prose per C.
+        foreach (var category in Catalog().Questions.Categories)
+        {
+            Assert.Contains(category.Name, html);
+        }
+
+        Assert.DoesNotContain("sc-compare__card", html);
 
         // Above the squad, not below it: the aggregate is the question the page is opened
         // with, and it is the half that names nobody.
         Assert.True(
             html.IndexOf("Team overview", StringComparison.Ordinal)
-            < html.IndexOf("Players</h2>", StringComparison.Ordinal),
-            "The team overview should come before the player list.");
+            < html.IndexOf("Player overview</h2>", StringComparison.Ordinal),
+            "The team overview should come before the player overview.");
 
         // English does not pluralise "coach" by adding an s, and the respondent summary
         // writes the word once for the whole form and once per category. See
@@ -87,10 +97,19 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
 
         var html = await TeamPageAsync();
 
-        // survey.js builds the strip from these, so a missing label is a missing tab.
-        Assert.Contains("data-tab-label=\"Overview\"", html);
-        Assert.Contains("data-tab-label=\"Per statement\"", html);
-        Assert.Contains("data-tab-label=\"Players\"", html);
+        // survey.js builds the strip from these, so a missing label is a missing tab. Two at
+        // the top -- the team, and the players -- and the readings of the team one level down.
+        Assert.Contains("data-tab-label=\"Team overview\"", html);
+        Assert.Contains("data-tab-label=\"Player overview\"", html);
+        Assert.Contains("data-subtab-label=\"Per statement\"", html);
+
+        // Exactly two, in that order. The player page links back to #sc-panel-1 and expects
+        // it to be Player overview; a third top-level panel ahead of it would break that.
+        Assert.Equal(2, Occurrences(html, "data-tab-panel"));
+        Assert.True(
+            html.IndexOf("data-tab-label=\"Team overview\"", StringComparison.Ordinal)
+            < html.IndexOf("data-tab-label=\"Player overview\"", StringComparison.Ordinal),
+            "Player overview should be the second top-level panel.");
 
         // The squad size rides along on the tab.
         Assert.Contains("data-tab-count=\"3\"", html);
@@ -110,9 +129,9 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
 
         var html = await TeamPageAsync();
 
-        Assert.Contains("data-tab-label=\"Overview\"", html);
-        Assert.Contains("data-tab-label=\"Players\"", html);
-        Assert.DoesNotContain("data-tab-label=\"Per statement\"", html);
+        Assert.Contains("data-tab-label=\"Team overview\"", html);
+        Assert.Contains("data-tab-label=\"Player overview\"", html);
+        Assert.DoesNotContain("data-subtab-label=\"Per statement\"", html);
     }
 
     [Fact]
@@ -159,6 +178,31 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         await _factory.AssertOkAsync(response);
 
         return await response.Content.ReadAsStringAsync();
+    }
+
+    private async Task<int> AddClosedRoundAsync(string name)
+    {
+        var id = 0;
+
+        await _factory.WithServicesAsync(async services =>
+        {
+            var db = services.GetRequiredService<AppDbContext>();
+            var now = DateTimeOffset.UtcNow;
+
+            var round = new SurveyRound
+            {
+                Name = name,
+                OpensAt = now.AddDays(-200),
+                ClosesAt = now.AddDays(-150)
+            };
+
+            db.SurveyRounds.Add(round);
+            await db.SaveChangesAsync();
+
+            id = round.Id;
+        });
+
+        return id;
     }
 
     private async Task<int> AddPlayerAsync(string code, string userId)
@@ -209,29 +253,56 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         });
 
     /// <summary>
-    /// The Overview panel holds a second, nested strip: one tab per C, plus the five at a
-    /// glance. Marked with data-subtab-* rather than data-tab-*, because the page-level
-    /// query looks for the latter and would otherwise flatten the two levels into one long
-    /// strip of nine tabs.
+    /// Team overview holds a second, quieter strip: the five C's side by side, every
+    /// statement, and the change over time. Marked with data-subtab-* rather than data-tab-*,
+    /// because the page-level query looks for the latter and would otherwise flatten the two
+    /// levels into one strip.
+    ///
+    /// And no tab per C. There used to be one inside the old Overview panel -- a third row of
+    /// tabs, each repeating statements the Per statement view already groups by C.
     /// </summary>
     [Fact]
-    public async Task The_overview_breaks_down_into_one_tab_per_category()
+    public async Task The_team_overview_has_its_readings_one_level_down_and_no_tab_per_category()
     {
         await ThreeAnswersAsync();
 
         var html = await TeamPageAsync();
 
         Assert.Contains("data-subtabs", html);
-        Assert.Contains("data-subtab-label=\"All five\"", html);
+        // The apostrophe may be encoded; match up to it rather than guess the entity.
+        Assert.Contains("data-subtab-label=\"The five C", html);
+        Assert.Contains("data-subtab-label=\"Per statement\"", html);
 
         foreach (var category in Catalog().Questions.Categories)
         {
-            Assert.Contains($"data-subtab-label=\"{category.Name}\"", html);
+            Assert.DoesNotContain($"data-subtab-label=\"{category.Name}\"", html);
+            Assert.DoesNotContain($"data-tab-label=\"{category.Name}\"", html);
         }
 
-        // The nested panels must not be visible to the page-level strip, or the coach gets
-        // one strip of nine tabs instead of two strips of four and six.
-        Assert.DoesNotContain("data-tab-panel data-tab-label=\"Commitment\"", html);
+        // Every C is still on the page, as a card.
+        foreach (var category in Catalog().Questions.Categories)
+        {
+            Assert.Contains(category.Name, html);
+        }
+    }
+
+    /// <summary>
+    /// One control for the period rather than one button per period. The row of buttons was
+    /// the heaviest thing on the page and grew by one every season.
+    /// </summary>
+    [Fact]
+    public async Task The_period_is_chosen_from_one_select_and_not_a_row_of_buttons()
+    {
+        var earlier = await AddClosedRoundAsync("Spring 2026");
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("class=\"sc-period\"", html);
+        Assert.Contains("name=\"roundId\"", html);
+        Assert.Contains($"<option value=\"{earlier}\"", html);
+
+        // Not a link per period any more.
+        Assert.DoesNotContain($"roundId={earlier}\">", html);
     }
 
     /// <summary>
@@ -303,12 +374,197 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         Assert.Contains("sc-pentagon", await TeamPageAsync());
     }
 
+    /// <summary>
+    /// The page's body is method -- how an average is built, what a spread is, why a bar is
+    /// missing -- and that prose earns its place. What it does not do is answer the question
+    /// the page is opened with on a Sunday evening. The strongest and weakest C were a
+    /// paragraph three tabs and two thousand pixels down; they are now the first thing in
+    /// Team overview, the tab the page opens on, and they are said once.
+    /// </summary>
+    [Fact]
+    public async Task The_page_opens_with_the_short_answer_and_keeps_the_method_under_it()
+    {
+        await ThreeAnswersWithAWeakCategoryAsync();
+
+        var html = await TeamPageAsync();
+
+        Assert.Contains("Where to start", html);
+
+        // Inside Team overview, and ahead of the method.
+        Assert.True(
+            html.IndexOf("data-tab-label=\"Team overview\"", StringComparison.Ordinal)
+            < html.IndexOf("Where to start", StringComparison.Ordinal),
+            "The summary should open the team overview.");
+
+        Assert.True(
+            html.IndexOf("Where to start", StringComparison.Ordinal)
+            < html.IndexOf("All statements", StringComparison.Ordinal),
+            "The summary should come before the method.");
+
+        // Concentration was answered 1 where everything else was answered 5.
+        Assert.Contains("Highest in", html);
+        Assert.Contains("Lowest in", html);
+        Assert.Contains("Concentration</strong>", html);
+
+        // Once. Two copies of one sentence on a page makes a reader stop to work out
+        // whether they are two different facts.
+        Assert.Equal(1, Occurrences(html, "Highest in"));
+
+        // The method is no longer a paragraph over every table: it is on the help page, and
+        // the page links to its section there.
+        Assert.DoesNotContain("one number per person, then averaged", html);
+        Assert.Contains("href=\"/Help#team-page\"", html);
+    }
+
+    /// <summary>
+    /// Follow-up is the player's OWN low score, and difference is disagreement. A coach saw
+    /// "Concentration" in the follow-up column beside a difference of 0.0 and read it as a
+    /// bug: the player, guardian and coach had all answered the same low answers. So the
+    /// badge carries the score it is based on, and the column stands apart from the
+    /// differences under a heading that says what it is.
+    /// </summary>
+    [Fact]
+    public async Task A_follow_up_badge_shows_the_players_own_score_apart_from_the_differences()
+    {
+        // All three agree on 1 everywhere: no difference at all, and a follow-up on every C.
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 1);
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.CoachUserId, value: 1,
+            role: RespondentType.Coach);
+
+        var html = await TeamPageAsync();
+
+        var commitment = Catalog().Questions.Categories.First().Name;
+        Assert.Equal(1, Occurrences(html, $"{commitment} 1.0 </span>"));
+        Assert.Contains("Own average below 2", html);
+
+        // The follow-up heading comes before the difference group, not at the end of it.
+        Assert.True(
+            html.IndexOf("Own average below 2", StringComparison.Ordinal)
+            < html.IndexOf(">How far apart<", StringComparison.Ordinal),
+            "Follow-up should stand apart from, and before, the difference columns.");
+    }
+
+    /// <summary>
+    /// Who has not answered, by code, so the coach can chase them without opening the
+    /// player list to find out who they are. Who answered is neutral progress -- it says
+    /// that somebody answered, never what they answered.
+    /// </summary>
+    [Fact]
+    public async Task The_summary_names_the_players_who_have_not_answered()
+    {
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 4);
+
+        var html = await TeamPageAsync();
+
+        Assert.Equal(1, Occurrences(html, "players have answered about themselves."));
+        Assert.Equal(1, Occurrences(html, "Not yet:"));
+
+        // By code, in the card, after the words that introduce it.
+        var notYet = html.IndexOf("Not yet:", StringComparison.Ordinal);
+        Assert.True(
+            html.IndexOf("TS-TEST-02", notYet, StringComparison.Ordinal) > notYet,
+            "The player still to answer should be named in the Answers card.");
+    }
+
+    /// <summary>
+    /// The follow-up card says how many, once, and only turns to the alert colour when there
+    /// is somebody to follow up.
+    /// </summary>
+    [Fact]
+    public async Task The_follow_up_sentence_is_said_once_and_only_when_there_is_one()
+    {
+        var quiet = await TeamPageAsync();
+
+        Assert.Contains("Follow-up", quiet);
+        Assert.Equal(1, Occurrences(quiet, "No player's own average is below 2 in any C."));
+        Assert.Equal(0, Occurrences(quiet, "with their own average below 2 in a C."));
+        Assert.DoesNotContain("sc-stat--alert", quiet);
+
+        // One player answering 1 everywhere is under FiveCRules.FollowUpThreshold on all
+        // five C's.
+        await AnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId, value: 1);
+
+        var flagged = await TeamPageAsync();
+
+        Assert.Equal(1, Occurrences(flagged, "with their own average below 2 in a C."));
+        Assert.Equal(0, Occurrences(flagged, "No player's own average is below 2 in any C."));
+        Assert.Contains("sc-stat--alert", flagged);
+    }
+
+    /// <summary>
+    /// How many times a sentence appears, counted over the page with its whitespace
+    /// flattened. A sentence written across four lines of a view reaches the browser with
+    /// the view's line breaks and indentation still in it, and asserting on those is
+    /// asserting on how the Razor file happens to be wrapped.
+    /// </summary>
+    private static int Occurrences(string haystack, string needle)
+    {
+        haystack = Squash(haystack);
+        needle = Squash(needle);
+
+        var count = 0;
+        var at = haystack.IndexOf(needle, StringComparison.Ordinal);
+
+        while (at >= 0)
+        {
+            count++;
+            at = haystack.IndexOf(needle, at + needle.Length, StringComparison.Ordinal);
+        }
+
+        return count;
+    }
+
+    private static string Squash(string text) =>
+        Regex.Replace(text, @"\s+", " ");
+
     private IQuestionCatalog Catalog()
     {
         using var scope = _factory.Services.CreateScope();
 
         return scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
     }
+
+    /// <summary>
+    /// Three players again, but answering one category far lower than the other four. The
+    /// shared helper answers every statement with the same number, which leaves the five
+    /// C's exactly level and gives the squad no strongest or weakest to name.
+    /// </summary>
+    private async Task ThreeAnswersWithAWeakCategoryAsync()
+    {
+        var third = await AddPlayerAsync("TS-TEST-03", "user-third");
+
+        await LopsidedAnswerAsync(_factory.PlayerId, "TS-TEST-01", StartCompassFactory.PlayerUserId);
+        await LopsidedAnswerAsync(_factory.OtherPlayerId, "TS-TEST-02", StartCompassFactory.OtherPlayerUserId);
+        await LopsidedAnswerAsync(third, "TS-TEST-03", "user-third");
+    }
+
+    private Task LopsidedAnswerAsync(int playerId, string code, string userId) =>
+        _factory.WithServicesAsync(async services =>
+        {
+            var store = services.GetRequiredService<ISurveySubmissionStore>();
+            var catalog = services.GetRequiredService<IQuestionCatalog>();
+
+            var answers = catalog.Questions.Categories
+                .SelectMany(category => category.Questions.Select(question => new SurveyAnswer
+                {
+                    QuestionKey = question.Key,
+                    CategoryKey = category.Key,
+                    Value = category.Key == "concentration" ? 1 : 5
+                }))
+                .ToList();
+
+            await store.SaveAsync(new SurveySubmission
+            {
+                RoundId = _factory.RoundId,
+                PlayerId = playerId,
+                PlayerCode = code,
+                RespondentRole = SurveySubmission.Roles.From(RespondentType.Player),
+                RespondentUserId = userId,
+                QuestionSetVersion = catalog.Questions.Version,
+                SubmittedAt = DateTimeOffset.UtcNow,
+                Answers = answers
+            });
+        });
 
     /// <summary>Three players answering, which is the minimum for an aggregate at all.</summary>
     private async Task ThreeAnswersAsync()

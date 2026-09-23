@@ -33,6 +33,20 @@
       front of a fourteen-year-old. A copy would drift and prove nothing.
     -->
     <Content Include="..\StartPraksisGruppe3Prosjekt\Data\Questions\five-c-questions.json" Link="Data\Questions\five-c-questions.json" CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      The Identity Gold Standard, linked for the same reason: IdentityCatalogTests holds THE
+      shipped file to the club's PDF, marker by marker. The match data is NOT linked: it is
+      not in git. Tests use the fictional squad in Identity/Fixtures instead.
+    -->
+    <Content Include="..\StartPraksisGruppe3Prosjekt\Data\Identity\gold-standard.json" Link="Data\Identity\gold-standard.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Identity\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+
+    <!--
+      The succession settings, linked for the same reason: SuccessionCatalogTests holds THE
+      shipped file to the coaches' workbook, list by list.
+    -->
+    <Content Include="..\StartPraksisGruppe3Prosjekt\Data\Succession\succession-planning.json" Link="Data\Succession\succession-planning.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

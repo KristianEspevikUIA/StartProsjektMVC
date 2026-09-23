@@ -2,36 +2,47 @@
 @{
     ViewData["Title"] = $"5C – {Model.TeamName}";
     ViewData["FullWidth"] = true;
+
+    // How many player codes the Answers card prints before it gives up and counts the rest.
+    // Enough to chase a normal round's stragglers from the card itself; short of a whole
+    // squad's worth of codes on a card that is meant to be read at a glance.
+    const int AwaitingShown = 6;
 }
 
 @*
-    The 5C team overview.
+    The 5C overview for one team.
 
-    Two halves, and they are governed differently. The squad aggregate at the top names
-    nobody and is decided once by CanViewTeamAggregate; the rows below are about individuals
-    and are decided one at a time by CanViewPlayer. The aggregate comes first because it is
-    the question a coach opens the page with.
+    Two views, chosen with a switch at the top: TEAM OVERVIEW is the squad as one -- averages
+    that name nobody, decided once by CanViewTeamAggregate -- and PLAYER OVERVIEW is a row per
+    player, decided one at a time by CanViewPlayer.
 
-    Two states that easily collapse into the same grey row are kept apart here: "not
-    allowed to see" and "has not answered". The cell says which one it is, in words.
+    Kept short on purpose. Coaches found the page overwhelming: a paragraph of method over
+    every chart, and the two views told apart only by an underline. The method is on the help
+    page (Help#team-page), each view says what it is in one line, and Team overview is laid
+    out like the player list -- a few numbers in cards and one table -- because that was the
+    part they found easy to read.
+
+    Two states that easily collapse into the same grey row are kept apart here: "not allowed
+    to see" and "has not answered". The cell says which one it is, in words.
 
     Sorting is by player code. Sorting by the largest disagreement is more useful, but it
     also turns the table into a ranking of minors, so it is a deliberate click rather than
     the default.
 
-    The four sections below are marked as panels and survey.js turns them into tabs, so the
-    page opens on one screen instead of five. With JavaScript off they are what they have
-    always been: sections stacked down the page, in this order. Nothing is hidden server
-    side -- see initSectionTabs.
+    The panels are marked up and survey.js turns them into the switch and tabs -- data-tab-panel
+    for the two views, data-subtab-panel for the readings inside Team overview. With
+    JavaScript off they are sections stacked down the page in this order, and nothing is
+    hidden server side. See initSectionTabs.
+
+    Player overview is always the SECOND top-level panel, so a link to #sc-panel-1 opens it.
+    The player page's way back relies on that.
 *@
 
 <section class="sc-hero">
     <div class="sc-page">
         <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">5C overview</p>
         <h1>@Model.TeamName</h1>
-        <p class="sc-hero__lead">
-            The five C's, as answered by the player, their guardian and you.
-        </p>
 
         <div class="sc-hero__meta">
             <span>@Model.Players.Count player@(Model.Players.Count == 1 ? "" : "s")</span>
@@ -40,7 +51,6 @@
                 <span>@Model.RoundName</span>
                 <span>@(Model.RoundIsOpen ? $"Open until {Model.RoundClosesAt.ToLocalTime():d MMMM yyyy}" : "Closed")</span>
             }
-            <span>@Model.PlayerAnsweredCount of @Model.Players.Count players answered</span>
             <span>You have answered for @Model.CoachAnsweredCount</span>
         </div>
     </div>
@@ -58,288 +68,362 @@
     }
     else
     {
-        @if (Model.Rounds.Count > 1)
-        {
-            <section class="sc-section">
-                <p class="sc-eyebrow">Round</p>
-                <div class="sc-actions">
-                    @foreach (var round in Model.Rounds)
-                    {
-                        var isCurrent = round.Id == Model.RoundId;
+        <div class="sc-toolbar">
+            @*
+                One control for the period, not one button per period -- that row grew every
+                season. A GET form, so the chosen period is a URL and the back button behaves;
+                the same select-and-button the forms page uses, rather than a select that
+                navigates the moment it is touched.
+            *@
+            @if (Model.Rounds.Count > 1)
+            {
+                <form method="get" asp-action="FiveCTeam" asp-route-id="@Model.TeamId" class="sc-period">
+                    <label class="sc-label" for="team-period">Period</label>
+                    <select class="sc-select" id="team-period" name="roundId">
+                        @foreach (var round in Model.Rounds)
+                        {
+                            <option value="@round.Id" selected="@(round.Id == Model.RoundId)">
+                                @round.Name@(round.IsOpen ? "" : " (closed)")
+                            </option>
+                        }
+                    </select>
+                    <button type="submit" class="sc-btn sc-btn--secondary">Show</button>
+                </form>
+            }
 
-                        <a class="@(isCurrent ? "sc-btn" : "sc-btn sc-btn--secondary")"
-                           asp-action="FiveCTeam"
-                           asp-route-id="@Model.TeamId"
-                           asp-route-roundId="@round.Id">
-                            @round.Name@(round.IsOpen ? "" : " (closed)")
-                        </a>
+            <a class="sc-help-link" asp-controller="Help" asp-action="Index" asp-fragment="team-page">How to read this page</a>
+        </div>
+
+        @* data-tabs-switch: the two views are a switch of two large choices, not a row of
+           underlined tabs. data-tab-hint is the line under each name. *@
+        <div data-tabs-switch="true">
+            <section class="sc-section" data-tab-panel data-tab-label="Team overview"
+                     data-tab-hint="The squad as a whole">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>Team overview</h2>
+
+                @*
+                    The short answer, before the working: three cards, read in a second, in
+                    the same shape as the team cards on My teams.
+                *@
+                <h3 class="sc-subhead">Where to start</h3>
+
+                <div class="sc-stats">
+                    @*
+                        Said from the missing end as well as the answered one: WHICH players are
+                        still out, by code, so they can be chased without opening the list.
+                    *@
+                    <article class="sc-stat">
+                        <p class="sc-stat__label">Answers</p>
+                        <p class="sc-stat__value">
+                            @Model.PlayerAnsweredCount<span class="sc-stat__unit"> / @Model.Players.Count</span>
+                        </p>
+                        <p class="sc-stat__note">players have answered about themselves.</p>
+                        @if (Model.AwaitingPlayers.Count > 0)
+                        {
+                            <p class="sc-stat__note">
+                                Not yet:
+                                <span class="sc-summary__codes">@string.Join(", ", Model.AwaitingPlayers
+                                    .Take(AwaitingShown).Select(p => p.Code))@(Model.AwaitingPlayers.Count > AwaitingShown
+                                        ? $" and {Model.AwaitingPlayers.Count - AwaitingShown} more"
+                                        : "")</span>
+                            </p>
+                        }
+                    </article>
+
+                    <article class="sc-stat">
+                        <p class="sc-stat__label">The squad</p>
+                        @if (Model.Aggregate is { } summary
+                             && summary.StrongestCategory is { } strongest
+                             && summary.WeakestCategory is { } weakest
+                             && strongest.CategoryKey != weakest.CategoryKey)
+                        {
+                            @* The players' own answers, not the adults'. Every squad has a
+                               lowest C, so the help page says it is a place to start rather
+                               than a verdict. *@
+                            <p class="sc-stat__line">
+                                Highest in <strong>@strongest.CategoryName</strong>
+                                <span class="@ScoreLevels.ScoreClass(strongest.Means.PlayerMean)">@strongest.Means.PlayerMean!.Value.ToString("0.0")</span>
+                            </p>
+                            <p class="sc-stat__line">
+                                Lowest in <strong>@weakest.CategoryName</strong>
+                                <span class="@ScoreLevels.ScoreClass(weakest.Means.PlayerMean)">@weakest.Means.PlayerMean!.Value.ToString("0.0")</span>
+                            </p>
+                            <p class="sc-stat__note">On the players' own answers.</p>
+                        }
+                        else if (Model.Aggregate is null)
+                        {
+                            <p class="sc-stat__note">@Model.AggregateWithheldReason</p>
+                        }
+                        else
+                        {
+                            <p class="sc-stat__note">The squad's own answers do not separate the five C's yet.</p>
+                        }
+                    </article>
+
+                    <article class="sc-stat @(Model.FollowUpCount > 0 ? "sc-stat--alert" : "")">
+                        <p class="sc-stat__label">Follow-up</p>
+                        @if (Model.FollowUpCount > 0)
+                        {
+                            <p class="sc-stat__value">
+                                @Model.FollowUpCount<span class="sc-stat__unit"> player@(Model.FollowUpCount == 1 ? "" : "s")</span>
+                            </p>
+                            <p class="sc-stat__note">
+                                with their own average below @FiveCRules.FollowUpThreshold.ToString("0")
+                                in a C. Marked in Player overview.
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="sc-stat__value">None</p>
+                            <p class="sc-stat__note">
+                                No player's own average is below
+                                @FiveCRules.FollowUpThreshold.ToString("0") in any C.
+                            </p>
+                        }
+
+                        @if (Model.HiddenCount > 0)
+                        {
+                            @* The count is over the rows this coach may see; a squad with
+                               withheld rows can always hold more than it says. *@
+                            <p class="sc-stat__note">
+                                @Model.HiddenCount player@(Model.HiddenCount == 1 ? " is" : "s are") withheld and not counted.
+                            </p>
+                        }
+                    </article>
+                </div>
+
+                @*
+                    Three readings of the same squad, as a quieter strip inside this view. A
+                    panel is only rendered when it has something in it, and with a single
+                    panel the strip does not appear at all.
+                *@
+                <div class="sc-mt" data-subtabs data-subtabs-label="Team overview">
+                    <section data-subtab-panel data-subtab-label="The five C's">
+                        <h3 class="sc-subhead" data-tab-heading>The five C's</h3>
+
+                        @if (Model.Aggregate is { } aggregate)
+                        {
+                            <partial name="_FiveCTeamOverview" model="aggregate" />
+                        }
+                        else
+                        {
+                            <div class="sc-card sc-card--left">
+                                <h3>No team average yet</h3>
+                                <p class="sc-card__meta">@Model.AggregateWithheldReason</p>
+                            </div>
+                        }
+                    </section>
+
+                    @if (Model.Aggregate is { } statements)
+                    {
+                        <section data-subtab-panel data-subtab-label="Per statement">
+                            <h3 class="sc-subhead" data-tab-heading>Per statement</h3>
+
+                            <partial name="_FiveCTeamStatements" model="statements" />
+                        </section>
+                    }
+
+                    @if (Model.Trend is { } trend)
+                    {
+                        <section data-subtab-panel data-subtab-label="Over time">
+                            <h3 class="sc-subhead" data-tab-heading>Over time</h3>
+                            <p class="sc-footnote sc-footnote--top">The players' own averages, period by period.</p>
+
+                            <partial name="_FiveCTrend" model="trend" />
+
+                            @if (trend.ThinPeriods.Count > 0)
+                            {
+                                <p class="sc-footnote">
+                                    No number for
+                                    @string.Join(", ", trend.ThinPeriods.Select(p => p.Name)):
+                                    fewer than @CanViewTeamAggregateRequirement.MinimumResponses
+                                    players answered. That is a gap, not a drop.
+                                </p>
+                            }
+                        </section>
                     }
                 </div>
             </section>
-        }
-
-        @if (Model.FollowUpCount > 0)
-        {
-            <section class="sc-section">
-                <div class="sc-notice sc-notice--warn" role="status">
-                    <p>
-                        <strong>@Model.FollowUpCount
-                            player@(Model.FollowUpCount == 1 ? "" : "s")</strong>
-                        scored consistently below @FiveCRules.FollowUpThreshold.ToString("0")
-                        on at least one of the five C's. They are marked in the player list.
-                    </p>
-                </div>
-            </section>
-        }
-
-        @*
-            The squad as one, before the individuals. Two of the three levels the player page
-            uses -- across every statement, and per category. The third, statement by
-            statement, is the panel after this one.
-        *@
-        <section class="sc-section" data-tab-panel data-tab-label="Overview">
-            <div class="sc-rule"></div>
-            <h2 data-tab-heading>Team overview</h2>
-
-            @if (Model.Aggregate is { } aggregate)
-            {
-                <p class="sc-lead">
-                    Every number is an average of PLAYERS, not of answers: each player
-                    contributes one number and those are averaged, so somebody who answered
-                    the whole form does not weigh more than somebody who answered half. The
-                    scale is the same 1–5 as everywhere else, after negatively worded
-                    statements have been turned round so a higher bar always means better.
-                </p>
-
-                <partial name="_FiveCTeamOverview" model="aggregate" />
-            }
-            else
-            {
-                <div class="sc-card sc-card--left">
-                    <h3>No team average yet</h3>
-                    <p class="sc-card__meta">@Model.AggregateWithheldReason</p>
-                </div>
-            }
-        </section>
-
-        @*
-            The third level of the same picture, statement by statement. Its own panel
-            because twenty-five rows is most of this page's height, and a coach reading
-            category averages is usually not reading statement averages in the same breath.
-
-            Only when there is an aggregate at all: with none, there is nothing to break
-            down, and a tab leading to an empty table is worse than no tab.
-        *@
-        @if (Model.Aggregate is { } statements)
-        {
-            <section class="sc-section" data-tab-panel data-tab-label="Per statement">
-                <div class="sc-rule"></div>
-                <h2 data-tab-heading>Per statement</h2>
-
-                <partial name="_FiveCTeamStatements" model="statements" />
-            </section>
-        }
-
-        @if (Model.Trend is { } trend)
-        {
-            <section class="sc-section" data-tab-panel data-tab-label="Over time">
-                <div class="sc-rule"></div>
-                <h2 data-tab-heading>Over time</h2>
-                <p class="sc-lead">
-                    The squad's own averages per C across the periods they have answered in,
-                    aggregated the same way as above. Only the players' own answers — what
-                    the adults around them thought is a different question, and a line that
-                    mixed it in would move when a coach changed their mind.
-                </p>
-
-                <partial name="_FiveCTrend" model="trend" />
-
-                @if (trend.ThinPeriods.Count > 0)
-                {
-                    <p class="sc-lead sc-small">
-                        No number is shown for
-                        @string.Join(", ", trend.ThinPeriods.Select(p => p.Name)): somebody
-                        answered, but fewer than
-                        @CanViewTeamAggregateRequirement.MinimumResponses players, which is
-                        too few for a team average. That is a gap in the line, not a drop.
-                    </p>
-                }
-            </section>
-        }
-
-        @*
-            data-tab-count puts the squad size on the tab, and data-tab-flag marks it when
-            somebody needs following up -- the notice above says what, the mark says which
-            tab to open for it.
-        *@
-        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Players"
-                 data-tab-count="@Model.Players.Count"
-                 data-tab-flag="@(Model.FollowUpCount > 0 ? "true" : "false")">
-            <div class="sc-rule"></div>
-            <h2 data-tab-heading>Players</h2>
-            <p class="sc-lead">
-                A tick means that role has answered in this round. The difference scores are
-                the distance between two sets of answers, paired statement by statement on the
-                1–5 scale: 0 is the same answer every time, and higher means further apart.
-                “All” is the average across everyone who answered.
-            </p>
 
             @*
-                Live filtering, over this squad only. Nothing is fetched and nothing leaves
-                the page: every row is already here, and the filter only decides which of
-                them are shown.
-
-                Hidden until survey.js reveals it. A search box that silently does nothing is
-                worse than no search box, and the table is complete without one.
+                data-tab-count puts the squad size on the switch, and data-tab-flag marks it
+                when somebody needs following up -- the Follow-up card says how many, the mark
+                says which view to open for it.
             *@
-            <div class="sc-filters" data-player-filter hidden>
-                <div class="sc-form-row">
-                    <div class="sc-form-field">
-                        <label class="sc-label" for="team-player-search">
-                            Find a player in @Model.TeamName
-                        </label>
-                        <input class="sc-input" id="team-player-search" type="search"
-                               autocomplete="off" placeholder="TS-08 or striker"
-                               aria-controls="team-player-rows" />
+            <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Player overview"
+                     data-tab-hint="One row per player"
+                     data-tab-count="@Model.Players.Count"
+                     data-tab-flag="@(Model.FollowUpCount > 0 ? "true" : "false")">
+                <div class="sc-rule"></div>
+                <h2 data-tab-heading>Player overview</h2>
+
+                @*
+                    Live filtering, over this squad only. Nothing is fetched and nothing leaves
+                    the page: every row is already here, and the filter only decides which of
+                    them are shown. Hidden until survey.js reveals it -- a search box that
+                    silently does nothing is worse than none.
+                *@
+                <div class="sc-filters" data-player-filter hidden>
+                    <div class="sc-form-row">
+                        <div class="sc-form-field">
+                            <label class="sc-label" for="team-player-search">
+                                Find a player in @Model.TeamName
+                            </label>
+                            <input class="sc-input" id="team-player-search" type="search"
+                                   autocomplete="off" placeholder="TS-08 or striker"
+                                   aria-controls="team-player-rows" />
+                        </div>
+                    </div>
+
+                    <div class="sc-filters__actions">
+                        <button type="button" class="sc-btn sc-btn--secondary"
+                                data-player-filter-clear>Clear</button>
+                        <p class="sc-filters__summary" data-player-filter-summary
+                           role="status" aria-live="polite"></p>
                     </div>
                 </div>
 
-                <div class="sc-filters__actions">
-                    <button type="button" class="sc-btn sc-btn--secondary"
-                            data-player-filter-clear>Clear</button>
-                    <p class="sc-filters__summary" data-player-filter-summary
-                       role="status" aria-live="polite"></p>
-                </div>
-            </div>
+                @*
+                    Grouped headings, so the three kinds of column read as three things: who
+                    has ANSWERED, who needs FOLLOW-UP, and how FAR APART the answers are.
 
-            @* sc-table--squad lets the headings wrap. Ten columns of nowrap headings is
-               most of this table's width, and "Player and guardian" over two lines costs a
-               row of height once instead of pushing the last column off the screen. *@
-            <div class="sc-table-wrap">
-                <table class="sc-table sc-table--squad">
-                    <thead>
-                        <tr>
-                            <th scope="col">Code</th>
-                            <th scope="col">Position</th>
-                            <th scope="col">Player</th>
-                            <th scope="col">Guardian</th>
-                            <th scope="col">You</th>
-                            <th scope="col">Player and coach</th>
-                            <th scope="col">Player and guardian</th>
-                            <th scope="col">All</th>
-                            <th scope="col">Follow-up</th>
-                            <th scope="col"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="team-player-rows">
-                        @* Code and position are what the filter matches on. There are no
-                           names in this system to search by, and none are wanted. *@
-                        @foreach (var row in Model.Players)
-                        {
-                            <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")"
-                                data-player-row
-                                data-player-search="@row.Code @row.Position">
-                                <td class="sc-code">@row.Code</td>
-                                <td class="sc-muted sc-small">@(row.Position ?? "–")</td>
+                    Follow-up used to sit at the end of the difference columns, and a coach
+                    read "Concentration" next to a 0.0 as a contradiction. They are different
+                    measurements -- follow-up is the player's own low score, a difference is
+                    disagreement, and three people can agree on a low score -- so follow-up now
+                    stands apart, before the differences, with the score it is based on.
+                *@
+                <div class="sc-table-wrap">
+                    <table class="sc-table sc-table--squad sc-table--grouped">
+                        <thead>
+                            <tr>
+                                <th scope="col" rowspan="2">Code</th>
+                                <th scope="col" rowspan="2">Position</th>
+                                <th scope="colgroup" colspan="3" class="sc-th-group">Answered</th>
+                                <th scope="col" rowspan="2" class="sc-th-group">
+                                    Follow-up
+                                    <span class="sc-th-note">Own average below @FiveCRules.FollowUpThreshold.ToString("0")</span>
+                                </th>
+                                <th scope="colgroup" colspan="3" class="sc-th-group">How far apart</th>
+                                <th scope="col" rowspan="2"><span class="visually-hidden">Open</span></th>
+                            </tr>
+                            <tr>
+                                <th scope="col">Player</th>
+                                <th scope="col">Guardian</th>
+                                <th scope="col">You</th>
+                                <th scope="col">Player and coach</th>
+                                <th scope="col">Player and guardian</th>
+                                <th scope="col">All</th>
+                            </tr>
+                        </thead>
+                        <tbody id="team-player-rows">
+                            @* Code and position are what the filter matches on. There are no
+                               names in this system to search by, and none are wanted. *@
+                            @foreach (var row in Model.Players)
+                            {
+                                <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")"
+                                    data-player-row
+                                    data-player-search="@row.Code @row.Position">
+                                    <td class="sc-code">@row.Code</td>
+                                    <td class="sc-muted sc-small">@(row.Position ?? "–")</td>
 
-                                @* Progress is neutral and shown for every row: it says who
-                                   answered, not what they answered. *@
-                                <td>@(row.PlayerHasAnswered ? "✓" : "–")</td>
-                                <td>@(row.GuardianHasAnswered ? "✓" : "–")</td>
-                                <td>@(row.CoachHasAnswered ? "✓" : "–")</td>
+                                    @* Progress is neutral and shown for every row: it says who
+                                       answered, not what they answered. *@
+                                    <td>@(row.PlayerHasAnswered ? "✓" : "–")</td>
+                                    <td>@(row.GuardianHasAnswered ? "✓" : "–")</td>
+                                    <td>@(row.CoachHasAnswered ? "✓" : "–")</td>
 
-                                @if (row.WithheldReason is { } reason)
-                                {
-                                    <td colspan="4" class="sc-muted sc-small">@reason</td>
-                                }
-                                else
-                                {
-                                    @* A dash is "nothing to compare", not a zero. Zero would
-                                       claim the two of them answered identically. *@
-                                    <td class="sc-num">
-                                        @if (row.CoachVsPlayer is { } coachGap)
-                                        {
-                                            <span class="@AgreementLevels.BadgeClass(coachGap.Level)">
-                                                @coachGap.Difference.ToString("0.0")
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="sc-muted">–</span>
-                                        }
-                                    </td>
-                                    <td class="sc-num">
-                                        @if (row.GuardianVsPlayer is { } guardianGap)
-                                        {
-                                            <span class="@AgreementLevels.BadgeClass(guardianGap.Level)">
-                                                @guardianGap.Difference.ToString("0.0")
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="sc-muted">–</span>
-                                        }
-                                    </td>
-                                    <td class="sc-num">
-                                        @* The same badge the player page puts on "Between
-                                           all" -- it is the same number, so it is read on
-                                           the same scale and coloured by the same rule.
-                                           Bold black text made the one column that matters
-                                           most the only one with no colour in it. *@
-                                        @if (row.OverallDifference is { } overall)
-                                        {
-                                            <span class="@AgreementLevels.BadgeClass(FiveCRules.LevelOf(overall))">
-                                                @overall.ToString("0.0")
-                                            </span>
-                                        }
-                                        else
-                                        {
-                                            <span class="sc-muted">–</span>
-                                        }
-                                    </td>
-                                    <td>
-                                        @* One badge per C rather than one badge naming them
-                                           all. Badges do not wrap, so four category names on
-                                           a single one made the row wider than the window --
-                                           and the Open link at the end of it unreachable
-                                           without scrolling sideways. *@
-                                        @if (row.NeedsFollowUp)
-                                        {
-                                            <div class="sc-followup">
-                                                @foreach (var flagged in row.FollowUp)
-                                                {
-                                                    <span class="sc-badge sc-badge--alert">@flagged.CategoryName</span>
-                                                }
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <span class="sc-muted sc-small">–</span>
-                                        }
-                                    </td>
-                                }
-
-                                <td>
-                                    @if (row.CanView)
+                                    @if (row.WithheldReason is { } reason)
                                     {
-                                        <a asp-action="FiveCPlayer"
-                                           asp-route-id="@row.PlayerId"
-                                           asp-route-roundId="@Model.RoundId">Open</a>
+                                        <td colspan="4" class="sc-muted sc-small">@reason</td>
                                     }
+                                    else
+                                    {
+                                        <td>
+                                            @* One badge per C, with the player's own average in
+                                               it. Badges do not wrap, so one badge naming four
+                                               C's made the row wider than the window. *@
+                                            @if (row.NeedsFollowUp)
+                                            {
+                                                <div class="sc-followup">
+                                                    @foreach (var flagged in row.FollowUp)
+                                                    {
+                                                        <span class="sc-badge sc-badge--alert">
+                                                            @flagged.CategoryName @flagged.PlayerMean!.Value.ToString("0.0")
+                                                        </span>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <span class="sc-muted sc-small">–</span>
+                                            }
+                                        </td>
+
+                                        @* A dash is "nothing to compare", not a zero. Zero would
+                                           claim the two of them answered identically. *@
+                                        <td class="sc-num">
+                                            @if (row.CoachVsPlayer is { } coachGap)
+                                            {
+                                                <span class="@AgreementLevels.BadgeClass(coachGap.Level)">
+                                                    @coachGap.Difference.ToString("0.0")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="sc-muted">–</span>
+                                            }
+                                        </td>
+                                        <td class="sc-num">
+                                            @if (row.GuardianVsPlayer is { } guardianGap)
+                                            {
+                                                <span class="@AgreementLevels.BadgeClass(guardianGap.Level)">
+                                                    @guardianGap.Difference.ToString("0.0")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="sc-muted">–</span>
+                                            }
+                                        </td>
+                                        <td class="sc-num">
+                                            @* The same badge the player page puts on "Between
+                                               all" -- the same number, on the same scale. *@
+                                            @if (row.OverallDifference is { } overall)
+                                            {
+                                                <span class="@AgreementLevels.BadgeClass(FiveCRules.LevelOf(overall))">
+                                                    @overall.ToString("0.0")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="sc-muted">–</span>
+                                            }
+                                        </td>
+                                    }
+
+                                    <td>
+                                        @if (row.CanView)
+                                        {
+                                            <a asp-action="FiveCPlayer"
+                                               asp-route-id="@row.PlayerId"
+                                               asp-route-roundId="@Model.RoundId">Open</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+
+                            <tr data-player-filter-empty hidden>
+                                <td colspan="10" class="sc-muted sc-small">
+                                    No player in @Model.TeamName matches that. The search covers
+                                    player code and position, and only this squad.
                                 </td>
                             </tr>
-                        }
-
-                        <tr data-player-filter-empty hidden>
-                            <td colspan="10" class="sc-muted sc-small">
-                                No player in @Model.TeamName matches that. The search covers
-                                player code and position, and only this squad.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-        </section>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     }
 </div>
