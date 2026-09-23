@@ -171,8 +171,9 @@ Det som testes er reglene som ikke tåler å bli feil:
   testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
   oppstart.
 - **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
-- **GDPR-innsyn og -sletting** (`AdminGdprTests`): at eksporten har med alle tabellene om
-  spilleren — også trenernes succession-vurderinger og kontraktsopplysningene — og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
+- **GDPR-innsyn og -sletting** (`AdminGdprTests`, `PlayerWelcomeTests`): at eksporten har med
+  alle tabellene om spilleren — også trenernes succession-vurderinger, kontraktsopplysningene og
+  fornavn og bilde — og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
   innsynet havner i revisjonsloggen, at slettingen faktisk tar svar, samtykkelogg,
   foresattkoblinger, loggrader, succession-vurderinger og Identity-kontoen — kontrollert både før og etter, siden
   hver eneste påstand ellers ville holdt mot en tom base — at den etterlater et spor som
@@ -183,6 +184,10 @@ Det som testes er reglene som ikke tåler å bli feil:
   klar ut fra trenden, at beste ellever aldri bruker en spiller to ganger og foretrekker en
   naturlig i posisjonen, at fila holder arkets lister, og at bare trenere vurderer — spillere og
   foresatte får 403, også om seg selv.
+- **Velkomsten** (`PlayerWelcomeTests`, `PlayerPhotoRulesTests`): at spilleren møtes med
+  fornavn og bilde, at ingen andre ser dem — ikke en annen spiller, en foresatt, en trener eller
+  trenersidene — at bildeadressen bare gir ditt eget bilde, at bare admin legger inn, at SVG og
+  andre filer avvises uansett filnavn, og at GPS og annen metadata er borte før lagring.
 - **Lagsnittet** (`TeamAggregateTests`): at det er et snitt av spillere og ikke av svar, at
   grensen på tre respondenter holder per rolle, at «holdt tilbake» og «ingen har svart» er to
   ulike tilstander, og at et snitt per påstand er skåret slik at en reversert påstand peker
@@ -343,8 +348,9 @@ på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører h
 **En tabell, ikke kort.** Kolonnene er spillerkode, posisjon, lag, alder, hvilken rolle du
 svarer i, og status. Kort var greit for en spiller med ett skjema og en foresatt med to; en
 trener får ett per spiller i klubben, og tretti kort er tretti overskrifter og en side man
-ruller i stedet for å skumme. Identifikatoren er **koden** — datamodellen har ingen navn,
-med vilje, så koden er det en spiller heter i hele applikasjonen. Alderen regnes ut av
+ruller i stedet for å skumme. Identifikatoren er **koden** — datamodellen har ingen navn
+utenom velkomsten (se «Velkomst med navn og bilde»), med vilje, så koden er det en spiller
+heter i hele applikasjonen. Alderen regnes ut av
 `PlayerRules.AgeAt`, samme regel som kravet om foresatt henger på; fødselsdatoen selv vises
 aldri.
 
@@ -420,7 +426,8 @@ i dokumentet, og filteret avgjør bare hvilke som vises. Feltet er `hidden` i ma
 avdekkes av `survey.js`, så uten JavaScript står tabellen komplett og det dukker ikke opp en
 søkeboks som ikke gjør noe.
 
-Kode og posisjon, fordi det er det som finnes: systemet har ingen navn.
+Kode og posisjon, fordi det er det som finnes: trenersidene har ingen navn. (Fornavnet til
+velkomsten finnes, men bare spilleren selv og admin ser det.)
 
 ### Utvikling over tid
 
@@ -613,6 +620,23 @@ og administrator har tilgang, men bare trenere vurderer.
 
 **Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
 
+## Velkomst med navn og bilde
+
+Når en spiller logger inn, står det «Welcome, Alex» på forsiden, med spillerens eget bilde.
+Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle spillerbildene.
+
+- **Admin legger inn** fornavn og bilde på `/Admin/Players`. Lista har også lenker til innsyn og
+  sletting for hver spiller.
+- **Bare spilleren selv** ser det. Trenere, foresatte og alle andre sider bruker fortsatt koden.
+  `/Player/Photo` har ingen ID, så den gir bare ditt eget bilde.
+- **Bildet kontrolleres og renses:** bare JPEG, PNG og WebP (lest av filens bytes), høyst 2 MB,
+  og GPS, bildetekst og annen metadata tas ut før det lagres.
+- **Det eneste stedet et spillernavn lagres,** i egen tabell (`PlayerPersonalDetails`). Ingen
+  ekte navn eller bilder ligger i repoet.
+- **Må avklares:** Sikt-meldingen er oppdatert, men må sendes før ekte navn og bilder legges inn.
+
+**Alt om dette: [`docs/player-welcome.md`](docs/player-welcome.md).**
+
 ## Struktur
 
 ```
@@ -675,6 +699,9 @@ Views-mappene følger controlleren: eier du `CoachController`, eier du `Views/Co
 `internal`), `IPlayerAccessLog` med `RecordManyAsync`, søkefilteret i `wwwroot/js/survey.js`
 (teller spillere og ikke rader), og en seksjon i `Views/Help/Index.cshtml` som bare vises for
 trenere og administratorer.
+
+**Rørt på tvers av eierskapet** under velkomsten: `PlayerController.Photo` (Brage),
+`HomeController` og `Views/Home/Index.cshtml`, og ett kall i `SeedData` (Brage).
 
 ### Migrations: bare én person genererer dem
 

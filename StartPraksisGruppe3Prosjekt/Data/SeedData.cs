@@ -87,6 +87,9 @@ public static class SeedData
             demoPeriods,
             logger);
 
+        // Oppdiktede fornavn til velkomsten når en spiller logger inn. Se SeedWelcome.
+        await SeedWelcome.SeedAsync(db, userManager, logger);
+
         // Succession planning: three coaches' ratings over three cycles. Its own file, since
         // none of it touches anything above. See SeedSuccession.
         await SeedSuccession.SeedAsync(

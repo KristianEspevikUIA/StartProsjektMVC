@@ -1,41 +1,79 @@
+@model HomeViewModel
 @inject IQuestionCatalog Catalog
 @{
     ViewData["Title"] = "Home";
     ViewData["FullWidth"] = true;
+
+    var welcome = Model?.Welcome;
 }
 
-<section class="sc-hero">
-    <div class="sc-page">
-        <div class="sc-rule"></div>
-        <h1>StartCompass</h1>
-        <p class="sc-hero__lead">
-            Players, coaches and guardians answer the same statements about the five C's.
-            The system shows where their pictures of the same player differ — and that is
-            usually where the development work starts.
-        </p>
+@*
+    The welcome. Signing in lands here, so this is where a player the club has entered a first
+    name or a photo for is greeted with them -- "so it feels more personal", as the coaches put
+    it. Everybody else, and a player with nothing entered, gets the page as it always was.
 
-        <div class="sc-actions">
-            @if (User.Identity?.IsAuthenticated != true)
+    The photo is the player's own and nobody else's: /Player/Photo takes no id. Its alt text is
+    empty because the heading beside it already says who it is, and a screen reader reading
+    "photo of Alex" next to "Welcome, Alex" says it twice.
+*@
+<section class="sc-hero">
+    <div class="sc-page @(welcome is null ? "" : "sc-welcome")">
+        @if (welcome?.HasPhoto == true)
+        {
+            <img class="sc-welcome__photo"
+                 src="@Url.Action("Photo", "Player", new { v = welcome.PhotoVersion })"
+                 alt="" width="140" height="140" />
+        }
+        <div class="sc-welcome__text">
+            <div class="sc-rule"></div>
+            @if (Model?.WelcomeHeading is { } heading)
             {
-                <a class="sc-btn" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+                <p class="sc-hero__eyebrow">StartCompass</p>
+                <h1>@heading</h1>
+                <p class="sc-hero__lead">
+                    Good to see you. Your form for this period is one click away, and everything you
+                    have answered is under My answers.
+                </p>
             }
             else
             {
-                <a class="sc-btn" asp-controller="Survey" asp-action="Index">Go to the form</a>
-
-                @*
-                    Only for the roles that have teams to go to. CoachController is
-                    [Authorize(Coach, Admin)], so anyone else following this link would meet
-                    a 403 -- and a button that leads to a refusal is worse than no button.
-                    The check is the same pair of roles the controller names, deliberately:
-                    if that ever changes, this is the line that has to change with it.
-                *@
-                @if (User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin))
-                {
-                    <a class="sc-btn sc-btn--secondary"
-                       asp-controller="Coach" asp-action="Index">My teams</a>
-                }
+                <h1>StartCompass</h1>
+                <p class="sc-hero__lead">
+                    Players, coaches and guardians answer the same statements about the five C's.
+                    The system shows where their pictures of the same player differ — and that is
+                    usually where the development work starts.
+                </p>
             }
+
+            <div class="sc-actions">
+                @if (User.Identity?.IsAuthenticated != true)
+                {
+                    <a class="sc-btn" asp-area="Identity" asp-page="/Account/Login">Log in</a>
+                }
+                else
+                {
+                    <a class="sc-btn" asp-controller="Survey" asp-action="Index">Go to the form</a>
+
+                    @*
+                        Only for the roles that have teams to go to. CoachController is
+                        [Authorize(Coach, Admin)], so anyone else following this link would meet
+                        a 403 -- and a button that leads to a refusal is worse than no button.
+                        The check is the same pair of roles the controller names, deliberately:
+                        if that ever changes, this is the line that has to change with it.
+                    *@
+                    @if (User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin))
+                    {
+                        <a class="sc-btn sc-btn--secondary"
+                           asp-controller="Coach" asp-action="Index">My teams</a>
+                    }
+
+                    @if (welcome is not null)
+                    {
+                        <a class="sc-btn sc-btn--secondary"
+                           asp-controller="Player" asp-action="Index">My answers</a>
+                    }
+                }
+            </div>
         </div>
     </div>
 </section>

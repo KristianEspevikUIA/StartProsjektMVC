@@ -1,0 +1,112 @@
+@model AdminPlayerDetailsViewModel
+@{
+    ViewData["Title"] = $"Name and photo – {Model.Code}";
+    ViewData["FullWidth"] = true;
+
+    var message = TempData["AdminMessage"] as string;
+}
+
+@*
+    One player's first name and photo for the welcome.
+
+    multipart/form-data because of the photo. The file is checked on the server whatever the
+    accept attribute says -- see PlayerPhotoRules -- and a photo that does not pass sends the
+    whole form back unsaved, name included.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <a class="sc-hero__back" asp-action="Players">← Players</a>
+
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">Name and photo</p>
+        <h1>@Model.Code</h1>
+        <p class="sc-hero__lead">
+            @Model.TeamName ·
+            @(Model.HasAccount
+                ? "The player sees these on the front page when they sign in."
+                : "No account yet: nobody will see these until the player has one.")
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <section class="sc-section">
+            <div class="sc-notice" role="status"><p>@message</p></div>
+        </section>
+    }
+
+    <section class="sc-section sc-section--last">
+        <form method="post" asp-action="PlayerDetails" asp-route-id="@Model.PlayerId"
+              enctype="multipart/form-data" class="sc-card sc-card--left">
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="sc-notice sc-notice--warn" role="alert">
+                    <p>Nothing was saved. See the marked field below.</p>
+                </div>
+            }
+
+            <div class="sc-welcome sc-mb">
+                @if (Model.HasPhoto)
+                {
+                    <img class="sc-welcome__photo"
+                         src="@Url.Action("PlayerPhoto", "Admin", new { id = Model.PlayerId, v = Model.PhotoVersion })"
+                         alt="The photo @Model.Code is welcomed with" width="140" height="140" />
+                }
+                <div class="sc-welcome__text">
+                    <p class="sc-hero__eyebrow">What the player sees</p>
+                    <p class="sc-welcome__preview">@(string.IsNullOrWhiteSpace(Model.FirstName) ? (Model.HasPhoto ? "Welcome" : "No welcome yet") : $"Welcome, {Model.FirstName}")</p>
+                    @if (Model.HasPhoto)
+                    {
+                        <p class="sc-card__meta">
+                            @(Model.PhotoContentType?.Replace("image/", "").ToUpperInvariant()) ·
+                            @(Model.PhotoBytes / 1024) KB · metadata removed
+                        </p>
+                    }
+                </div>
+            </div>
+
+            <div class="sc-form-row">
+                <div class="sc-form-field">
+                    <label class="sc-label" asp-for="FirstName"></label>
+                    <input class="sc-input" asp-for="FirstName" maxlength="@PlayerPersonalDetails.FirstNameLimit" autocomplete="off" />
+                    <span class="sc-field-error" asp-validation-for="FirstName"></span>
+                </div>
+                <div class="sc-form-field">
+                    <label class="sc-label" asp-for="PhotoSource"></label>
+                    <input class="sc-input" asp-for="PhotoSource" maxlength="@PlayerPersonalDetails.PhotoSourceLimit"
+                           placeholder="e.g. ikstart.no, squad photos 2026" />
+                    <span class="sc-field-error" asp-validation-for="PhotoSource"></span>
+                </div>
+            </div>
+
+            <p class="sc-footnote">The first name only. It is used in the welcome and nowhere else.</p>
+
+            <div class="sc-form-field sc-mt">
+                <label class="sc-label" for="photo">@(Model.HasPhoto ? "Replace the photo" : "Photo")</label>
+                <input class="sc-input" type="file" id="photo" name="photo" accept="@PlayerPhotoRules.Accept" />
+                @Html.ValidationMessage("photo", new { @class = "sc-field-error" })
+                <p class="sc-footnote">
+                    JPEG, PNG or WebP, up to @(PlayerPhotoRules.MaxBytes / 1024 / 1024) MB. Where and when it was
+                    taken, and any caption, is removed before it is stored.
+                </p>
+            </div>
+
+            @if (Model.HasPhoto)
+            {
+                <div class="sc-check sc-mt">
+                    <input class="sc-check__box" type="checkbox" asp-for="RemovePhoto" />
+                    <label asp-for="RemovePhoto"></label>
+                </div>
+            }
+
+            <div class="sc-actions">
+                <button type="submit" class="sc-btn">Save</button>
+                <a class="sc-btn sc-btn--secondary" asp-action="Players">Back to players</a>
+            </div>
+        </form>
+    </section>
+</div>
