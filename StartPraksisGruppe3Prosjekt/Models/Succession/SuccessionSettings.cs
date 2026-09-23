@@ -85,6 +85,16 @@ public sealed class FormationDefinition
 
     /// <summary>Every slot, top row first. Eleven for a real formation; the catalog checks.</summary>
     public IEnumerable<string> Slots => Lines.SelectMany(line => line);
+
+    /// <summary>
+    /// "1-3-5-2": the name with the goalkeeper counted, the way some coaches write it. Null when
+    /// the name is not a row of numbers, or the last row is not the one keeper it would count.
+    /// </summary>
+    public string? GoalkeeperNotation =>
+        Lines.Count > 0 && Lines[^1].Count == 1 && NumberedName.IsMatch(Name) ? $"1-{Name}" : null;
+
+    private static readonly System.Text.RegularExpressions.Regex NumberedName =
+        new(@"^\d+(-\d+)+$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Models.Succession;
 using StartPraksisGruppe3Prosjekt.Services.Succession;
@@ -26,6 +27,17 @@ public sealed class SuccessionFilterViewModel
     public string? TeamName => Teams.FirstOrDefault(t => t.Id == TeamId)?.Name;
 
     public sealed record TeamOption(int Id, string Name);
+}
+
+/// <summary>
+/// The Squad board / Best eleven links in the hero. They carry the team and an earlier cycle
+/// across, so a coach who has clicked into G16 on one page is still looking at G16 on the other.
+/// </summary>
+/// <param name="Active">"board" or "eleven".</param>
+public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey)
+{
+    public static SuccessionNavViewModel For(string active, SuccessionFilterViewModel filter) =>
+        new(active, filter.TeamId, filter.IsCurrentCycle ? null : filter.Cycle.Key);
 }
 
 /// <summary>/Succession: the workbook, pulled together.</summary>
@@ -99,7 +111,83 @@ public sealed class SuccessionFormationViewModel
     public int FilledCount { get; init; }
 
     public int CandidateCount { get; init; }
+
+    /// <summary>
+    /// Every rated player there is to choose from, strongest first -- the eleven and the bench.
+    /// </summary>
+    public IReadOnlyList<SquadPlayer> Squad { get; init; } = Array.Empty<SquadPlayer>();
+
+    /// <summary>The rest of the squad: everybody rated who is not in the eleven.</summary>
+    public IEnumerable<SquadPlayer> Bench => Squad.Where(p => !p.Starts);
+
+    /// <summary>The same pitch as data, for moving players about on it. See lineup.js.</summary>
+    public required LineupEditorData Editor { get; init; }
+
+    /// <summary>
+    /// <see cref="Editor"/> as JSON, for a data block in the page. The default encoder escapes
+    /// &lt; and &gt;, so nothing in it can close the block early.
+    /// </summary>
+    public string EditorJson => JsonSerializer.Serialize(Editor, EditorJsonOptions);
+
+    private static readonly JsonSerializerOptions EditorJsonOptions = new(JsonSerializerDefaults.Web);
 }
+
+/// <summary>A rated player on the formation page, whether or not they start.</summary>
+public sealed class SquadPlayer
+{
+    public required int PlayerId { get; init; }
+
+    public required string Code { get; init; }
+
+    public string? TeamName { get; init; }
+
+    public double Overall { get; init; }
+
+    public ReadinessLevel Level { get; init; }
+
+    /// <summary>Every position a coach named for them, best rank first.</summary>
+    public IReadOnlyList<PositionPreference> Positions { get; init; } = Array.Empty<PositionPreference>();
+
+    public bool FromEarlierCycle { get; init; }
+
+    /// <summary>In the best eleven.</summary>
+    public bool Starts { get; init; }
+}
+
+/// <summary>
+/// The pitch for lineup.js: the slots, every player who could fill one, and the eleven the
+/// page picked. Everything the script shows about a player is worked out here -- the number, its
+/// light, the words -- so the script moves cards and does no succession maths beyond the one
+/// subtraction that says how well a player fits a slot they were moved to.
+/// </summary>
+/// <param name="Lines">How many slots are in each row on the pitch, attack first.</param>
+/// <param name="Pick">The best eleven: a player id per slot, null where nobody was named.</param>
+/// <param name="RankPenalty">The file's positionRankPenalty: [0] for a 1st position, and on.</param>
+public sealed record LineupEditorData(
+    IReadOnlyList<LineupSlot> Slots,
+    IReadOnlyList<int> Lines,
+    IReadOnlyList<LineupPlayer> Players,
+    IReadOnlyList<int?> Pick,
+    IReadOnlyList<double> RankPenalty,
+    double ReadyAt);
+
+public sealed record LineupSlot(int Index, string Position, string Name);
+
+/// <param name="Positions">Position key to the best rank any coach gave it.</param>
+/// <param name="Slot">"sc-slot--ready": the card's readiness bar.</param>
+/// <param name="Mean">"sc-mean sc-mean--strong": the number's light.</param>
+public sealed record LineupPlayer(
+    int Id,
+    string Code,
+    string? Team,
+    double Overall,
+    string Number,
+    string Level,
+    string Slot,
+    string Mean,
+    IReadOnlyDictionary<string, int> Positions,
+    bool Earlier,
+    string Url);
 
 public sealed class SlotView
 {

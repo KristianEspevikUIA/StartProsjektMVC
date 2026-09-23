@@ -88,6 +88,32 @@ public class SuccessionCatalogTests
     }
 
     [Fact]
+    public void A_formation_can_be_asked_for_with_the_goalkeeper_counted()
+    {
+        // "Formation might be 1-3-5-2": the coaches' own way of writing the 3-5-2.
+        var catalog = Shipped();
+
+        Assert.Equal("3-5-2", catalog.FindFormation("1-3-5-2")!.Key);
+        Assert.Equal("4-3-3", catalog.FindFormation(" 1-4-3-3 ")!.Key);
+        Assert.Equal("1-3-5-2", catalog.FindFormation("3-5-2")!.GoalkeeperNotation);
+        Assert.Null(catalog.FindFormation("1-2-3-5"));
+        Assert.Null(catalog.FindFormation("1-"));
+    }
+
+    [Fact]
+    public void A_formation_with_a_name_that_is_not_numbers_has_no_goalkeeper_notation()
+    {
+        var diamond = new FormationDefinition
+        {
+            Key = "diamond",
+            Name = "Diamond",
+            Lines = new[] { new[] { "GK" } }
+        };
+
+        Assert.Null(diamond.GoalkeeperNotation);
+    }
+
+    [Fact]
     public void Lookups_ignore_case_and_say_null_for_what_is_not_there()
     {
         var catalog = Shipped();

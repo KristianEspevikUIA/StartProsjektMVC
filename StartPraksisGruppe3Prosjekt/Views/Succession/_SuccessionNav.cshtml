@@ -1,13 +1,16 @@
-@model string
+@model SuccessionNavViewModel
 @*
     The two halves of succession planning, as a pair of links in the hero: the board (every
-    player, the workbook pulled together) and the best eleven. Model is "board" or "eleven".
+    player, the workbook pulled together) and the best eleven. The team and an earlier cycle go
+    with them, so moving between the two does not drop the team a coach has clicked into.
 *@
 <nav class="sc-subnav" aria-label="Succession planning">
-    <a class="sc-subnav__link @(Model == "board" ? "sc-subnav__link--active" : "")"
-       aria-current="@(Model == "board" ? "page" : null)"
-       asp-controller="Succession" asp-action="Index">Squad board</a>
-    <a class="sc-subnav__link @(Model == "eleven" ? "sc-subnav__link--active" : "")"
-       aria-current="@(Model == "eleven" ? "page" : null)"
-       asp-controller="Succession" asp-action="Formation">Best eleven</a>
+    <a class="sc-subnav__link @(Model.Active == "board" ? "sc-subnav__link--active" : "")"
+       aria-current="@(Model.Active == "board" ? "page" : null)"
+       asp-controller="Succession" asp-action="Index"
+       asp-route-team="@Model.TeamId" asp-route-cycle="@Model.CycleKey">Squad board</a>
+    <a class="sc-subnav__link @(Model.Active == "eleven" ? "sc-subnav__link--active" : "")"
+       aria-current="@(Model.Active == "eleven" ? "page" : null)"
+       asp-controller="Succession" asp-action="Formation"
+       asp-route-team="@Model.TeamId" asp-route-cycle="@Model.CycleKey">Best eleven</a>
 </nav>

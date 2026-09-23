@@ -7,23 +7,28 @@
     var filter = Model.Filter;
     var settings = Catalog.Settings;
 
-    string SlotClass(SlotView slot) => slot.Starter?.Level switch
-    {
-        null => "sc-slot sc-slot--empty",
-        ReadinessLevel.Ready => "sc-slot sc-slot--ready",
-        ReadinessLevel.Developing => "sc-slot sc-slot--developing",
-        _ => "sc-slot sc-slot--notyet"
-    };
+    string SlotClass(SlotView slot) =>
+        $"sc-slot {SuccessionFormat.SlotClass(slot.Starter?.Level ?? ReadinessLevel.None)}";
+
+    var bench = Model.Bench.ToList();
 }
 
 @*
     "What would the best 11 in a 4-3-3 look like? Who's in the building to be the best fit?"
+    And later: "Click into a team -- say G17 -- and see the players in a 1-3-5-2 ... if we could
+    move players around too. Think of Football Manager."
 
     The pitch is the answer at a glance, and the depth table under it is the working: for every
     slot, the starter and the next in line, with how far off each of them is and how many weeks
     that looks like. The rule that picks them is SuccessionMath.PickEleven, and the help page
     says it in words. A slot nobody was named for stays empty -- that is the finding, not a gap
     in the page.
+
+    The team links above the filters are the "click into a team". Beside the pitch is the rest
+    of the squad, and lineup.js lets a coach drag players between the two, or tap one and then
+    another. What is rendered here is the page without JavaScript: the pick, and the bench as a
+    list. The script redraws both from the data block at the bottom and keeps a moved eleven in
+    the address bar -- nothing is saved, so the pick itself never changes under anybody.
 *@
 
 <section class="sc-hero">
@@ -34,6 +39,10 @@
 
         <div class="sc-hero__meta">
             <span>@(filter.TeamName ?? "Whole club")</span>
+            @if (Model.Formation.GoalkeeperNotation is { } withKeeper)
+            {
+                <span>@withKeeper with the goalkeeper</span>
+            }
             <span>@filter.Cycle.Label@(filter.IsCurrentCycle ? " (this cycle)" : "")</span>
             @if (filter.RatedAs is { } level)
             {
@@ -42,19 +51,39 @@
             <span>@Model.CandidateCount rated player@(Model.CandidateCount == 1 ? "" : "s") to choose from</span>
         </div>
 
-        <partial name="_SuccessionNav" model="@("eleven")" />
+        <partial name="_SuccessionNav" model="@SuccessionNavViewModel.For("eleven", filter)" />
     </div>
 </section>
 
 <div class="sc-page">
+    @* "Click into a team": one link each, keeping the formation, cycle and level. *@
+    <nav class="sc-teamnav" aria-label="Choose from">
+        <span class="sc-teamnav__label">Choose from</span>
+        <a class="sc-teamnav__link @(filter.TeamId is null ? "sc-teamnav__link--active" : "")"
+           aria-current="@(filter.TeamId is null ? "page" : null)"
+           asp-action="Formation" asp-route-formation="@Model.Formation.Key"
+           asp-route-cycle="@(filter.IsCurrentCycle ? null : filter.Cycle.Key)" asp-route-ratedAs="@filter.RatedAs">Whole club</a>
+        @foreach (var team in filter.Teams)
+        {
+            <a class="sc-teamnav__link @(team.Id == filter.TeamId ? "sc-teamnav__link--active" : "")"
+               aria-current="@(team.Id == filter.TeamId ? "page" : null)"
+               asp-action="Formation" asp-route-formation="@Model.Formation.Key" asp-route-team="@team.Id"
+               asp-route-cycle="@(filter.IsCurrentCycle ? null : filter.Cycle.Key)" asp-route-ratedAs="@filter.RatedAs">@team.Name</a>
+        }
+    </nav>
+
     <div class="sc-toolbar">
         <form method="get" asp-action="Formation" class="sc-filterbar">
+            @if (filter.TeamId is { } teamId)
+            {
+                <input type="hidden" name="team" value="@teamId" />
+            }
             <div class="sc-form-field">
                 <label class="sc-label" for="eleven-formation">Formation</label>
                 <select class="sc-select" id="eleven-formation" name="formation">
                     @foreach (var formation in Model.Formations)
                     {
-                        <option value="@formation.Key" selected="@(formation.Key == Model.Formation.Key)">@formation.Name</option>
+                        <option value="@formation.Key" selected="@(formation.Key == Model.Formation.Key)">@formation.Name@(formation.GoalkeeperNotation is { } keeper ? $" ({keeper})" : "")</option>
                     }
                 </select>
             </div>
@@ -66,16 +95,6 @@
                         <option value="@cycle.Key" selected="@(cycle.StartsOn == filter.Cycle.StartsOn)">
                             @cycle.Label@(cycle.StartsOn == filter.CurrentCycle.StartsOn ? " (this cycle)" : "")
                         </option>
-                    }
-                </select>
-            </div>
-            <div class="sc-form-field">
-                <label class="sc-label" for="eleven-team">Choose from</label>
-                <select class="sc-select" id="eleven-team" name="team">
-                    <option value="">Whole club</option>
-                    @foreach (var team in filter.Teams)
-                    {
-                        <option value="@team.Id" selected="@(team.Id == filter.TeamId)">@team.Name</option>
                     }
                 </select>
             </div>
@@ -99,8 +118,8 @@
         <div class="sc-stats">
             <article class="sc-stat">
                 <p class="sc-stat__label">Filled</p>
-                <p class="sc-stat__value">@Model.FilledCount<span class="sc-stat__unit"> / @SuccessionRules.PlayersOnThePitch</span></p>
-                <p class="sc-stat__note">
+                <p class="sc-stat__value"><span data-lineup-stat="filled">@Model.FilledCount</span><span class="sc-stat__unit"> / @SuccessionRules.PlayersOnThePitch</span></p>
+                <p class="sc-stat__note" data-lineup-stat="filled-note">
                     @if (Model.FilledCount < SuccessionRules.PlayersOnThePitch)
                     {
                         <text>@(SuccessionRules.PlayersOnThePitch - Model.FilledCount) position@(SuccessionRules.PlayersOnThePitch - Model.FilledCount == 1 ? " has" : "s have") nobody named for it.</text>
@@ -113,13 +132,13 @@
             </article>
             <article class="sc-stat">
                 <p class="sc-stat__label">Ready now</p>
-                <p class="sc-stat__value">@Model.ReadyCount<span class="sc-stat__unit"> of @Model.FilledCount</span></p>
+                <p class="sc-stat__value"><span data-lineup-stat="ready">@Model.ReadyCount</span><span class="sc-stat__unit"> of <span data-lineup-stat="filled">@Model.FilledCount</span></span></p>
                 <p class="sc-stat__note">starters at @settings.ReadyAt.ToString("0") or more.</p>
             </article>
             <article class="sc-stat">
                 <p class="sc-stat__label">The eleven's average</p>
                 <p class="sc-stat__value">
-                    <span class="@SuccessionFormat.RatingClass(Model.AverageReadiness)">@SuccessionFormat.Number(Model.AverageReadiness)</span>
+                    <span class="@SuccessionFormat.RatingClass(Model.AverageReadiness)" data-lineup-stat="average">@SuccessionFormat.Number(Model.AverageReadiness)</span>
                 </p>
                 <p class="sc-stat__note">overall readiness across the starters.</p>
             </article>
@@ -130,47 +149,90 @@
         <div class="sc-rule"></div>
         <h2>The pitch</h2>
         <p class="sc-footnote sc-footnote--top">
-            Attacking upwards. The number on each card is the starter's overall readiness, in the readiness
+            Attacking upwards. The number on each card is the player's overall readiness, in the readiness
             light: green @settings.ReadyAt.ToString("0")+, amber @settings.DevelopingAt.ToString("0")–@settings.ReadyAt.ToString("0"),
             red below. A dashed slot has nobody named for it.
         </p>
 
-        @* Links, not a list: each card opens the player. The depth table under it is the
-           same eleven as rows, which is what a screen reader is better off reading. *@
-        <div class="sc-pitch">
-            @foreach (var line in Model.Lines)
-            {
-                <div class="sc-pitch__line">
-                    @foreach (var slot in line)
+        <div class="sc-lineup" data-lineup>
+            @* Shown by lineup.js. Without it there is nothing to move, and nothing to say about moving. *@
+            <div class="sc-lineup__bar" data-lineup-bar hidden>
+                <p class="sc-lineup__status" data-lineup-status>The best eleven, as picked.</p>
+                <button type="button" class="sc-btn sc-btn--secondary sc-btn--small" data-lineup-reset disabled>Back to the best eleven</button>
+            </div>
+
+            <div class="sc-lineup__main">
+                @* Links, not a list: each card opens the player. The depth table under it is the
+                   same eleven as rows, which is what a screen reader is better off reading. *@
+                <div class="sc-pitch" data-lineup-pitch>
+                    @foreach (var line in Model.Lines)
                     {
-                        if (slot.Starter is { } starter)
-                        {
-                            <a class="@SlotClass(slot)"
-                               asp-action="Player" asp-route-id="@starter.PlayerId" asp-route-cycle="@filter.Cycle.Key"
-                               aria-label="@slot.PositionName: @starter.Code, @SuccessionFormat.Number(starter.Overall), @SuccessionFormat.LevelName(starter.Level)">
-                                <span class="sc-slot__pos">@slot.Position</span>
-                                <span class="sc-slot__code">@starter.Code</span>
-                                <span class="sc-slot__value">
-                                    <span class="@SuccessionFormat.LevelClass(starter.Level)">@SuccessionFormat.Number(starter.Overall)</span>
-                                </span>
-                                <span class="sc-slot__meta">
-                                    @(starter.Rank == 1 ? "1st position" : $"{SuccessionFormat.Rank(starter.Rank)} position")
-                                    @(starter.TeamName is null ? "" : $"· {starter.TeamName}")
-                                </span>
-                            </a>
-                        }
-                        else
-                        {
-                            <div class="@SlotClass(slot)">
-                                <span class="sc-slot__pos">@slot.Position</span>
-                                <span class="sc-slot__code">Nobody</span>
-                                <span class="sc-slot__meta">No rated player has @slot.Position among their positions.</span>
-                            </div>
-                        }
+                        <div class="sc-pitch__line">
+                            @foreach (var slot in line)
+                            {
+                                if (slot.Starter is { } starter)
+                                {
+                                    <a class="@SlotClass(slot)"
+                                       asp-action="Player" asp-route-id="@starter.PlayerId" asp-route-cycle="@filter.Cycle.Key"
+                                       aria-label="@slot.PositionName: @starter.Code, @SuccessionFormat.Number(starter.Overall), @SuccessionFormat.LevelName(starter.Level)">
+                                        <span class="sc-slot__pos">@slot.Position</span>
+                                        <span class="sc-slot__code">@starter.Code</span>
+                                        <span class="sc-slot__value">
+                                            <span class="@SuccessionFormat.LevelClass(starter.Level)">@SuccessionFormat.Number(starter.Overall)</span>
+                                        </span>
+                                        <span class="sc-slot__meta">
+                                            @(starter.Rank == 1 ? "1st position" : $"{SuccessionFormat.Rank(starter.Rank)} position")
+                                            @(starter.TeamName is null ? "" : $"· {starter.TeamName}")
+                                        </span>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <div class="@SlotClass(slot)">
+                                        <span class="sc-slot__pos">@slot.Position</span>
+                                        <span class="sc-slot__code">Nobody</span>
+                                        <span class="sc-slot__meta">No rated player has @slot.Position among their positions.</span>
+                                    </div>
+                                }
+                            }
+                        </div>
                     }
                 </div>
-            }
+
+                <aside class="sc-bench" aria-labelledby="bench-heading">
+                    <div class="sc-bench__focus" data-lineup-focus hidden></div>
+
+                    <h3 class="sc-bench__heading" id="bench-heading">
+                        The rest of the squad <span class="sc-bench__count" data-lineup-bench-count>@bench.Count</span>
+                    </h3>
+                    <p class="sc-bench__hint" data-lineup-hint>
+                        Everybody rated @(filter.TeamName is { } teamName ? $"in {teamName}" : "in the club") who is not in the eleven, strongest first.
+                    </p>
+
+                    <p class="sc-bench__empty" data-lineup-bench-empty hidden="@(bench.Count > 0)">
+                        @(Model.Squad.Count == 0 ? "Nobody here has been rated yet." : "Everybody rated is in the eleven.")
+                    </p>
+
+                    <ol class="sc-bench__list" data-lineup-bench>
+                        @foreach (var player in bench)
+                        {
+                            <li class="sc-bench__item">
+                                <span class="sc-bench__who">
+                                    <a class="sc-bench__code" asp-action="Player" asp-route-id="@player.PlayerId" asp-route-cycle="@filter.Cycle.Key">@player.Code</a>
+                                    <span class="sc-bench__pos">@SuccessionFormat.Positions(player.Positions)@(player.TeamName is null ? "" : $" · {player.TeamName}")</span>
+                                </span>
+                                <span class="@SuccessionFormat.LevelClass(player.Level)">@SuccessionFormat.Number(player.Overall)</span>
+                            </li>
+                        }
+                    </ol>
+                </aside>
+            </div>
+
+            <p class="visually-hidden" role="status" aria-live="polite" data-lineup-announce></p>
         </div>
+
+        @* Data, not script: the CSP runs no inline script, and this is never run. *@
+        <script type="application/json" id="lineup-data">@Html.Raw(Model.EditorJson)</script>
     </section>
 
     <section class="sc-section sc-section--last">
@@ -180,6 +242,7 @@
             For every slot, the starter and the next @SuccessionRules.NextInLine in the building for the
             position, whether or not they start somewhere else. Off is how far below
             @settings.ReadyAt.ToString("0"); the weeks are the trend across cycles, carried forward.
+            This is the best eleven as picked, whatever has been moved on the pitch above.
         </p>
 
         <div class="sc-table-wrap">
@@ -264,3 +327,7 @@
         </div>
     </section>
 </div>
+
+@section Scripts {
+    <script src="~/js/lineup.js" asp-append-version="true"></script>
+}

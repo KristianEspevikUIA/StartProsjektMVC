@@ -14,7 +14,10 @@ public interface ISuccessionCatalog
     /// <summary>The formation the page opens on: the first one in the file.</summary>
     FormationDefinition DefaultFormation { get; }
 
-    /// <summary>The formation with this key ("4-3-3"), case-insensitive, or null.</summary>
+    /// <summary>
+    /// The formation with this key ("4-3-3"), case-insensitive, or null. The goalkeeper may be
+    /// counted too, as some coaches write it: "1-3-5-2" is the 3-5-2.
+    /// </summary>
     FormationDefinition? FindFormation(string? key);
 
     SuccessionOption? Position(string? key);
@@ -91,8 +94,28 @@ public sealed class SuccessionCatalog : ISuccessionCatalog
 
     public FormationDefinition DefaultFormation => Settings.Formations[0];
 
-    public FormationDefinition? FindFormation(string? key) =>
-        key is not null && _formations.TryGetValue(key.Trim(), out var formation) ? formation : null;
+    public FormationDefinition? FindFormation(string? key)
+    {
+        if (key is null)
+        {
+            return null;
+        }
+
+        var trimmed = key.Trim();
+
+        if (_formations.TryGetValue(trimmed, out var formation))
+        {
+            return formation;
+        }
+
+        // "1-3-5-2": the same eleven with the keeper written in front. Only as a fallback, so a
+        // formation the file itself calls "1-..." is still found by its own key first.
+        return trimmed.StartsWith("1-", StringComparison.Ordinal)
+               && _formations.TryGetValue(trimmed[2..], out var outfield)
+               && outfield.GoalkeeperNotation is not null
+            ? outfield
+            : null;
+    }
 
     public SuccessionOption? Position(string? key) => Find(_positions, key);
 
