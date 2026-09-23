@@ -59,6 +59,22 @@ public sealed class SuccessionOverviewViewModel
     public DateOnly Today { get; init; }
 
     public bool CanRate { get; init; }
+
+    /// <summary>
+    /// What to call every coach behind a row on the board: the signed-in coach is "You", the
+    /// others the part of their address before the @. See ISuccessionPlanningService.RaterNamesAsync.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> RaterNames { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>The model for one row's list of coaches.</summary>
+    public SuccessionRatersViewModel RatersOf(BoardPlayer row) => new(row, RaterNames);
+}
+
+/// <summary>The coaches behind one row of the board. See _SuccessionRaters.cshtml.</summary>
+public sealed record SuccessionRatersViewModel(BoardPlayer Row, IReadOnlyDictionary<string, string> Names)
+{
+    public string NameOf(string raterUserId) => Names.TryGetValue(raterUserId, out var name) ? name : "Coach";
 }
 
 /// <summary>/Succession/Formation: the best eleven, and who is next in line.</summary>

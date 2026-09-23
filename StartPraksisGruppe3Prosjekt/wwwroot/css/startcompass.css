@@ -4075,3 +4075,104 @@ a.sc-slot:focus {
 .sc-stat__value--text {
     font-size: 26px;
 }
+
+/* A position key in a table: "RCB", with the full name as its title. Bootstrap's abbr[title]
+   underline is kept -- it is the sign that hovering says more. */
+.sc-position {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* The coaches wrote different things in this column. Quieter than an agreed position, and
+   the word Split under it says why. Allowed to wrap between the positions: "RCB / LWB / RB"
+   on one line made all three position columns as wide as their widest split. */
+.sc-position--split {
+    color: var(--sc-muted-foreground);
+    font-weight: 600;
+    white-space: normal;
+}
+
+.sc-position--split abbr,
+.sc-position__next {
+    white-space: nowrap;
+}
+
+/* The three position columns hold three-letter keys; the table's usual 12px either side is
+   most of their width. */
+.sc-table .sc-cell--position {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* On the board a long category ("Performance & Potential") may take two lines rather than
+   push the table past the page. The badges elsewhere stay on one. */
+.sc-table--squad .sc-tone {
+    white-space: normal;
+}
+
+/*
+    Who is behind a row: the coach count opens into the list of coaches, in place. A native
+    <details>, so it works with the keyboard and without JavaScript; the summary is styled as the
+    link it behaves like, and keeps its disclosure triangle so it looks like something that opens.
+*/
+.sc-raters summary {
+    color: var(--sc-blue);
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+
+.sc-raters summary:hover {
+    color: var(--sc-ink);
+}
+
+.sc-raters summary:focus-visible {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+}
+
+.sc-raters__body {
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.sc-raters__note {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    margin: 0 0 6px;
+}
+
+.sc-raters__list {
+    display: grid;
+    gap: 6px;
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+/* Their overall first, then the name with the date under it: two short lines rather than
+   one long one, so opening the list widens its column as little as it can. */
+.sc-raters__list li {
+    align-items: center;
+    column-gap: 8px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+}
+
+.sc-raters__list .sc-rate {
+    grid-row: span 2;
+    min-width: 40px;
+}
+
+.sc-raters__name {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sc-raters__date {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    grid-column: 2;
+}

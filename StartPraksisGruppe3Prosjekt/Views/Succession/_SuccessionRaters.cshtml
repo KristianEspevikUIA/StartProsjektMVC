@@ -1,0 +1,39 @@
+@model SuccessionRatersViewModel
+@*
+    "Who are the coaches?" -- the coaches behind one row of the board, one click away.
+
+    A <details>, so it opens without JavaScript and without leaving the board: the count is
+    the summary, and opening it lists each coach with their own overall and the day they rated.
+    The link at the bottom goes to the full side-by-side on the player page, in the same cycle
+    as the row -- which for a greyed row is the earlier cycle its numbers came from.
+
+    Opens in place rather than as a floating box. The table scrolls sideways inside
+    .sc-table-wrap, and anything positioned over it would be clipped at the wrap's edge.
+*@
+@{
+    var row = Model.Row;
+    var count = row.Raters.Count;
+}
+
+<details class="sc-raters">
+    <summary>@count coach@(count == 1 ? "" : "es")</summary>
+    <div class="sc-raters__body">
+        @if (row.IsFromEarlierCycle && row.ConsensusCycle is { } earlier)
+        {
+            <p class="sc-raters__note">In @earlier.Label</p>
+        }
+        <ul class="sc-raters__list">
+            @foreach (var rater in row.Raters)
+            {
+                <li>
+                    <span class="@SuccessionFormat.RatingClass(rater.Overall)">@SuccessionFormat.Number(rater.Overall)</span>
+                    <span class="sc-raters__name">@Model.NameOf(rater.RaterUserId)</span>
+                    <span class="sc-raters__date">@SuccessionFormat.Date(DateOnly.FromDateTime(rater.RatedAt.UtcDateTime))</span>
+                </li>
+            }
+        </ul>
+        <a asp-controller="Succession" asp-action="Player"
+           asp-route-id="@row.Player.Id"
+           asp-route-cycle="@(row.ConsensusCycle?.Key)">Compare side by side</a>
+    </div>
+</details>

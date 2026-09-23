@@ -163,7 +163,7 @@ public sealed class SuccessionPlanningService : ISuccessionPlanningService
         var byCycle = assessments
             .GroupBy(a => a.CycleStartsOn)
             .OrderBy(g => g.Key)
-            .Select(g => (StartsOn: g.Key, Consensus: Consensus(g.ToList())))
+            .Select(g => (StartsOn: g.Key, Assessments: g.ToList(), Consensus: Consensus(g.ToList())))
             .ToList();
 
         var history = byCycle
@@ -171,20 +171,29 @@ public sealed class SuccessionPlanningService : ISuccessionPlanningService
             .Select(c => (c.StartsOn, c.Consensus.Overall!.Value))
             .ToList();
 
-        var latest = byCycle.Count == 0 ? ((DateOnly, PlayerConsensus)?)null : byCycle[^1];
+        var latest = byCycle.Count == 0
+            ? ((DateOnly StartsOn, List<SuccessionAssessment> Assessments, PlayerConsensus Consensus)?)null
+            : byCycle[^1];
 
         return new BoardPlayer
         {
             Player = player,
             Profile = profile,
-            Consensus = latest?.Item2,
-            ConsensusCycle = latest is { } l ? _catalog.CycleOf(l.Item1) : null,
+            Consensus = latest?.Consensus,
+            ConsensusCycle = latest is { } l ? _catalog.CycleOf(l.StartsOn) : null,
+
+            // The coaches behind the numbers on the row, in the order they rated -- the same
+            // cycle as the numbers, so an earlier-cycle row lists that cycle's coaches.
+            Raters = latest?.Assessments
+                .OrderBy(a => a.UpdatedAt)
+                .Select(a => new BoardRater(a.RaterUserId, SuccessionMath.OverallOf(a, Settings), a.UpdatedAt))
+                .ToList() ?? new List<BoardRater>(),
             RatersThisCycle = assessments
                 .Where(a => a.CycleStartsOn == cycle.StartsOn)
                 .Select(a => a.RaterUserId)
                 .ToList(),
             Outlook = SuccessionMath.Outlook(history, Settings),
-            Level = SuccessionMath.LevelOf(latest?.Item2.Overall, Settings)
+            Level = SuccessionMath.LevelOf(latest?.Consensus.Overall, Settings)
         };
     }
 
@@ -496,6 +505,12 @@ public sealed class BoardPlayer
     /// <summary>The cycle <see cref="Consensus"/> is from: the one shown, or the latest before it.</summary>
     public SuccessionCycle? ConsensusCycle { get; init; }
 
+    /// <summary>
+    /// Who <see cref="Consensus"/> is made of: one entry per coach, in <see cref="ConsensusCycle"/>.
+    /// For a row from an earlier cycle these are that cycle's coaches, not this one's.
+    /// </summary>
+    public IReadOnlyList<BoardRater> Raters { get; init; } = Array.Empty<BoardRater>();
+
     /// <summary>The coaches who have rated the player in the cycle shown. Empty means it is older.</summary>
     public IReadOnlyCollection<string> RatersThisCycle { get; init; } = Array.Empty<string>();
 
@@ -505,6 +520,9 @@ public sealed class BoardPlayer
 
     public ReadinessLevel Level { get; init; }
 }
+
+/// <summary>One coach behind a row on the board: who, their own overall, and when they rated.</summary>
+public sealed record BoardRater(string RaterUserId, double? Overall, DateTimeOffset RatedAt);
 
 /// <summary>One player on their own page.</summary>
 public sealed class SuccessionPlayerDetail

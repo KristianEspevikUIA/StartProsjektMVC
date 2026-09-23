@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
@@ -258,6 +259,81 @@ public sealed class SuccessionPageTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_board_has_a_column_each_for_the_1st_2nd_and_3rd_position()
+    {
+        await SeedAsync(StartCompassFactory.CoachUserId, 7, position: "RB", second: "RWB", third: "RCB");
+
+        var html = await Coach().GetStringAsync("/Succession");
+
+        Assert.Contains(">1st</th>", html);
+        Assert.Contains(">2nd</th>", html);
+        Assert.Contains(">3rd</th>", html);
+
+        // In that order, one per column, each with its full name on hover.
+        var first = html.IndexOf("title=\"Right-back\">RB</abbr>", StringComparison.Ordinal);
+        var second = html.IndexOf("title=\"Right wing-back\">RWB</abbr>", StringComparison.Ordinal);
+        var third = html.IndexOf("title=\"Right centre-back\">RCB</abbr>", StringComparison.Ordinal);
+
+        Assert.True(first >= 0 && first < second && second < third, "Expected RB, RWB, RCB in that order.");
+    }
+
+    [Fact]
+    public async Task Coaches_who_wrote_different_1st_positions_are_shown_as_a_split()
+    {
+        await SeedAsync(StartCompassFactory.CoachUserId, 7, position: "RB");
+        await SeedAsync(SecondCoachUserId, 7, position: "LB");
+
+        var html = await Coach().GetStringAsync("/Succession");
+
+        Assert.Contains("sc-position sc-position--split", html);
+    }
+
+    [Fact]
+    public async Task The_coach_count_opens_into_who_the_coaches_are()
+    {
+        // A real account for the second coach, so the page has a name to show for them.
+        await _factory.WithServicesAsync(async services =>
+        {
+            var users = services.GetRequiredService<UserManager<IdentityUser>>();
+
+            var created = await users.CreateAsync(new IdentityUser
+            {
+                Id = SecondCoachUserId,
+                UserName = "second.coach@example.test",
+                Email = "second.coach@example.test"
+            });
+
+            Assert.True(created.Succeeded, string.Join(", ", created.Errors.Select(e => e.Description)));
+        });
+
+        await SeedAsync(StartCompassFactory.CoachUserId, 6);
+        await SeedAsync(SecondCoachUserId, 8);
+
+        var html = await Coach().GetStringAsync("/Succession");
+
+        Assert.Contains("<details class=\"sc-raters\">", html);
+        Assert.Contains("<summary>2 coaches</summary>", html);
+
+        // The signed-in coach by "You", the other by the part of their address before the @ --
+        // never the whole address, and never the Identity id.
+        Assert.Contains("<span class=\"sc-raters__name\">You</span>", html);
+        Assert.Contains("<span class=\"sc-raters__name\">second.coach</span>", html);
+        Assert.DoesNotContain("second.coach@example.test", html);
+        Assert.DoesNotContain(SecondCoachUserId, html);
+    }
+
+    [Fact]
+    public async Task A_row_from_an_earlier_cycle_lists_that_cycles_coaches_and_says_so()
+    {
+        await SeedAsync(StartCompassFactory.CoachUserId, 7, cyclesAgo: 1);
+
+        var html = await Coach().GetStringAsync("/Succession");
+
+        Assert.Contains("<summary>1 coach</summary>", html);
+        Assert.Contains("<p class=\"sc-raters__note\">In ", html);
+    }
+
+    [Fact]
     public async Task Opening_a_player_is_written_to_the_audit_log()
     {
         await _factory.AssertOkAsync(await Coach().GetAsync(PlayerPage));
@@ -389,7 +465,13 @@ public sealed class SuccessionPageTests : IAsyncLifetime
     }
 
     /// <summary>An assessment through the real service, every rating at one value.</summary>
-    private Task SeedAsync(string raterUserId, int value, int cyclesAgo = 0, string position = "RB") =>
+    private Task SeedAsync(
+        string raterUserId,
+        int value,
+        int cyclesAgo = 0,
+        string position = "RB",
+        string? second = null,
+        string? third = null) =>
         _factory.WithServicesAsync(async services =>
         {
             var planning = services.GetRequiredService<ISuccessionPlanningService>();
@@ -403,6 +485,8 @@ public sealed class SuccessionPageTests : IAsyncLifetime
 
             var assessment = SuccessionMathTests.Assessment(raterUserId, value, value, value, value, value, value);
             assessment.FirstPosition = position;
+            assessment.SecondPosition = second;
+            assessment.ThirdPosition = third;
 
             await planning.SaveAsync(_factory.PlayerId, raterUserId, cycle, assessment);
         });

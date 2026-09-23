@@ -171,23 +171,35 @@
             <p class="sc-footnote sc-footnote--top">
                 Overall is the average of the six ratings, and the coaches' average of it. Off is
                 how far below @settings.ReadyAt.ToString("0") that is; the weeks are the trend across
-                cycles, carried forward.
+                cycles, carried forward. Each position column is what most coaches wrote in it.
+                Under Rated by, open the count to see which coaches it is.
             </p>
 
+            @*
+                The workbook's three position columns, kept as three -- 1st, 2nd, 3rd -- under one
+                heading, the grouped layout the 5C player list uses. Each is its own vote; see
+                PlayerConsensus.PositionsByRank for why that is not the first three of the list
+                the best eleven picks from.
+            *@
             <div class="sc-table-wrap">
-                <table class="sc-table sc-table--squad">
+                <table class="sc-table sc-table--squad sc-table--grouped">
                     <thead>
                         <tr>
-                            <th scope="col">Code</th>
-                            <th scope="col">Team</th>
-                            <th scope="col">Positions</th>
-                            <th scope="col">Ability</th>
-                            <th scope="col">Rated as</th>
-                            <th scope="col">Overall</th>
-                            <th scope="col">Coaches' call<span class="sc-th-note">Personal readiness</span></th>
-                            <th scope="col">Off and weeks to ready</th>
-                            <th scope="col">Risk</th>
-                            <th scope="col">Coaches</th>
+                            <th scope="col" rowspan="2">Code</th>
+                            <th scope="col" rowspan="2">Team</th>
+                            <th scope="colgroup" colspan="3" class="sc-th-group">Positions</th>
+                            <th scope="col" rowspan="2">Ability</th>
+                            <th scope="col" rowspan="2">Rated as</th>
+                            <th scope="col" rowspan="2">Overall</th>
+                            <th scope="col" rowspan="2">Coaches' call<span class="sc-th-note">Personal readiness</span></th>
+                            <th scope="col" rowspan="2">Off and weeks to ready</th>
+                            <th scope="col" rowspan="2">Risk</th>
+                            <th scope="col" rowspan="2">Rated by</th>
+                        </tr>
+                        <tr>
+                            <th scope="col" class="sc-cell--position">1st</th>
+                            <th scope="col" class="sc-cell--position">2nd</th>
+                            <th scope="col" class="sc-cell--position">3rd</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -201,11 +213,14 @@
                                 <td class="sc-small">@row.Player.Team?.Name</td>
                                 @if (c is null)
                                 {
-                                    <td colspan="8" class="sc-muted sc-small">Not rated by any coach yet.</td>
+                                    <td colspan="10" class="sc-muted sc-small">Not rated by any coach yet.</td>
                                 }
                                 else
                                 {
-                                    <td class="sc-small">@SuccessionFormat.Positions(c.Positions)</td>
+                                    foreach (var vote in c.PositionsByRank)
+                                    {
+                                        <td class="sc-small sc-cell--position"><partial name="_SuccessionPositionVote" model="vote" /></td>
+                                    }
                                     <td>
                                         @if (Catalog.AbilityCategory(c.AbilityCategory.Winner) is { } category)
                                         {
@@ -248,7 +263,7 @@
                                         }
                                     </td>
                                     <td class="sc-small">
-                                        @row.RatersThisCycle.Count
+                                        <partial name="_SuccessionRaters" model="Model.RatersOf(row)" />
                                         @if (!row.IsFromEarlierCycle && c.CoachesDisagree)
                                         {
                                             <span class="sc-badge sc-badge--alert">Apart</span>
@@ -258,7 +273,7 @@
                             </tr>
                         }
                         <tr data-player-filter-empty hidden>
-                            <td colspan="10" class="sc-muted sc-small">No player matches that. The search covers code, team and position.</td>
+                            <td colspan="12" class="sc-muted sc-small">No player matches that. The search covers code, team and position.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -416,7 +431,7 @@
                             <tr>
                                 <th scope="col">Code</th>
                                 <th scope="col">Team</th>
-                                <th scope="col">Coaches</th>
+                                <th scope="col">Rated by</th>
                                 <th scope="col">Apart on</th>
                                 <th scope="col">Ability category</th>
                                 </tr>
@@ -428,7 +443,7 @@
                                 <tr data-player-row data-player-key="@row.Player.Id" data-player-search="@row.Player.Code @row.Player.Team?.Name">
                                     <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
                                     <td class="sc-small">@row.Player.Team?.Name</td>
-                                    <td class="sc-small">@c.RaterCount</td>
+                                    <td class="sc-small"><partial name="_SuccessionRaters" model="Model.RatersOf(row)" /></td>
                                     <td>
                                         <div class="sc-inline-list">
                                             @foreach (var rating in c.Disagreements)

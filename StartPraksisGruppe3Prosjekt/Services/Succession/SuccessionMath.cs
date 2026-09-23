@@ -59,7 +59,8 @@ public static class SuccessionMath
     /// average of players and not of answers. Each rating is averaged the same way.
     ///
     /// Categories are a vote. Where no single answer has the most votes, there is no consensus
-    /// and the page says the coaches are split instead of picking one.
+    /// and the page says the coaches are split instead of picking one. The 1st, 2nd and 3rd
+    /// position are three such votes, one per column, as the workbook has three columns.
     /// </summary>
     public static PlayerConsensus Consensus(
         IReadOnlyList<SuccessionAssessment> assessments,
@@ -111,6 +112,12 @@ public static class SuccessionMath
             AbilityCategory = VoteOn(assessments.Select(a => a.AbilityCategory)),
             RatedAs = VoteOn(assessments.Select(a => a.RatedAs)),
             Positions = PositionsOf(assessments),
+            PositionsByRank = new[]
+            {
+                VoteOn(assessments.Select(a => a.FirstPosition)),
+                VoteOn(assessments.Select(a => a.SecondPosition)),
+                VoteOn(assessments.Select(a => a.ThirdPosition))
+            },
             WorstRisk = worstRisk,
             WorstRiskCount = worstRisk is null
                 ? 0
@@ -422,7 +429,22 @@ public sealed class PlayerConsensus
 
     public CategoryVote RatedAs { get; init; } = new(null, Array.Empty<Vote>());
 
+    /// <summary>
+    /// Every position any coach named, best first. What the best eleven picks from -- see
+    /// <see cref="SuccessionMath.PositionsOf"/>.
+    /// </summary>
     public IReadOnlyList<PositionPreference> Positions { get; init; } = Array.Empty<PositionPreference>();
+
+    /// <summary>
+    /// The workbook's three position columns, each a vote of its own: [0] is what the coaches
+    /// put as the 1st position, [1] the 2nd, [2] the 3rd. A split is shown as a split.
+    ///
+    /// Not the same as the first three of <see cref="Positions"/>, and deliberately so. That list
+    /// ranks every position by the best rank anybody gave it, which is the right question for
+    /// "who can play RB"; this one answers "what did the coaches write in the 1st column", which
+    /// is what a column headed 1st has to mean.
+    /// </summary>
+    public IReadOnlyList<CategoryVote> PositionsByRank { get; init; } = Array.Empty<CategoryVote>();
 
     /// <summary>The most severe risk any coach named.</summary>
     public string? WorstRisk { get; init; }

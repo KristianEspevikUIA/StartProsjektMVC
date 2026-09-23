@@ -211,7 +211,9 @@
                                         <td class="sc-small">@(key ?? "–")</td>
                                     }
                                     <td class="sc-small sc-col-together">
-                                        @(consensus.Positions.Count >= index ? consensus.Positions[index - 1].Key : "–")
+                                        @* What most of the coaches wrote in this column -- the same
+                                           vote the board shows, so the two pages agree. *@
+                                        <partial name="_SuccessionPositionVote" model="consensus.PositionsByRank[index - 1]" />
                                     </td>
                                     <td></td>
                                 </tr>

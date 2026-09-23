@@ -102,6 +102,17 @@ i 5C.
 **Kategorier.** Svaret flest trenere ga, vinner. Ved likt antall står det «Split», og appen velger
 ikke. Succession risk viser det alvorligste noen trener satte, og hvor mange som satte det.
 
+**Posisjoner.** Tavla har tre kolonner, 1st, 2nd og 3rd, som i arket. Hver kolonne er en egen
+avstemning: det flest trenere skrev i den kolonnen. Ved likt antall står begge posisjonene, merket
+«Split». Beste ellever bruker en annen regel, der en posisjon teller med beste rangering noen
+trener ga (se under). Det er med vilje: kolonnene svarer på «hva skrev trenerne», mens ellever
+svarer på «hvem kan spille der».
+
+**Hvem som har vurdert.** Antallet under «Rated by» på tavla kan åpnes. Da vises hver trener med
+sin egen overall og datoen de vurderte, og en lenke til spillersiden med alle trenerne side om
+side. For en grå rad er det trenerne fra den tidligere syklusen tallene kommer fra. Trenerne
+vises med delen av e-postadressen før @, og den innloggede treneren som «You».
+
 **Uenighet.** To trenere som står `disagreementAt` (3) poeng eller mer fra hverandre på én
 vurdering, eller er uenige om kategorien. Slike spillere vises i fanen «Where coaches disagree».
 

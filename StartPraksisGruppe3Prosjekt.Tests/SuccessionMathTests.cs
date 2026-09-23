@@ -159,6 +159,49 @@ public class SuccessionMathTests
     }
 
     [Fact]
+    public void Each_position_column_is_a_vote_of_its_own()
+    {
+        var consensus = Consensus(
+            Positions(Assessment("coach-a", 6, 6, 6, 6, 6, 6), "RB", "RWB", "RCB"),
+            Positions(Assessment("coach-b", 6, 6, 6, 6, 6, 6), "RB", "RCB", "RWB"),
+            Positions(Assessment("coach-c", 6, 6, 6, 6, 6, 6), "RCB", "RWB", null));
+
+        // 1st: RB twice, RCB once. 2nd: RWB twice. 3rd: one RCB, one RWB -- a split, and a
+        // blank is nobody's vote.
+        Assert.Equal("RB", consensus.PositionsByRank[0].Winner);
+        Assert.Equal("RWB", consensus.PositionsByRank[1].Winner);
+        Assert.Null(consensus.PositionsByRank[2].Winner);
+        Assert.True(consensus.PositionsByRank[2].IsSplit);
+        Assert.Equal(new[] { "RCB", "RWB" }, consensus.PositionsByRank[2].Votes.Select(v => v.Key));
+    }
+
+    [Fact]
+    public void The_columns_can_differ_from_the_list_the_eleven_picks_from()
+    {
+        // Two coaches, two different 1st positions. The 1st column is a split -- the board says
+        // the coaches disagree where the player plays -- while the eleven may still use both,
+        // because each is somebody's 1st.
+        var consensus = Consensus(
+            Positions(Assessment("coach-a", 6, 6, 6, 6, 6, 6), "RB", null, null),
+            Positions(Assessment("coach-b", 6, 6, 6, 6, 6, 6), "LB", null, null));
+
+        Assert.True(consensus.PositionsByRank[0].IsSplit);
+        Assert.All(consensus.Positions, p => Assert.Equal(1, p.BestRank));
+        Assert.Equal(2, consensus.Positions.Count);
+    }
+
+    [Fact]
+    public void Nobody_naming_a_2nd_position_is_no_vote_rather_than_a_split()
+    {
+        var consensus = Consensus(Positions(Assessment("coach-a", 6, 6, 6, 6, 6, 6), "GK", null, null));
+
+        Assert.Equal("GK", consensus.PositionsByRank[0].Winner);
+        Assert.Null(consensus.PositionsByRank[1].Winner);
+        Assert.False(consensus.PositionsByRank[1].IsSplit);
+        Assert.Empty(consensus.PositionsByRank[1].Votes);
+    }
+
+    [Fact]
     public void The_same_position_twice_on_one_row_counts_once()
     {
         var positions = SuccessionMath.PositionsOf(new[]
@@ -384,6 +427,14 @@ public class SuccessionMathTests
     private static SuccessionAssessment With(SuccessionAssessment assessment, Action<SuccessionAssessment> change)
     {
         change(assessment);
+        return assessment;
+    }
+
+    private static SuccessionAssessment Positions(SuccessionAssessment assessment, string? first, string? second, string? third)
+    {
+        assessment.FirstPosition = first;
+        assessment.SecondPosition = second;
+        assessment.ThirdPosition = third;
         return assessment;
     }
 

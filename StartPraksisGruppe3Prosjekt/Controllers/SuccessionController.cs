@@ -117,6 +117,15 @@ public class SuccessionController : Controller
         var today = Today;
         var currentRows = ordered.Where(r => !r.IsFromEarlierCycle && r.Consensus is not null).ToList();
 
+        // One lookup for every coach on the board, so each row can say who is behind it.
+        var raterNames = (await _planning.RaterNamesAsync(
+                ordered.SelectMany(r => r.Raters).Select(r => r.RaterUserId),
+                cancellationToken))
+            .ToDictionary(
+                entry => entry.Key,
+                entry => entry.Key == UserId ? "You" : entry.Value,
+                StringComparer.Ordinal);
+
         var model = new SuccessionOverviewViewModel
         {
             Filter = filter,
@@ -124,6 +133,7 @@ public class SuccessionController : Controller
             Rows = ordered,
             Today = today,
             CanRate = IsCoach && filter.IsCurrentCycle,
+            RaterNames = raterNames,
             RatedThisCycle = ordered.Count(r => r.RatersThisCycle.Count > 0),
             RatedByYou = ordered.Count(r => r.RatersThisCycle.Contains(UserId)),
             ReadyNow = ordered.Count(r => r.Level == ReadinessLevel.Ready),
