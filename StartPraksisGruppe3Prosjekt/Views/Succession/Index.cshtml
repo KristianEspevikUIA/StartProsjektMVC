@@ -164,8 +164,7 @@
 
     <div>
         @* ----------------------------------------------------------- readiness ---- *@
-        <section class="sc-section" data-tab-panel data-tab-label="Readiness"
-                 data-tab-hint="How close each player is">
+        <section class="sc-section" data-tab-panel data-tab-label="Readiness">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Readiness</h2>
             <p class="sc-footnote sc-footnote--top">
@@ -281,8 +280,7 @@
         </section>
 
         @* ------------------------------------------------------------- ratings ---- *@
-        <section class="sc-section" data-tab-panel data-tab-label="Ratings"
-                 data-tab-hint="The six, 1–10">
+        <section class="sc-section" data-tab-panel data-tab-label="Ratings">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Ratings</h2>
             <p class="sc-footnote sc-footnote--top">
@@ -339,7 +337,6 @@
 
         @* ----------------------------------------------------------- contracts ---- *@
         <section class="sc-section" data-tab-panel data-tab-label="Contracts and pathway"
-                 data-tab-hint="Contract, group, blocked"
                  data-tab-flag="@(Model.ContractsEnding.Count > 0 ? "true" : "false")">
             <div class="sc-rule"></div>
             <h2 data-tab-heading>Contracts and pathway</h2>
@@ -402,7 +399,6 @@
 
         @* -------------------------------------------------------- disagreement ---- *@
         <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Where coaches disagree"
-                 data-tab-hint="Worth talking about"
                  data-tab-count="@Model.Disagreements.Count"
                  data-tab-flag="@(Model.Disagreements.Count > 0 ? "true" : "false")">
             <div class="sc-rule"></div>
