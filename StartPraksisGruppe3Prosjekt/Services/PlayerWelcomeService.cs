@@ -32,6 +32,15 @@ public interface IPlayerWelcomeService
     Task<IReadOnlyList<PersonalDetailsRow>> ListAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// The first names entered for these players, by player id. A player with none is left out.
+    /// For the coaches' best eleven, the one staff page that shows a name -- see
+    /// SuccessionController.Formation. Never the photo.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, string>> FirstNamesAsync(
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Saves the first name and photo source, and replaces or removes the photo.
     /// </summary>
     /// <param name="photo">A photo already through <see cref="PlayerPhotoRules.Prepare"/>, or null to keep the current one.</param>
@@ -54,6 +63,27 @@ public sealed class PlayerWelcomeService : IPlayerWelcomeService
     public PlayerWelcomeService(AppDbContext db)
     {
         _db = db;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, string>> FirstNamesAsync(
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (playerIds.Count == 0)
+        {
+            return new Dictionary<int, string>();
+        }
+
+        var rows = await _db.PlayerPersonalDetails
+            .AsNoTracking()
+            .Where(d => playerIds.Contains(d.PlayerId) && d.FirstName != null && d.FirstName != "")
+            .Select(d => new { d.PlayerId, d.FirstName })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Where(r => !string.IsNullOrWhiteSpace(r.FirstName))
+            .ToDictionary(r => r.PlayerId, r => r.FirstName!.Trim());
     }
 
     /// <inheritdoc />

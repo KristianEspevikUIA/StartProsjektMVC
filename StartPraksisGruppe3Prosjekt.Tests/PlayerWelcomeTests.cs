@@ -93,7 +93,8 @@ public sealed class PlayerWelcomeTests : IAsyncLifetime
     public async Task The_name_stays_off_the_coach_pages()
     {
         // Everywhere else a player is their code. A coach page that picked up the name would
-        // undo that without anybody deciding to.
+        // undo that without anybody deciding to. The best eleven is the one page where it was
+        // decided -- see SuccessionPageTests.The_best_eleven_shows_first_names_and_the_team_rating.
         await SeedAsync("Alex", PlayerPhotoRulesTests.Png());
 
         var coach = _factory.ClientAs(StartCompassFactory.CoachUserId, Roles.Coach);

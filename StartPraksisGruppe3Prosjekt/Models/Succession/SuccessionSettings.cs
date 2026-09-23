@@ -29,6 +29,13 @@ public sealed class SuccessionSettings
     /// <summary>Readiness marked down per position rank when picking the eleven: [1st, 2nd, 3rd].</summary>
     public IReadOnlyList<double> PositionRankPenalty { get; init; } = Array.Empty<double>();
 
+    /// <summary>
+    /// Readiness marked down for a player a coach has moved to a position no coach named them
+    /// for. The pick never does that; the team rating on the pitch does, so moving a striker in
+    /// goal costs the team what it would.
+    /// </summary>
+    public double OutOfPositionPenalty { get; init; }
+
     public IReadOnlyList<SuccessionOption> Ratings { get; init; } = Array.Empty<SuccessionOption>();
 
     public IReadOnlyList<SuccessionOption> Positions { get; init; } = Array.Empty<SuccessionOption>();

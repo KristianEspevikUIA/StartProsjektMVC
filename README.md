@@ -611,12 +611,13 @@ og administrator har tilgang, men bare trenere vurderer.
   lagres hver for seg, og å vurdere på nytt i samme syklus er en retting.
 - **Squad board** legger trenerne sammen: én rad per spiller, med arkets fargeskala, og en fane
   med spillerne der trenerne er uenige.
-- **Best eleven** plukker de beste i 4-3-3 (eller 4-2-3-1, 3-5-2) fra de vurderte spillerne, og
+- **Best eleven** plukker de beste i 3-5-2 (eller 4-3-3, 4-2-3-1) fra de vurderte spillerne, og
   viser hvem som er nestemann i hver posisjon.
 - **Off og uker til klar:** hvor langt unna 8 spilleren er, og hvor mange uker det tar med
   trenden så langt.
 - **Lister og terskler** ligger i `Data/Succession/succession-planning.json`, validert ved oppstart.
-- **Ingen navn.** Arket har ekte navn, appen har koder. Arket ligger ikke i repoet.
+- **Ingen navn fra arket.** Arket har ekte navn, appen har koder. Arket ligger ikke i repoet.
+  «Best eleven» viser fornavnet klubben har lagt inn til velkomsten, og ellers koden.
 
 **Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
 

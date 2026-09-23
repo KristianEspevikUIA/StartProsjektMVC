@@ -104,7 +104,15 @@ public sealed class SuccessionFormationViewModel
     /// <summary>The same slots, goalkeeper first, for the depth table.</summary>
     public IEnumerable<SlotView> DepthOrder => Lines.Reverse().SelectMany(line => line);
 
-    public double? AverageReadiness { get; init; }
+    /// <summary>
+    /// The team rating over the pitch: the starters' readiness in the positions they are in --
+    /// overall, marked down for a 2nd or 3rd position (SuccessionMath.PositionFit). Null with
+    /// nobody on the pitch.
+    /// </summary>
+    public double? TeamRating { get; init; }
+
+    /// <summary>The same, for each part of the team: attack, midfield, defence, goalkeeper.</summary>
+    public IReadOnlyList<UnitRating> Units { get; init; } = Array.Empty<UnitRating>();
 
     public int ReadyCount { get; init; }
 
@@ -117,7 +125,7 @@ public sealed class SuccessionFormationViewModel
     /// </summary>
     public IReadOnlyList<SquadPlayer> Squad { get; init; } = Array.Empty<SquadPlayer>();
 
-    /// <summary>The rest of the squad: everybody rated who is not in the eleven.</summary>
+    /// <summary>The substitutes: everybody rated who is not in the eleven.</summary>
     public IEnumerable<SquadPlayer> Bench => Squad.Where(p => !p.Starts);
 
     /// <summary>The same pitch as data, for moving players about on it. See lineup.js.</summary>
@@ -132,12 +140,30 @@ public sealed class SuccessionFormationViewModel
     private static readonly JsonSerializerOptions EditorJsonOptions = new(JsonSerializerDefaults.Web);
 }
 
+/// <summary>
+/// What a shirt says: the first name, or the code where there is none. <see cref="Tag"/> is the
+/// code as well, for a first name two players on the page share.
+/// </summary>
+public sealed record ShirtName(string Name, string? Tag)
+{
+    public string Full => Tag is null ? Name : $"{Name} ({Tag})";
+}
+
+/// <summary>One part of the team and its rating. Null when nobody in it is on the pitch.</summary>
+public sealed record UnitRating(TeamUnit Unit, double? Rating);
+
 /// <summary>A rated player on the formation page, whether or not they start.</summary>
 public sealed class SquadPlayer
 {
     public required int PlayerId { get; init; }
 
     public required string Code { get; init; }
+
+    /// <summary>The first name, where the club has entered one; otherwise the code.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The code too, when another player on the page has the same first name.</summary>
+    public string? NameTag { get; init; }
 
     public string? TeamName { get; init; }
 
@@ -156,35 +182,39 @@ public sealed class SquadPlayer
 
 /// <summary>
 /// The pitch for lineup.js: the slots, every player who could fill one, and the eleven the
-/// page picked. Everything the script shows about a player is worked out here -- the number, its
-/// light, the words -- so the script moves cards and does no succession maths beyond the one
-/// subtraction that says how well a player fits a slot they were moved to.
+/// page picked. Everything the script shows about a player is worked out here -- the name, the
+/// numbers, the words -- so the script moves shirts about and does no succession maths beyond
+/// SuccessionMath.PositionFit, the one subtraction that says how ready a player is in the slot
+/// they were moved to.
 /// </summary>
 /// <param name="Lines">How many slots are in each row on the pitch, attack first.</param>
 /// <param name="Pick">The best eleven: a player id per slot, null where nobody was named.</param>
 /// <param name="RankPenalty">The file's positionRankPenalty: [0] for a 1st position, and on.</param>
+/// <param name="OutOfPositionPenalty">The file's outOfPositionPenalty.</param>
 public sealed record LineupEditorData(
     IReadOnlyList<LineupSlot> Slots,
     IReadOnlyList<int> Lines,
     IReadOnlyList<LineupPlayer> Players,
     IReadOnlyList<int?> Pick,
     IReadOnlyList<double> RankPenalty,
-    double ReadyAt);
+    double OutOfPositionPenalty,
+    double ReadyAt,
+    double DevelopingAt);
 
-public sealed record LineupSlot(int Index, string Position, string Name);
+/// <param name="Unit">"Attack", "Midfield", "Defence" or "Goalkeeper". See SuccessionMath.UnitOf.</param>
+public sealed record LineupSlot(int Index, string Position, string Name, string Unit);
 
+/// <param name="Name">What the shirt says: the first name, or the code.</param>
+/// <param name="Tag">The code as well, for a first name another player on the page shares.</param>
 /// <param name="Positions">Position key to the best rank any coach gave it.</param>
-/// <param name="Slot">"sc-slot--ready": the card's readiness bar.</param>
-/// <param name="Mean">"sc-mean sc-mean--strong": the number's light.</param>
 public sealed record LineupPlayer(
     int Id,
     string Code,
+    string Name,
+    string? Tag,
     string? Team,
     double Overall,
-    string Number,
     string Level,
-    string Slot,
-    string Mean,
     IReadOnlyDictionary<string, int> Positions,
     bool Earlier,
     string Url);
@@ -209,9 +239,18 @@ public sealed class SlotPlayer
 
     public required string Code { get; init; }
 
+    /// <summary>The first name, where the club has entered one; otherwise the code.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>The code too, when another player on the page has the same first name.</summary>
+    public string? NameTag { get; init; }
+
     public string? TeamName { get; init; }
 
     public double Overall { get; init; }
+
+    /// <summary>Their readiness in this slot: <see cref="Overall"/> less the rank's penalty.</summary>
+    public double Fit { get; init; }
 
     /// <summary>1 when this is their 1st position, 2 or 3 otherwise.</summary>
     public int Rank { get; init; }

@@ -39,6 +39,11 @@
   // for choosing the best eleven: index 0 is their 1st position, 1 their 2nd, 2 their 3rd.
   "positionRankPenalty": [ 0, 0.5, 1.0 ],
 
+  // And for a player a coach moves on the pitch to a position no coach named for them. The
+  // pick never does that, but the team rating on the pitch counts it, so a striker put in goal
+  // costs the team what it would. At least as big as the 3rd position's penalty.
+  "outOfPositionPenalty": 2.0,
+
   // The six 1-10 ratings. Overall readiness is the plain average of these -- the
   // workbook's =SUM(N:S)/6.
   "ratings": [
@@ -75,8 +80,20 @@
 
   // Formations for "the best eleven". Each line is drawn as a row on the pitch, from the
   // attack down to the goalkeeper, and each row is written left to right as the team
-  // attacks. The first formation is the one the page opens on.
+  // attacks. The first formation is the one the page opens on: the 3-5-2, which the coaches
+  // write as 1-3-5-2 and asked to see first.
   "formations": [
+    {
+      "key": "3-5-2",
+      "name": "3-5-2",
+      "lines": [
+        [ "LST", "RST" ],
+        [ "L8", "R8" ],
+        [ "LWB", "C6", "RWB" ],
+        [ "LCB", "CB", "RCB" ],
+        [ "GK" ]
+      ]
+    },
     {
       "key": "4-3-3",
       "name": "4-3-3",
@@ -96,17 +113,6 @@
         [ "LW", "ACM", "RW" ],
         [ "L6", "R6" ],
         [ "LB", "LCB", "RCB", "RB" ],
-        [ "GK" ]
-      ]
-    },
-    {
-      "key": "3-5-2",
-      "name": "3-5-2",
-      "lines": [
-        [ "LST", "RST" ],
-        [ "L8", "R8" ],
-        [ "LWB", "C6", "RWB" ],
-        [ "LCB", "CB", "RCB" ],
         [ "GK" ]
       ]
     }

@@ -27,7 +27,7 @@ Trenerne beskrev det slik:
 | Side | URL | Hva |
 | --- | --- | --- |
 | Squad board | `/Succession` | Én rad per spiller, trenerne lagt sammen. Faner: Readiness, Ratings, Contracts and pathway, Where coaches disagree |
-| Best eleven | `/Succession/Formation` | Bane med beste 11 i 4-3-3 (også 4-2-3-1, 3-5-2), og «Who is next in line» per posisjon |
+| Best eleven | `/Succession/Formation` | Bane med beste 11 i 3-5-2 (også 4-3-3, 4-2-3-1), innbyttere til høyre, og «Who is next in line» per posisjon |
 | Spillerside | `/Succession/Player/{id}` | Hver trener side om side, utvikling over tid, fritekst, kontrakt |
 | Vurderingsskjema | `/Succession/Rate/{id}` | Én rad i arket, for innlogget trener og gjeldende syklus |
 
@@ -51,8 +51,15 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
    and see the players in a 1-3-5-2 … if we could move players around too.» Laglenker på «Best
    eleven» og under My teams, `?formation=1-3-5-2` godtas, og resten av troppen står ved siden av
    banen. Spillere dras eller trykkes mellom banen og lista (`wwwroot/js/lineup.js`). Ingenting
-   lagres; oppstillingen står i adressen (`?lineup=`). Se «Flytte spillere» i
-   `docs/succession-planning.md`.
+   lagres; oppstillingen står i adressen (`?lineup=`).
+4. **Banen som et spill, 3-5-2 som standard.** «Less on the players: name, position … substitutes
+   to the right, not under … ratings change with who is subbed in where.» Hver spiller er en gul
+   drakt med posisjonen, fornavnet under og ratingen i posisjonen (`SuccessionMath.PositionFit`,
+   med `outOfPositionPenalty` for en posisjon ingen trener har ført opp). Innbytterne står til
+   høyre fra 700 px. Team rating og stolper for angrep, midtbane, forsvar og keeper regnes ut på
+   nytt for hvert bytte. **Fornavn vises for trenere på denne siden**; det ble bestemt da trenerne
+   ba om det, og `docs/player-welcome.md` og Sikt-meldingen er oppdatert. Draktnummer venter på en
+   migrasjon. Se «Banen som et spill» i `docs/succession-planning.md`.
 
 ---
 

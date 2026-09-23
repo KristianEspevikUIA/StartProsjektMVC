@@ -1,19 +1,21 @@
-// Moving players about on the best eleven, the way Football Manager does it: drag a card onto
-// another position to swap the two, drag a player in from the squad list beside the pitch, or
-// drag a starter onto the list to take them off. Tapping works too -- tap a player, then where
-// they should go -- which is also how it works on a tablet and from the keyboard.
+// The best eleven as a game board, the way Football Manager does it: drag a substitute onto a
+// player to bring them on, drag players between positions to swap them, or drag a starter onto
+// the substitutes to take them off. Tapping works too -- tap a player, then where they should
+// go -- which is how it works on a tablet and from the keyboard.
+//
+// Every shirt shows the player's readiness IN THAT POSITION, and the team rating over the pitch
+// is the average of those, so it moves with who is brought on where: a natural in the position
+// counts in full, a 2nd or 3rd position less, and a position no coach named much less. That is
+// SuccessionMath.PositionFit, and the one sum done here.
 //
 // Nothing is saved. The eleven the page picked is the coaches' ratings, and it stays that way
 // for everybody; what a coach builds here lives in the address bar (?lineup=...), so the link
 // opens it again, or can be sent to another coach. "Back to the best eleven" drops it.
 //
-// Everything shown about a player -- the number, its colour, the words -- comes from the data
-// block the page renders (SuccessionFormationViewModel.Editor). The only sum done here is how
-// well a player fits a slot they have been moved to: overall minus the file's penalty for a
-// 2nd or 3rd position, which is the rule the pick itself uses (SuccessionMath.PickEleven).
-//
-// In a file rather than a <script> block because the CSP has no unsafe-inline. Without it the
-// page is the pick and the squad as a list, as it was before any of this existed.
+// Everything else shown about a player -- the name, the overall -- comes from the data block the
+// page renders (SuccessionFormationViewModel.Editor). In a file rather than a <script> block
+// because the CSP has no unsafe-inline. Without it the page is the pick and the substitutes as a
+// list.
 
 (function () {
     "use strict";
@@ -35,6 +37,18 @@
         return node;
     }
 
+    function format(value) {
+        return value === null || value === undefined ? "–" : value.toFixed(1);
+    }
+
+    function average(values) {
+        var present = values.filter(function (value) { return value !== null; });
+        if (present.length === 0) {
+            return null;
+        }
+        return present.reduce(function (sum, value) { return sum + value; }, 0) / present.length;
+    }
+
     function init() {
         var root = document.querySelector("[data-lineup]");
         var block = document.getElementById("lineup-data");
@@ -53,7 +67,7 @@
             return;
         }
 
-        var pitch = root.querySelector("[data-lineup-pitch]");
+        var lines = root.querySelector("[data-lineup-lines]");
         var benchList = root.querySelector("[data-lineup-bench]");
         var benchEmpty = root.querySelector("[data-lineup-bench-empty]");
         var benchCount = root.querySelector("[data-lineup-bench-count]");
@@ -63,7 +77,7 @@
         var reset = root.querySelector("[data-lineup-reset]");
         var announcer = root.querySelector("[data-lineup-announce]");
 
-        if (!pitch || !benchList) {
+        if (!lines || !benchList) {
             return;
         }
 
@@ -77,18 +91,20 @@
         });
 
         var lineup = fromAddress() || pick.slice();
+        var drawn = null;        // the lineup as last drawn, to tell which shirts are new
+        var started = false;     // no flashing numbers on the first draw
 
-        // What is picked up: { kind: "slot", index } for a card on the pitch, { kind: "player",
-        // id } for somebody on the bench. Selected by a tap; dragging is the same, held down.
+        // What is picked up: { kind: "slot", index } for a shirt on the pitch, { kind: "player",
+        // id } for a substitute. Selected by a tap; dragging is the same, held down.
         var selected = null;
         var dragging = null;
         var dropTarget = null;
 
-        // The stat notes say what the pick found ("has nobody named for it"). Once the eleven
-        // is the coach's own, a gap is one they made, and the note says so instead.
+        // What the pick found, as the page says it. Once the eleven is the coach's own, a gap is
+        // one they made, and the note says so instead.
         var filledNotes = Array.prototype.map.call(
-            document.querySelectorAll("[data-lineup-stat='filled-note']"),
-            function (node) { return { node: node, text: node.textContent }; });
+            root.querySelectorAll("[data-lineup-stat='filled-note']"),
+            function (node) { return { node: node, text: node.textContent.trim() }; });
 
         // -------------------------------------------------------------------------------
         // The rules
@@ -98,17 +114,41 @@
             return player && player.positions ? player.positions[position] || null : null;
         }
 
-        function penalty(rank) {
-            var list = data.rankPenalty || [];
-            if (list.length === 0) {
-                return 0;
-            }
-            return list[Math.min(Math.max(rank - 1, 0), list.length - 1)] || 0;
-        }
-
+        // SuccessionMath.PositionFit.
         function fitFor(player, position) {
             var rank = rankFor(player, position);
-            return rank ? player.overall - penalty(rank) : null;
+            if (!rank) {
+                return player.overall - (data.outOfPositionPenalty || 0);
+            }
+            var list = data.rankPenalty || [];
+            return list.length === 0
+                ? player.overall
+                : player.overall - (list[Math.min(Math.max(rank - 1, 0), list.length - 1)] || 0);
+        }
+
+        // SuccessionFormat.RatingTone.
+        function tone(value) {
+            if (value === null || value === undefined) {
+                return "sc-light sc-light--none";
+            }
+            if (value >= data.readyAt) {
+                return "sc-light sc-light--ready";
+            }
+            return value >= data.developingAt ? "sc-light sc-light--developing" : "sc-light sc-light--notyet";
+        }
+
+        // "Viljar (TS-08-11)": for what is read out, where a second line is not an option.
+        function fullName(player) {
+            return player.tag ? player.name + " (" + player.tag + ")" : player.name;
+        }
+
+        // The name, and the code under it when another player on the page has the same one.
+        function nameNode(className, player) {
+            var node = element("span", className, player.name);
+            if (player.tag) {
+                node.appendChild(element("span", className.replace("__name", "__tag"), player.tag));
+            }
+            return node;
         }
 
         function playerIn(index) {
@@ -121,24 +161,28 @@
         }
 
         function isPick() {
+            return sameAs(pick);
+        }
+
+        function sameAs(other) {
             for (var i = 0; i < lineup.length; i++) {
-                if (lineup[i] !== pick[i]) {
+                if (lineup[i] !== other[i]) {
                     return false;
                 }
             }
             return true;
         }
 
-        function teamNote(player) {
-            return player.team ? " · " + player.team : "";
+        function ratingOf(eleven) {
+            return average(eleven.map(function (id, index) {
+                return id ? fitFor(players[id], data.slots[index].position) : null;
+            }));
         }
 
-        function positionList(player) {
-            return Object.keys(player.positions || {}).slice(0, 3).join(" · ");
-        }
+        var pickRating = ratingOf(pick);
 
-        // Whose fit the pitch lights up, and which position the bench is sorted for, given
-        // what is picked up.
+        // Whose fit the pitch lights up, and which position the substitutes are sorted for,
+        // given what is picked up.
         function activePlayer() {
             var source = dragging || selected;
             if (!source) {
@@ -221,7 +265,7 @@
         // Moving
         // -------------------------------------------------------------------------------
 
-        // Source and target are each a slot, a bench player, or (target only) the bench as a
+        // Source and target are each a slot, a substitute, or (target only) the bench as a
         // whole. Returns whether anything moved.
         function move(source, target) {
             var before = lineup.slice();
@@ -252,31 +296,33 @@
             return true;
         }
 
-        function sameAs(other) {
-            for (var i = 0; i < lineup.length; i++) {
-                if (lineup[i] !== other[i]) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        // "TS-08-16 to LWB. TS-08-11 to the bench." -- what a screen reader hears after a move.
+        // "Alex on for Sam at LST. Kim to RST." -- what a screen reader hears after a move.
         function describe(before) {
             var said = [];
 
             lineup.forEach(function (id, index) {
-                if (id && before[index] !== id) {
-                    said.push(players[id].code + " to " + data.slots[index].position +
-                        (rankFor(players[id], data.slots[index].position) ? "" : ", out of position"));
+                if (!id || before[index] === id) {
+                    return;
+                }
+                var position = data.slots[index].position;
+                var out = rankFor(players[id], position) ? "" : ", out of position";
+
+                if (before.indexOf(id) === -1) {
+                    var replaced = before[index] && !onPitch(before[index]) ? " for " + fullName(players[before[index]]) : "";
+                    said.push(fullName(players[id]) + " on" + replaced + " at " + position + out);
+                } else {
+                    said.push(fullName(players[id]) + " to " + position + out);
                 }
             });
 
-            before.forEach(function (id) {
-                if (id && !onPitch(id)) {
-                    said.push(players[id].code + " to the bench");
+            before.forEach(function (id, index) {
+                if (id && !onPitch(id) && lineup[index] === null) {
+                    said.push(fullName(players[id]) + " off");
                 }
             });
+
+            var rating = ratingOf(lineup);
+            said.push("Team rating " + format(rating));
 
             return said.join(". ") + ".";
         }
@@ -290,7 +336,8 @@
         // What a tap does, given what is already picked up.
         function tap(target) {
             if (!selected) {
-                // An empty slot can be picked up too: it is where the next tap on the bench goes.
+                // An empty position can be picked up too: it is where the next tap on a
+                // substitute goes.
                 selected = target;
                 render(keyOf(target));
                 return;
@@ -313,7 +360,7 @@
             commit(focusAfter(source, target));
         }
 
-        // Focus stays on the pitch, on the position that changed: a bench card that has just
+        // Focus stays on the pitch, on the position that changed: a substitute who has just
         // come on is not in the list any more to be focused.
         function focusAfter(source, target) {
             if (target.kind === "slot") {
@@ -345,82 +392,73 @@
         // Drawing
         // -------------------------------------------------------------------------------
 
-        function slotCard(index) {
+        function token(index) {
             var slot = data.slots[index];
             var player = playerIn(index);
-            var card = element("div", "sc-slot");
+            var card = element("div", "sc-token");
+            var shirt = element("span", "sc-shirt");
 
             card.setAttribute("data-lineup-item", "slot:" + index);
             card.setAttribute("role", "button");
             card.tabIndex = 0;
-            card.appendChild(element("span", "sc-slot__pos", slot.position));
+            shirt.appendChild(element("span", "sc-shirt__body", slot.position));
+            card.appendChild(shirt);
 
-            if (player) {
-                var rank = rankFor(player, slot.position);
-
-                card.classList.add(player.slot);
-                card.draggable = true;
-
-                if (!rank) {
-                    card.classList.add("sc-slot--out");
-                }
-
-                card.appendChild(element("span", "sc-slot__code", player.code));
-
-                var value = element("span", "sc-slot__value");
-                value.appendChild(element("span", player.mean, player.number));
-                card.appendChild(value);
-
-                card.appendChild(element("span", "sc-slot__meta",
-                    (rank ? ordinal(rank) + " position" : "Out of position") + teamNote(player)));
-
-                card.setAttribute("aria-label", slot.name + ": " + player.code + ", " + player.number + ", " +
-                    player.level + ", " + (rank ? ordinal(rank) + " position" : "out of position") +
-                    (player.earlier ? ", from an earlier cycle" : ""));
-            } else {
-                card.classList.add("sc-slot--empty");
-                card.appendChild(element("span", "sc-slot__code", "Nobody"));
-                card.appendChild(element("span", "sc-slot__meta",
-                    pick[index] ? "Empty. Pick somebody for " + slot.position + "." : "Nobody rated has " + slot.position + " among their positions."));
+            if (!player) {
+                card.classList.add("sc-token--empty");
+                card.appendChild(element("span", "sc-token__name", pick[index] ? "Empty" : "Nobody"));
                 card.setAttribute("aria-label", slot.name + ": empty");
+                return card;
             }
+
+            var rank = rankFor(player, slot.position);
+            var fit = fitFor(player, slot.position);
+
+            card.draggable = true;
+            shirt.appendChild(element("span", "sc-shirt__rating " + tone(fit), format(fit)));
+
+            if (!rank) {
+                card.classList.add("sc-token--out");
+                shirt.appendChild(element("span", "sc-shirt__warn", "!"));
+            }
+
+            if (drawn && drawn[index] !== player.id && started) {
+                card.classList.add("sc-token--arrived");
+            }
+
+            card.appendChild(nameNode("sc-token__name", player));
+            card.setAttribute("aria-label", slot.name + ": " + fullName(player) + ", " + format(fit) + " in this position, " +
+                (rank ? ordinal(rank) + " position" : "out of position"));
 
             return card;
         }
 
-        function benchCard(player, position) {
-            // The list item stays a list item; the card inside it is what is picked up.
-            var item = element("li", "sc-bench__row");
-            var card = element("div", "sc-bench__item sc-bench__card");
-            var who = element("span", "sc-bench__who");
+        function substitute(player, position) {
+            var row = element("li", "sc-bench__row");
+            var card = element("div", "sc-sub");
             var rank = position ? rankFor(player, position) : null;
-            var about;
-
-            if (position) {
-                about = rank ? ordinal(rank) + " position for " + position : "Not named for " + position;
-            } else {
-                about = positionList(player) || "No position named";
-            }
+            var value = position ? fitFor(player, position) : player.overall;
+            var first = Object.keys(player.positions || {})[0] || "–";
 
             card.setAttribute("data-lineup-item", "player:" + player.id);
             card.setAttribute("role", "button");
             card.tabIndex = 0;
             card.draggable = true;
 
-            if (position && rank) {
-                card.classList.add("sc-bench__card--fit");
+            if (position) {
+                card.classList.add(rank ? "sc-sub--fit" : "sc-sub--nofit");
             }
 
-            who.appendChild(element("span", "sc-bench__code", player.code));
-            who.appendChild(element("span", "sc-bench__pos",
-                about + teamNote(player) + (player.earlier ? " · earlier cycle" : "")));
-            card.appendChild(who);
-            card.appendChild(element("span", player.mean, player.number));
+            card.appendChild(element("span", "sc-sub__pos", position ? (rank ? ordinal(rank) : "–") : first));
+            card.appendChild(nameNode("sc-sub__name", player));
+            card.appendChild(element("span", "sc-sub__rating " + tone(value), format(value)));
 
-            card.setAttribute("aria-label", player.code + ", " + player.number + ", " + player.level + ", " + about);
+            card.setAttribute("aria-label", fullName(player) + ", " + format(value) +
+                (position ? (rank ? " as a " + ordinal(rank) + " position " : " out of position ") + "at " + position : " overall") +
+                ", plays " + (Object.keys(player.positions || {}).join(", ") || "no named position"));
 
-            item.appendChild(card);
-            return item;
+            row.appendChild(card);
+            return row;
         }
 
         function benchOrder() {
@@ -433,17 +471,17 @@
                 return rest;
             }
 
-            // The players named for the position first, best fit first -- the list a manager
-            // wants when they have just clicked on a hole in the team.
+            // Named for the position first, best fit first -- the list a manager wants when they
+            // have just clicked on a hole in the team.
             return rest
                 .map(function (player, order) {
-                    return { player: player, fit: fitFor(player, position), order: order };
+                    return { player: player, named: !!rankFor(player, position), fit: fitFor(player, position), order: order };
                 })
                 .sort(function (a, b) {
-                    if ((a.fit === null) !== (b.fit === null)) {
-                        return a.fit === null ? 1 : -1;
+                    if (a.named !== b.named) {
+                        return a.named ? -1 : 1;
                     }
-                    if (a.fit !== null && a.fit !== b.fit) {
+                    if (a.fit !== b.fit) {
                         return b.fit - a.fit;
                     }
                     return a.order - b.order;
@@ -452,24 +490,24 @@
         }
 
         function render(focusKey) {
-            var lines = document.createDocumentFragment();
+            var rows = document.createDocumentFragment();
             var index = 0;
 
             (data.lines || [data.slots.length]).forEach(function (count) {
                 var line = element("div", "sc-pitch__line");
                 for (var i = 0; i < count && index < data.slots.length; i++, index++) {
-                    line.appendChild(slotCard(index));
+                    line.appendChild(token(index));
                 }
-                lines.appendChild(line);
+                rows.appendChild(line);
             });
 
-            pitch.replaceChildren(lines);
+            lines.replaceChildren(rows);
 
             var position = activePosition();
             var bench = benchOrder();
             var items = document.createDocumentFragment();
             bench.forEach(function (player) {
-                items.appendChild(benchCard(player, position));
+                items.appendChild(substitute(player, position));
             });
             benchList.replaceChildren(items);
 
@@ -481,10 +519,13 @@
                 benchEmpty.hidden = bench.length > 0;
             }
 
+            drawn = lineup.slice();
+
             paint();
             renderFocus();
             renderStats();
             renderBar();
+            started = true;
 
             if (focusKey) {
                 var target = root.querySelector("[data-lineup-item='" + focusKey + "']");
@@ -494,42 +535,43 @@
             }
         }
 
-        // Selection and fit, on the cards already drawn. Separate from render() because it
-        // also runs mid-drag, when redrawing would take the card being dragged out from under
+        // Selection and fit, on the shirts already drawn. Separate from render() because it
+        // also runs mid-drag, when redrawing would take the shirt being dragged out from under
         // the pointer.
         function paint() {
             var player = activePlayer();
             var pickedKey = keyOf(dragging || selected);
 
-            root.classList.toggle("sc-lineup--holding", !!(dragging || selected));
-            root.classList.toggle("sc-lineup--dragging", !!dragging);
+            root.classList.toggle("sc-board--holding", !!(dragging || selected));
+            root.classList.toggle("sc-board--dragging", !!dragging);
 
             Array.prototype.forEach.call(root.querySelectorAll("[data-lineup-item]"), function (card) {
                 var key = card.getAttribute("data-lineup-item");
                 var isPicked = key === pickedKey;
 
-                card.classList.toggle(card.classList.contains("sc-slot") ? "sc-slot--picked" : "sc-bench__card--picked", isPicked);
+                card.classList.toggle("sc-picked", isPicked);
                 card.setAttribute("aria-pressed", isPicked ? "true" : "false");
 
-                if (!card.classList.contains("sc-slot")) {
+                if (!card.classList.contains("sc-token")) {
                     return;
                 }
 
-                card.classList.remove("sc-slot--fit-1", "sc-slot--fit-2", "sc-slot--fit-3");
-                card.removeAttribute("data-fit");
+                var shirt = card.querySelector(".sc-shirt");
+                card.classList.remove("sc-token--fit");
+                shirt.removeAttribute("data-fit");
 
                 if (player && !isPicked) {
                     var slot = data.slots[parseInt(key.split(":")[1], 10)];
                     var rank = rankFor(player, slot.position);
                     if (rank) {
-                        card.classList.add("sc-slot--fit-" + Math.min(rank, 3));
-                        card.setAttribute("data-fit", ordinal(rank));
+                        card.classList.add("sc-token--fit");
+                        shirt.setAttribute("data-fit", ordinal(rank));
                     }
                 }
             });
         }
 
-        // What is picked up, and what to do with it -- the panel at the top of the bench.
+        // What is picked up, and what can be done with it -- at the top of the substitutes.
         function renderFocus() {
             if (!focusPanel) {
                 return;
@@ -544,47 +586,44 @@
 
             var player = activePlayer();
             var slot = selected.kind === "slot" ? data.slots[selected.index] : null;
-            var head = element("p", "sc-bench__focus-head");
+            var head = element("p", "sc-bench__focus-name");
             var actions = element("div", "sc-bench__focus-actions");
 
             if (player) {
-                head.appendChild(element("strong", "sc-bench__focus-code", player.code));
-                head.appendChild(document.createTextNode(" "));
-                head.appendChild(element("span", player.mean, player.number));
+                var value = slot ? fitFor(player, slot.position) : player.overall;
+                head.appendChild(document.createTextNode(fullName(player) + " "));
+                head.appendChild(element("span", "sc-sub__rating " + tone(value), format(value)));
                 focusPanel.appendChild(head);
-                focusPanel.appendChild(element("p", "sc-bench__focus-line",
-                    player.level + (slot ? " · playing " + slot.position : " · on the bench")));
 
                 var named = Object.keys(player.positions || {}).map(function (key) {
                     return key + " " + ordinal(player.positions[key]);
                 });
                 focusPanel.appendChild(element("p", "sc-bench__focus-line",
-                    (named.length ? "Named for " + named.join(", ") : "No position named") + teamNote(player) +
-                    (player.earlier ? " · rated in an earlier cycle" : "")));
+                    [player.code, player.team, named.join(", ") || "no position named"]
+                        .filter(Boolean).join(" · ") + (player.earlier ? " · earlier cycle" : "")));
 
                 focusPanel.appendChild(element("p", "sc-bench__focus-line sc-bench__focus-line--hint", slot
-                    ? "Tap another position to swap, or a player in the list to bring them on for " + player.code + "."
-                    : "Tap a position on the pitch to put " + player.code + " there. The outlined ones are positions a coach named."));
+                    ? "Now tap a substitute to bring on, or another shirt to swap."
+                    : "Now tap the shirt to replace. The lit-up shirts are positions a coach named."));
 
                 if (slot) {
-                    var off = element("button", "sc-btn--link", "Take off");
+                    var off = element("button", "sc-bench__action", "Take off");
                     off.type = "button";
                     off.setAttribute("data-lineup-takeoff", "");
                     actions.appendChild(off);
                 }
 
-                var open = element("a", "sc-bench__focus-open", "Open player page");
+                var open = element("a", "sc-bench__action", "Player page");
                 open.href = player.url;
                 actions.appendChild(open);
             } else {
-                head.appendChild(element("strong", "sc-bench__focus-code", slot.position));
-                head.appendChild(document.createTextNode(" · " + slot.name + " is empty"));
+                head.appendChild(document.createTextNode(slot.position + " is empty"));
                 focusPanel.appendChild(head);
                 focusPanel.appendChild(element("p", "sc-bench__focus-line sc-bench__focus-line--hint",
-                    "Tap a player in the list to put them here. The ones named for " + slot.position + " are at the top."));
+                    slot.name + ". Tap a substitute to bring them on – the ones named for " + slot.position + " are at the top."));
             }
 
-            var cancel = element("button", "sc-btn--link", "Cancel");
+            var cancel = element("button", "sc-bench__action", "Cancel");
             cancel.type = "button";
             cancel.setAttribute("data-lineup-cancel", "");
             actions.appendChild(cancel);
@@ -593,23 +632,74 @@
             focusPanel.hidden = false;
         }
 
+        // A number that changes lights up for a moment, so the coach sees what the change did.
+        function show(node, text, className) {
+            var changed = node.textContent !== text;
+            node.textContent = text;
+            if (className !== undefined) {
+                node.className = className;
+            }
+            if (changed && started) {
+                node.classList.remove("sc-flash");
+                void node.offsetWidth;
+                node.classList.add("sc-flash");
+            }
+        }
+
         function renderStats() {
+            var fits = lineup.map(function (id, index) {
+                return id ? fitFor(players[id], data.slots[index].position) : null;
+            });
             var starters = lineup.filter(Boolean).map(function (id) { return players[id]; });
-            var ready = starters.filter(function (player) { return player.overall >= data.readyAt; }).length;
-            var average = starters.length
-                ? starters.reduce(function (sum, player) { return sum + player.overall; }, 0) / starters.length
-                : null;
+            var rating = average(fits);
+            var out = 0;
 
-            setAll("[data-lineup-stat='filled']", String(starters.length));
-            setAll("[data-lineup-stat='ready']", String(ready));
+            lineup.forEach(function (id, index) {
+                if (id && !rankFor(players[id], data.slots[index].position)) {
+                    out++;
+                }
+            });
 
-            Array.prototype.forEach.call(document.querySelectorAll("[data-lineup-stat='average']"), function (node) {
-                node.textContent = average === null ? "–" : average.toFixed(1);
-                // The workbook's 1-10 colour scale, one step per whole point -- as
-                // SuccessionFormat.RatingClass does it.
-                node.className = average === null
-                    ? "sc-rate sc-rate--none"
-                    : "sc-rate sc-rate--" + Math.min(10, Math.max(1, Math.round(average)));
+            each("[data-lineup-stat='rating']", function (node) {
+                show(node, format(rating), "sc-board__value " + tone(rating));
+            });
+
+            each("[data-lineup-delta]", function (node) {
+                var delta = rating !== null && pickRating !== null ? rating - pickRating : 0;
+                var visible = !isPick() && Math.abs(delta) >= 0.05;
+                node.hidden = !visible;
+                if (visible) {
+                    show(node, (delta > 0 ? "+" : "−") + Math.abs(delta).toFixed(1) + " on the best eleven",
+                        "sc-board__delta " + (delta > 0 ? "sc-board__delta--up" : "sc-board__delta--down"));
+                }
+            });
+
+            each("[data-lineup-unit]", function (node) {
+                var unit = node.getAttribute("data-lineup-unit");
+                var value = average(fits.filter(function (_, index) { return data.slots[index].unit === unit; }));
+                var step = value === null ? 0 : Math.min(10, Math.max(0, Math.round(value)));
+                var fill = node.querySelector("[data-lineup-unit-fill]");
+                var number = node.querySelector("[data-lineup-unit-value]");
+
+                if (fill) {
+                    fill.className = "sc-unit__fill sc-unit__fill--" + step + " " + tone(value);
+                }
+                if (number) {
+                    show(number, format(value));
+                }
+            });
+
+            each("[data-lineup-stat='ready']", function (node) {
+                show(node, String(starters.filter(function (player) { return player.overall >= data.readyAt; }).length));
+            });
+            each("[data-lineup-stat='filled']", function (node) {
+                show(node, String(starters.length));
+            });
+            each("[data-lineup-stat='out']", function (node) {
+                show(node, String(out));
+            });
+            each("[data-lineup-out]", function (node) {
+                node.hidden = out === 0;
             });
 
             var empty = data.slots.length - starters.length;
@@ -618,16 +708,14 @@
                     note.node.textContent = note.text;
                 } else {
                     note.node.textContent = empty === 0
-                        ? "Every position has a player in it."
+                        ? "All " + data.slots.length + " positions filled."
                         : empty + " position" + (empty === 1 ? " is" : "s are") + " empty.";
                 }
             });
         }
 
-        function setAll(selector, text) {
-            Array.prototype.forEach.call(document.querySelectorAll(selector), function (node) {
-                node.textContent = text;
-            });
+        function each(selector, action) {
+            Array.prototype.forEach.call(root.querySelectorAll(selector), action);
         }
 
         function renderBar() {
@@ -638,25 +726,19 @@
             bar.hidden = false;
 
             if (isPick()) {
-                status.textContent = "The best eleven, as picked. Drag a player to move them, or tap one and then where they should go.";
-                bar.classList.remove("sc-lineup__bar--changed");
+                status.textContent = "The best eleven, as picked. Drag a substitute onto a player, or tap one and then the other.";
+                bar.classList.remove("sc-board__bar--changed");
             } else {
                 var changed = 0;
-                var out = 0;
-
                 lineup.forEach(function (id, index) {
                     if (id !== pick[index]) {
                         changed++;
                     }
-                    if (id && !rankFor(players[id], data.slots[index].position)) {
-                        out++;
-                    }
                 });
 
-                status.textContent = "Your own eleven: " + changed + " position" + (changed === 1 ? "" : "s") +
-                    " changed from the pick" + (out ? ", " + out + " player" + (out === 1 ? "" : "s") + " out of position" : "") +
-                    ". Nothing is saved – the link in the address bar opens this eleven again.";
-                bar.classList.add("sc-lineup__bar--changed");
+                status.textContent = "Your lineup: " + changed + " position" + (changed === 1 ? "" : "s") +
+                    " changed. Not saved – the link in the address bar keeps it.";
+                bar.classList.add("sc-board__bar--changed");
             }
 
             if (reset) {
@@ -700,7 +782,7 @@
 
             if (event.target.closest("[data-lineup-reset]")) {
                 lineup = pick.slice();
-                announce("Back to the best eleven.");
+                announce("Back to the best eleven. Team rating " + format(pickRating) + ".");
                 commit(null);
                 return;
             }
@@ -727,8 +809,8 @@
         });
 
         // A tap anywhere else on the page puts down what was picked up. By the event's path,
-        // not root.contains(): a tap on a card redraws the pitch, and by the time the click
-        // reaches the document the card it started on is no longer in it.
+        // not root.contains(): a tap on a shirt redraws the pitch, and by the time the click
+        // reaches the document the shirt it started on is no longer in it.
         document.addEventListener("click", function (event) {
             if (!selected) {
                 return;
@@ -754,12 +836,12 @@
             selected = null;
 
             event.dataTransfer.effectAllowed = "move";
-            // Firefox starts no drag without data. The code is what a drop elsewhere would get.
+            // Firefox starts no drag without data. The name is what a drop elsewhere would get.
             var player = item.kind === "slot" ? playerIn(item.index) : players[item.id];
-            event.dataTransfer.setData("text/plain", player ? player.code : "");
+            event.dataTransfer.setData("text/plain", player ? fullName(player) : "");
 
             renderFocus();
-            // After the browser has taken its picture of the card, so the picture is not the
+            // After the browser has taken its picture of the shirt, so the picture is not the
             // picked-up style.
             window.setTimeout(paint, 0);
         });
@@ -776,10 +858,7 @@
             if (!dragging || !target) {
                 return false;
             }
-            if (target.kind === "bench") {
-                return dragging.kind === "slot";
-            }
-            if (target.kind === "player") {
+            if (target.kind === "bench" || target.kind === "player") {
                 return dragging.kind === "slot";
             }
             return keyOf(target) !== keyOf(dragging);
@@ -790,11 +869,11 @@
                 return;
             }
             if (dropTarget) {
-                dropTarget.classList.remove("sc-lineup__target");
+                dropTarget.classList.remove("sc-drop-target");
             }
             dropTarget = node;
             if (dropTarget) {
-                dropTarget.classList.add("sc-lineup__target");
+                dropTarget.classList.add("sc-drop-target");
             }
         }
 

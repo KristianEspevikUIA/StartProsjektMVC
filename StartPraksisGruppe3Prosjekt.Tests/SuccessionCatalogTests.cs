@@ -76,15 +76,17 @@ public class SuccessionCatalogTests
     }
 
     [Fact]
-    public void The_page_opens_on_a_four_three_three_and_every_formation_is_eleven()
+    public void The_page_opens_on_the_three_five_two_and_every_formation_is_eleven()
     {
+        // The coaches asked for the 1-3-5-2 -- the 3-5-2 with the keeper counted -- first.
         var catalog = Shipped();
 
-        Assert.Equal("4-3-3", catalog.DefaultFormation.Key);
+        Assert.Equal("3-5-2", catalog.DefaultFormation.Key);
         Assert.All(catalog.Settings.Formations, f => Assert.Equal(11, f.Slots.Count()));
         Assert.Equal(
-            new[] { "LW", "CF", "RW", "L8", "R8", "C6", "LB", "LCB", "RCB", "RB", "GK" },
+            new[] { "LST", "RST", "L8", "R8", "LWB", "C6", "RWB", "LCB", "CB", "RCB", "GK" },
             catalog.DefaultFormation.Slots);
+        Assert.NotNull(catalog.FindFormation("4-3-3"));
     }
 
     [Fact]
@@ -98,6 +100,34 @@ public class SuccessionCatalogTests
         Assert.Equal("1-3-5-2", catalog.FindFormation("3-5-2")!.GoalkeeperNotation);
         Assert.Null(catalog.FindFormation("1-2-3-5"));
         Assert.Null(catalog.FindFormation("1-"));
+    }
+
+    [Fact]
+    public void Out_of_position_has_to_cost_at_least_as_much_as_a_3rd_position()
+    {
+        // Less would make a position nobody named a better fit than one a coach put third.
+        var message = Refused(s => new SuccessionSettings
+        {
+            Version = s.Version,
+            Cycle = s.Cycle,
+            Scale = s.Scale,
+            ReadyAt = s.ReadyAt,
+            DevelopingAt = s.DevelopingAt,
+            DisagreementAt = s.DisagreementAt,
+            HorizonWeeks = s.HorizonWeeks,
+            PositionRankPenalty = s.PositionRankPenalty,
+            OutOfPositionPenalty = 0.5,
+            Ratings = s.Ratings,
+            Positions = s.Positions,
+            Formations = s.Formations,
+            AbilityCategories = s.AbilityCategories,
+            ContractTypes = s.ContractTypes,
+            Levels = s.Levels,
+            Risks = s.Risks
+        });
+
+        Assert.Contains("outOfPositionPenalty", message);
+        Assert.Equal(2.0, Shipped().Settings.OutOfPositionPenalty);
     }
 
     [Fact]
@@ -296,6 +326,7 @@ public class SuccessionCatalogTests
         DisagreementAt = s.DisagreementAt,
         HorizonWeeks = s.HorizonWeeks,
         PositionRankPenalty = s.PositionRankPenalty,
+        OutOfPositionPenalty = s.OutOfPositionPenalty,
         Ratings = s.Ratings,
         Positions = s.Positions,
         Formations = formations ?? s.Formations,

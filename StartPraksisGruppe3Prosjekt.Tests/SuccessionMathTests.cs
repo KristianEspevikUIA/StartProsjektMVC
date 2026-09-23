@@ -330,6 +330,29 @@ public class SuccessionMathTests
 
     private static FormationDefinition FourThreeThree => Catalog.FindFormation("4-3-3")!;
 
+    [Theory]
+    [InlineData(1, 7.0)]
+    [InlineData(2, 6.5)]
+    [InlineData(3, 6.0)]
+    [InlineData(null, 5.0)]
+    public void A_players_readiness_in_a_position_is_marked_down_by_how_far_from_their_own(int? rank, double expected)
+    {
+        // What each shirt on the pitch shows, and what the team rating averages: a natural in
+        // full, a 2nd or 3rd position less, and a position nobody named for them the most.
+        Assert.Equal(expected, SuccessionMath.PositionFit(7.0, rank, Settings), 3);
+    }
+
+    [Fact]
+    public void The_rows_of_a_formation_are_attack_midfield_defence_and_the_keeper()
+    {
+        // The 3-5-2 as the file draws it: two strikers, two rows of midfield, three at the back.
+        var units = Enumerable.Range(0, 5).Select(line => SuccessionMath.UnitOf(line, 5)).ToList();
+
+        Assert.Equal(
+            new[] { TeamUnit.Attack, TeamUnit.Midfield, TeamUnit.Midfield, TeamUnit.Defence, TeamUnit.Goalkeeper },
+            units);
+    }
+
     [Fact]
     public void A_natural_in_the_position_goes_ahead_of_a_slightly_better_player_covering()
     {
