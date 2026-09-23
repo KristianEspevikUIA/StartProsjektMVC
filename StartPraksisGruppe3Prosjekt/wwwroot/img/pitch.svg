@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 0 74 75" preserveAspectRatio="none">
+  <!--
+    The pitch behind the best eleven: our half and the first third of theirs, attacking upwards,
+    drawn to scale in metres (68 wide; the halfway line 17.5 from the top, our goal line at 70).
+    Vector, so it is sharp at any size. The players are placed on it in percent of this box;
+    see .sc-spot in startcompass.css, which works from the same numbers. (No double hyphens in
+    these comments: XML does not allow them, and the browser would drop the whole drawing.)
+  -->
+  <defs>
+    <!-- Mown stripes, five metres each, across the whole ground including the run-off. -->
+    <pattern id="mow" x="-3" y="0" width="74" height="10" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="74" height="5" fill="#2f8f47"/>
+      <rect x="0" y="5" width="74" height="5" fill="#2a8440"/>
+    </pattern>
+    <radialGradient id="light" cx="50%" cy="42%" r="78%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.28"/>
+    </radialGradient>
+    <pattern id="net" width="0.45" height="0.45" patternUnits="userSpaceOnUse">
+      <path d="M0 0 L0.45 0.45 M0.45 0 L0 0.45" stroke="#ffffff" stroke-opacity="0.55" stroke-width="0.05"/>
+    </pattern>
+  </defs>
+
+  <rect x="-3" y="0" width="74" height="75" fill="url(#mow)"/>
+  <!-- The run-off outside the lines, a shade darker. -->
+  <path d="M-3 0 H0 V70 H68 V0 H71 V75 H-3 Z" fill="#000000" fill-opacity="0.08"/>
+
+  <!-- The goal, behind the line, under the markings. -->
+  <rect x="30.34" y="70" width="7.32" height="2.2" fill="url(#net)"/>
+
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.92" stroke-width="0.24" stroke-linejoin="round">
+    <!-- Touchlines and our goal line. The far end is off the drawing. -->
+    <path d="M0 0 V70 H68 V0"/>
+    <!-- Halfway line and centre circle. -->
+    <path d="M0 17.5 H68"/>
+    <circle cx="34" cy="17.5" r="9.15"/>
+    <!-- Penalty area, goal area and the D. -->
+    <rect x="13.84" y="53.5" width="40.32" height="16.5"/>
+    <rect x="24.84" y="64.5" width="18.32" height="5.5"/>
+    <path d="M26.69 53.5 A9.15 9.15 0 0 1 41.31 53.5"/>
+    <!-- Corner arcs. -->
+    <path d="M1 70 A1 1 0 0 0 0 69"/>
+    <path d="M67 70 A1 1 0 0 1 68 69"/>
+    <!-- The goal frame. -->
+    <path d="M30.34 70 V72.2 H37.66 V70" stroke-width="0.3"/>
+  </g>
+
+  <g fill="#ffffff" fill-opacity="0.92">
+    <circle cx="34" cy="17.5" r="0.32"/>
+    <circle cx="34" cy="59" r="0.28"/>
+  </g>
+
+  <!-- Light from above: a little brighter in the middle, darker at the edges. -->
+  <rect x="-3" y="0" width="74" height="75" fill="url(#light)"/>
+</svg>

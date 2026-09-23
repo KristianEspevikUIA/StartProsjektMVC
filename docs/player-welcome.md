@@ -15,7 +15,7 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
   spilleren kommer til å se, før det lagres. Samme liste har også lenker til innsyn (Export) og
   sletting for hver spiller, som tidligere bare kunne nås med ID-en i URL-en.
 - **Trenere og admin** ser fornavnet på én side: «Best eleven» (`/Succession/Formation`), der
-  hver spiller er en drakt med navnet under. Trenerne ba om det. Har to spillere på siden samme
+  hver spiller er en markør på banen med navnet under. Trenerne ba om det. Har to spillere på siden samme
   fornavn, står koden under. Bildet vises ikke der.
 - **Ingen andre steder.** Trenersidene, lagoversiktene og succession-tavla bruker fortsatt
   spillerkoden, og det er en test som passer på at navnet ikke dukker opp der.

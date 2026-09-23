@@ -3,7 +3,7 @@
 // the substitutes to take them off. Tapping works too -- tap a player, then where they should
 // go -- which is how it works on a tablet and from the keyboard.
 //
-// Every shirt shows the player's readiness IN THAT POSITION, and the team rating over the pitch
+// Every marker shows the player's readiness IN THAT POSITION, and the team rating over the pitch
 // is the average of those, so it moves with who is brought on where: a natural in the position
 // counts in full, a 2nd or 3rd position less, and a position no coach named much less. That is
 // SuccessionMath.PositionFit, and the one sum done here.
@@ -91,10 +91,10 @@
         });
 
         var lineup = fromAddress() || pick.slice();
-        var drawn = null;        // the lineup as last drawn, to tell which shirts are new
+        var drawn = null;        // the lineup as last drawn, to tell who has just come on
         var started = false;     // no flashing numbers on the first draw
 
-        // What is picked up: { kind: "slot", index } for a shirt on the pitch, { kind: "player",
+        // What is picked up: { kind: "slot", index } for a player on the pitch, { kind: "player",
         // id } for a substitute. Selected by a tap; dragging is the same, held down.
         var selected = null;
         var dragging = null;
@@ -395,14 +395,14 @@
         function token(index) {
             var slot = data.slots[index];
             var player = playerIn(index);
-            var card = element("div", "sc-token");
-            var shirt = element("span", "sc-shirt");
+            // On the spot for the position: .sc-spot--LWB and so on in startcompass.css.
+            var card = element("div", "sc-token sc-spot--" + slot.position);
+            var marker = element("span", "sc-marker", slot.position);
 
             card.setAttribute("data-lineup-item", "slot:" + index);
             card.setAttribute("role", "button");
             card.tabIndex = 0;
-            shirt.appendChild(element("span", "sc-shirt__body", slot.position));
-            card.appendChild(shirt);
+            card.appendChild(marker);
 
             if (!player) {
                 card.classList.add("sc-token--empty");
@@ -415,11 +415,11 @@
             var fit = fitFor(player, slot.position);
 
             card.draggable = true;
-            shirt.appendChild(element("span", "sc-shirt__rating " + tone(fit), format(fit)));
+            marker.appendChild(element("span", "sc-marker__rating " + tone(fit), format(fit)));
 
             if (!rank) {
                 card.classList.add("sc-token--out");
-                shirt.appendChild(element("span", "sc-shirt__warn", "!"));
+                marker.appendChild(element("span", "sc-marker__warn", "!"));
             }
 
             if (drawn && drawn[index] !== player.id && started) {
@@ -535,8 +535,8 @@
             }
         }
 
-        // Selection and fit, on the shirts already drawn. Separate from render() because it
-        // also runs mid-drag, when redrawing would take the shirt being dragged out from under
+        // Selection and fit, on the markers already drawn. Separate from render() because it
+        // also runs mid-drag, when redrawing would take the marker being dragged out from under
         // the pointer.
         function paint() {
             var player = activePlayer();
@@ -556,16 +556,16 @@
                     return;
                 }
 
-                var shirt = card.querySelector(".sc-shirt");
+                var marker = card.querySelector(".sc-marker");
                 card.classList.remove("sc-token--fit");
-                shirt.removeAttribute("data-fit");
+                marker.removeAttribute("data-fit");
 
                 if (player && !isPicked) {
                     var slot = data.slots[parseInt(key.split(":")[1], 10)];
                     var rank = rankFor(player, slot.position);
                     if (rank) {
                         card.classList.add("sc-token--fit");
-                        shirt.setAttribute("data-fit", ordinal(rank));
+                        marker.setAttribute("data-fit", ordinal(rank));
                     }
                 }
             });
@@ -603,8 +603,8 @@
                         .filter(Boolean).join(" · ") + (player.earlier ? " · earlier cycle" : "")));
 
                 focusPanel.appendChild(element("p", "sc-bench__focus-line sc-bench__focus-line--hint", slot
-                    ? "Now tap a substitute to bring on, or another shirt to swap."
-                    : "Now tap the shirt to replace. The lit-up shirts are positions a coach named."));
+                    ? "Now tap a substitute to bring on, or another player on the pitch to swap."
+                    : "Now tap the player to replace. The ringed positions are ones a coach named."));
 
                 if (slot) {
                     var off = element("button", "sc-bench__action", "Take off");
@@ -809,8 +809,8 @@
         });
 
         // A tap anywhere else on the page puts down what was picked up. By the event's path,
-        // not root.contains(): a tap on a shirt redraws the pitch, and by the time the click
-        // reaches the document the shirt it started on is no longer in it.
+        // not root.contains(): a tap on a marker redraws the pitch, and by the time the click
+        // reaches the document the marker it started on is no longer in it.
         document.addEventListener("click", function (event) {
             if (!selected) {
                 return;
@@ -841,7 +841,7 @@
             event.dataTransfer.setData("text/plain", player ? fullName(player) : "");
 
             renderFocus();
-            // After the browser has taken its picture of the shirt, so the picture is not the
+            // After the browser has taken its picture of the marker, so the picture is not the
             // picked-up style.
             window.setTimeout(paint, 0);
         });
