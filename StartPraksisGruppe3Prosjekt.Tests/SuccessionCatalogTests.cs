@@ -78,13 +78,14 @@ public class SuccessionCatalogTests
     [Fact]
     public void The_page_opens_on_the_three_five_two_and_every_formation_is_eleven()
     {
-        // The coaches asked for the 1-3-5-2 -- the 3-5-2 with the keeper counted -- first.
+        // The coaches asked for the 1-3-5-2 -- the 3-5-2 with the keeper counted -- first, and
+        // drew it: a 10 ahead of two 8s, the wing-backs level with the 10.
         var catalog = Shipped();
 
         Assert.Equal("3-5-2", catalog.DefaultFormation.Key);
         Assert.All(catalog.Settings.Formations, f => Assert.Equal(11, f.Slots.Count()));
         Assert.Equal(
-            new[] { "LST", "RST", "L8", "R8", "LWB", "C6", "RWB", "LCB", "CB", "RCB", "GK" },
+            new[] { "LST", "RST", "LWB", "ACM", "RWB", "L8", "R8", "LCB", "CB", "RCB", "GK" },
             catalog.DefaultFormation.Slots);
         Assert.NotNull(catalog.FindFormation("4-3-3"));
     }

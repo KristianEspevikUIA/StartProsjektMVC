@@ -60,6 +60,10 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
    nytt for hvert bytte. **Fornavn vises for trenere på denne siden**; det ble bestemt da trenerne
    ba om det, og `docs/player-welcome.md` og Sikt-meldingen er oppdatert. Draktnummer venter på en
    migrasjon. Se «Banen som et spill» i `docs/succession-planning.md`.
+5. **Banen tegnet som trenernes skisse.** «The 3-5-2 and the background look ugly, something like
+   this.» Banen er nå en vektortegning i målestokk (`wwwroot/img/pitch.svg`), spillerne er runde
+   markører, og hver står på plassen for posisjonen sin (`.sc-spot--*` i CSS-en), ikke i rader.
+   3-5-2 har en 10-er (ACM) foran to 8-ere, som i skissen.
 
 ---
 

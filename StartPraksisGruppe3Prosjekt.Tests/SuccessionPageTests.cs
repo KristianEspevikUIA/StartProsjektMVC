@@ -498,6 +498,45 @@ public sealed class SuccessionPageTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Every_position_has_a_spot_on_the_pitch_and_the_pitch_is_drawn()
+    {
+        // Players stand on the spot for their position, a class per position in the stylesheet.
+        // A position added to the file without one would be drawn in the middle of the pitch.
+        var client = _factory.AnonymousClient();
+        var css = await client.GetStringAsync("/css/startcompass.css");
+
+        await _factory.WithServicesAsync(services =>
+        {
+            var catalog = services.GetRequiredService<ISuccessionCatalog>();
+
+            Assert.All(catalog.Settings.Positions, position =>
+                Assert.Matches($@"\.sc-spot--{position.Key}\s*\{{[^}}]*left:[^}}]*top:", css));
+
+            return Task.CompletedTask;
+        });
+
+        var pitch = await client.GetAsync("/img/pitch.svg");
+        Assert.Equal(HttpStatusCode.OK, pitch.StatusCode);
+        Assert.Equal("image/svg+xml", pitch.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("url(\"../img/pitch.svg\")", css);
+
+        // A browser draws nothing at all from an SVG that is not well-formed XML -- a "--" in
+        // a comment is enough -- and the pitch is then a plain green box.
+        System.Xml.Linq.XDocument.Parse(await pitch.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Each_player_on_the_pitch_is_placed_by_their_position()
+    {
+        await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
+
+        var html = await Coach().GetStringAsync("/Succession/Formation");
+
+        Assert.Contains("class=\"sc-token sc-spot--GK\"", html);
+        Assert.Contains("class=\"sc-token sc-token--empty sc-spot--ACM\"", html);
+    }
+
+    [Fact]
     public void The_data_block_cannot_be_closed_by_what_is_in_it()
     {
         var model = new ViewModels.Succession.SuccessionFormationViewModel

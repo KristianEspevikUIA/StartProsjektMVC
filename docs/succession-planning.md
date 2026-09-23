@@ -30,10 +30,11 @@ Beskrivelsen de ga, og hvor i appen det ligger:
 | Click into a team, say G17, and see the players in a formation | Laglenkene «Choose from» på «Best eleven», og «Best eleven» på hvert lag under My teams |
 | Formation might be 1-3-5-2 | 3-5-2, og siden åpner nå på den. `?formation=1-3-5-2` virker også, og siden skriver «1-3-5-2 with the goalkeeper» |
 | If we could move players around too. Think of Football Manager | Dra og slipp på banen, eller trykk på en spiller og så dit hen skal. Se «Banen som et spill» |
-| Less on the players: name, position (maybe shirt number) | Hver spiller er en drakt med posisjonen, fornavnet under og én rating. Draktnummer finnes ikke ennå, se under |
+| Less on the players: name, position (maybe shirt number) | Hver spiller er en rund markør med posisjonen, fornavnet under og én rating. Draktnummer finnes ikke ennå, se under |
 | Substitutes to the right of the eleven, not under | Innbytterne står til høyre fra nettbrettbredde (700 px) og opp. Bare på mobil havner de under |
 | Stats/overall change with who is subbed in where | Team rating og en stolpe for angrep, midtbane, forsvar og keeper, regnet ut på nytt for hvert bytte |
 | The formation should be 3-5-2 | Siden åpner på 3-5-2 |
+| The 3-5-2 and the background look ugly, something like this (skisse av en bane) | Banen er en tegning i målestokk (`img/pitch.svg`), og hver spiller står der posisjonen står på banen. 3-5-2 har nå en 10-er foran to 8-ere, som i skissen |
 
 ---
 
@@ -167,20 +168,33 @@ laget og en eldre syklus, så man blir i samme lag når man bytter side.
 
 ### Banen som et spill
 
-Banen er tegnet som i et fotballspill: mørk bakgrunn, gressbane med linjer, og hver spiller er en
-drakt i klubbens gule farge med posisjonen på. Under drakta står fornavnet, og i hjørnet én rating.
+Banen er tegnet som i et fotballspill, etter trenernes egen skisse: vår halvdel og den første
+tredjedelen av motstanderens, i målestokk (`wwwroot/img/pitch.svg`, en vektortegning som er skarp i
+alle størrelser), med 16-meter, 5-meter, D, midtsirkel, hjørnebuer og mål. Hver spiller er en rund
+markør i klubbens gule farge med posisjonen på. Under markøren står fornavnet, og ved siden av én
+rating.
+
+**Hver spiller står der posisjonen står på banen**, ikke i en rad: en venstre vingback står bredt
+og høyt, en midtstopper foran eget mål. Plassene ligger i `startcompass.css` som `.sc-spot--LWB`
+osv., én per posisjon, regnet fra tegningens meter og stilt inn etter skissen. De gjelder i alle
+formasjoner, så 4-3-3 og 4-2-3-1 tegnes riktig uten mer. Klasser og ikke koordinater i markupen,
+fordi CSP-en ikke tillater `style=""`. En ny posisjon i JSON-fila trenger en plass i CSS-en, og
+`SuccessionPageTests` sier fra hvis den mangler.
+
+**3-5-2 er tegnet som i skissen:** to spisser, vingbackene i høyde med en 10-er (ACM), to 8-ere
+(L8, R8) bak, tre midtstoppere og keeper. C6 er dermed ikke med i 3-5-2; den er med i 4-3-3.
 Til høyre står innbytterne, «Substitutes»: alle vurderte spillere som ikke er i ellever, sterkest
 først, med beste posisjon, navn og rating. `wwwroot/js/lineup.js` gjør det mulig å bytte, slik som
 i Football Manager:
 
-- **Dra** en innbytter inn på en spiller for å bytte dem, dra en drakt til en annen posisjon for å
+- **Dra** en innbytter inn på en spiller for å bytte dem, dra en spiller til en annen posisjon for å
   bytte de to, eller dra en spiller til innbytterne for å ta hen av.
 - **Trykk** på en spiller og så dit hen skal. Det er slik det virker på nettbrett, og med
   tastaturet (Enter eller mellomrom, Escape for å avbryte).
-- Mens en spiller er plukket opp, lyser draktene i posisjonene trenerne har ført opp for hen, med
+- Mens en spiller er plukket opp, får posisjonene trenerne har ført opp for hen en hvit ring, med
   1st/2nd/3rd i hjørnet. Plukker man opp en posisjon, står innbytterne som er ført opp for den,
   øverst i lista, med hvor gode de er der.
-- En spiller kan stå hvor som helst. Står hen der ingen trener har ført hen opp, får drakta et
+- En spiller kan stå hvor som helst. Står hen der ingen trener har ført hen opp, får markøren et
   rødt «!» og navnet rød bakgrunn.
 
 **Ratingen er spillerens beredskap i posisjonen hen står i**, ikke overall alene:
@@ -189,14 +203,14 @@ i Football Manager:
 opp. Det siste står i JSON-fila og må være minst like stort som trekket for 3. posisjon. Utvalget
 bruker aldri det trekket; det gjelder bare det treneren selv flytter.
 
-**Team rating** øverst er snittet av draktene på banen, med en stolpe for angrep, midtbane, forsvar
+**Team rating** øverst er snittet av spillerne på banen, med en stolpe for angrep, midtbane, forsvar
 og keeper. Hvilken rad som er hva, følger av at formasjonene i fila tegnes fra angrep til keeper:
 første rad er angrep, siste er keeper, nest siste er forsvar, resten er midtbane
 (`SuccessionMath.UnitOf`). Alt regnes ut på nytt for hvert bytte, og det som endrer seg, blinker.
 Ved siden av står hvor mye laget er over eller under beste ellever («−0.3 on the best eleven»),
 hvor mange som er klare (overall 8 eller mer), og hvor mange som står utenfor posisjon.
 
-**Navn.** Drakta viser spillerens fornavn, slik admin har lagt det inn til velkomsten
+**Navn.** Markøren viser spillerens fornavn, slik admin har lagt det inn til velkomsten
 (`PlayerPersonalDetails`, via `IPlayerWelcomeService.FirstNamesAsync`). Har ikke klubben lagt inn
 noe, står koden. Har to spillere på siden samme fornavn, står koden i liten skrift under. Dette er
 den eneste trenersiden som viser navn, og det ble bestemt da trenerne ba om det. Tavla,
@@ -204,7 +218,7 @@ lagsidene og spillersidene bruker fortsatt koden. Bildet vises ikke. Se
 `docs/player-welcome.md`.
 
 **Draktnummer** finnes ikke i databasen. Det krever en ny kolonne og en migrasjon, og det er
-Kristian som lager migrasjoner. Når nummeret finnes, kan det stå på drakta i stedet for posisjonen.
+Kristian som lager migrasjoner. Når nummeret finnes, kan det stå på markøren i stedet for posisjonen.
 
 **Ingenting lagres.** Utvalget er trenernes vurderinger og skal være det samme for alle. Laget man
 setter opp, står i adressen (`?lineup=12.5.0.7…`, én spiller-id per posisjon i sidens rekkefølge, 0
