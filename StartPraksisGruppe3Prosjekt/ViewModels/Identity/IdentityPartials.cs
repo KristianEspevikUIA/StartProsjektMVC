@@ -8,3 +8,18 @@ public sealed record PhaseTableModel(PhaseReading Reading, string ValueHeading, 
 
 /// <summary>One development chart. The selected match, if any, is ringed.</summary>
 public sealed record TrendChartModel(MarkerTrend Trend, string TeamKey, string? SelectedMatchId);
+
+/// <summary>
+/// One of the three Identity benchmark pages, as a button. <see cref="Action"/> is the action
+/// on IdentityController, and the name of its view.
+/// </summary>
+public sealed record IdentitySection(string Action, string Label)
+{
+    /// <summary>In the order of the buttons.</summary>
+    public static IReadOnlyList<IdentitySection> All { get; } = new[]
+    {
+        new IdentitySection("Index", "Overview"),
+        new IdentitySection("Insights", "Key Insights"),
+        new IdentitySection("Development", "Development over time")
+    };
+}

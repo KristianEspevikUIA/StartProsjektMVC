@@ -5,7 +5,7 @@
     "needs match data reads this one. The numbers are chosen to land on known statuses; see",
     "IdentityBenchmarkBuilderTests before changing any of them."
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "team": "U14",
   "teamName": "Start U14",
   "generatedAt": "2026-09-16T12:00:00Z",
@@ -23,8 +23,14 @@
       "goals": { "start": 3, "opponent": 1, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 } },
       "metrics": {
         "possessionPct": { "value": 45, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "finalThirdPasses": { "value": 150, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 21 }, "formula": "Sum of OP F3 Pass (open-play final-third passes) over every Start player in Appendix, Player Stats: Passing and Touches." },
+        "totalPasses": { "value": 300, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Total Passes from the Match Statistics page: every pass attempted, completed or not." },
         "passCompletionPct": { "value": 84, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
         "successfulDribbles": { "value": 30, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 22 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "pressures": { "value": 250, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Pressures from the Match Statistics page." },
+        "counterpresses": { "value": 60, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 14 }, "formula": "Sum of Pressures over every Start player on the Pressure, Gegenpressing page: pressures within five seconds of Start losing the ball." },
+        "tackleSuccessPct": { "value": 70, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Tackles Won divided by Attempts on the Match Statistics page, as a whole percentage. Attempts are tackles won plus times dribbled past (T + DP in the appendix)." },
+        "pressureRegains": { "value": 70, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 3 }, "formula": "Start's Pressure Regains from the Match Statistics page: the ball won back within five seconds of a pressure." },
         "interceptions": { "value": 26, "source": { "file": "Testserien G14 2026 Prøvestad U14 Start U14.pdf", "page": 22 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
       },
       "players": [
@@ -45,8 +51,14 @@
       "goals": { "start": 2, "opponent": 2, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 } },
       "metrics": {
         "possessionPct": { "value": 60, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "finalThirdPasses": { "value": 70, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 22 }, "formula": "Sum of OP F3 Pass (open-play final-third passes) over every Start player in Appendix, Player Stats: Passing and Touches." },
+        "totalPasses": { "value": 560, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Total Passes from the Match Statistics page: every pass attempted, completed or not." },
         "passCompletionPct": { "value": 80, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
         "successfulDribbles": { "value": 12, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 23 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "pressures": { "value": 200, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Pressures from the Match Statistics page." },
+        "counterpresses": { "value": 50, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 15 }, "formula": "Sum of Pressures over every Start player on the Pressure, Gegenpressing page: pressures within five seconds of Start losing the ball." },
+        "tackleSuccessPct": { "value": 60, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Tackles Won divided by Attempts on the Match Statistics page, as a whole percentage. Attempts are tackles won plus times dribbled past (T + DP in the appendix)." },
+        "pressureRegains": { "value": 65, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 4 }, "formula": "Start's Pressure Regains from the Match Statistics page: the ball won back within five seconds of a pressure." },
         "interceptions": { "value": 20, "source": { "file": "Testserien G14 2026 Start U14 Testby U14.pdf", "page": 23 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
       },
       "players": [
@@ -67,8 +79,14 @@
       "goals": { "start": 0, "opponent": 4, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 } },
       "metrics": {
         "possessionPct": { "value": 51, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Possession % from the Match Statistics page." },
+        "finalThirdPasses": { "value": 60, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 23 }, "formula": "Sum of OP F3 Pass (open-play final-third passes) over every Start player in Appendix, Player Stats: Passing and Touches." },
+        "totalPasses": { "value": 580, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Total Passes from the Match Statistics page: every pass attempted, completed or not." },
         "passCompletionPct": { "value": 86, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Pass Completion % from the Match Statistics page." },
         "successfulDribbles": { "value": 3, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 24 }, "formula": "Sum of Drib (dribbles past an opponent) over every Start player in Appendix, Player Stats: Defensive Actions / Other." },
+        "pressures": { "value": 170, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Pressures from the Match Statistics page." },
+        "counterpresses": { "value": 40, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 15 }, "formula": "Sum of Pressures over every Start player on the Pressure, Gegenpressing page: pressures within five seconds of Start losing the ball." },
+        "tackleSuccessPct": { "value": 90, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Tackles Won divided by Attempts on the Match Statistics page, as a whole percentage. Attempts are tackles won plus times dribbled past (T + DP in the appendix)." },
+        "pressureRegains": { "value": 50, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 4 }, "formula": "Start's Pressure Regains from the Match Statistics page: the ball won back within five seconds of a pressure." },
         "interceptions": { "value": 10, "source": { "file": "Testserien G14 2026 Start U14 Eksempel U14.pdf", "page": 24 }, "formula": "Sum of I (interceptions) over every Start player in Appendix, Player Stats: Defensive Actions / Other." }
       },
       "players": [

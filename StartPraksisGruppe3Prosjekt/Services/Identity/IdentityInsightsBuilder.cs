@@ -67,6 +67,8 @@ public static class IdentityInsightsBuilder
         var target = marker.Target;
         var value = reading.Value!.Value;
         var isAverage = selectedMatches.Count > 1;
+        var range = IdentityFormat.RangeName(marker);
+        var ceiling = target.Provisional ? "provisional ceiling" : "elite ceiling";
 
         var sentence = $"{reading.DisplayValue}{(isAverage ? " on average" : string.Empty)} — ";
 
@@ -74,15 +76,15 @@ public static class IdentityInsightsBuilder
         {
             (IdentityStatus.Exceptional, TargetDirection.LowerIsBetter) =>
                 $"at or below {IdentityFormat.Value(target.ExceptionalAtOrBelow!.Value, target.Unit, isAverage: false)}, " +
-                $"beyond the elite range ({marker.EliteRange}).",
+                $"beyond the {range} ({marker.EliteRange}).",
             (IdentityStatus.Exceptional, _) =>
-                $"above the elite range of {marker.EliteRange}.",
+                $"above the {range} of {marker.EliteRange}.",
             (IdentityStatus.EliteAlignment, _) =>
-                $"inside the elite range of {marker.EliteRange}.",
+                $"inside the {range} of {marker.EliteRange}.",
             (_, TargetDirection.LowerIsBetter) =>
-                $"{IdentityFormat.Gap(Math.Round(value - target.Max!.Value, 1), target.Unit)} above the elite ceiling ({marker.EliteRange}).",
+                $"{IdentityFormat.Gap(Math.Round(value - target.Max!.Value, 1), target.Unit)} above the {ceiling} ({marker.EliteRange}).",
             _ =>
-                $"{IdentityFormat.Gap(Math.Round(target.Min!.Value - value, 1), target.Unit)} short of the elite range of {marker.EliteRange}."
+                $"{IdentityFormat.Gap(Math.Round(target.Min!.Value - value, 1), target.Unit)} short of the {range} of {marker.EliteRange}."
         };
 
         if (isAverage && reading.MatchesAtOrAboveRange is { } inRange)

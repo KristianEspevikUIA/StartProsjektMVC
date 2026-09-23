@@ -48,7 +48,11 @@ public sealed class IdentityBenchmarkViewModel
 
     public PlayerHighlight? Highlight { get; init; }
 
-    public IReadOnlyList<MarkerTrend> Trends { get; init; } = Array.Empty<MarkerTrend>();
+    /// <summary>
+    /// Development over time, one group per phase that has a measured marker. Empty when there
+    /// are fewer than two matches to draw a line through.
+    /// </summary>
+    public IReadOnlyList<PhaseTrends> Trends { get; init; } = Array.Empty<PhaseTrends>();
 
     public IReadOnlyList<StatusLegendEntry> Legend { get; init; } = Array.Empty<StatusLegendEntry>();
 
@@ -115,6 +119,9 @@ public sealed record PlayerHighlight
 
 /// <summary>The leader(s) on one marker. Several names means a tie.</summary>
 public sealed record HighlightLeader(string MarkerName, IReadOnlyList<string> Players, int Value);
+
+/// <summary>The development charts of In Possession or Out of Possession, in the Gold Standard's order.</summary>
+public sealed record PhaseTrends(IdentityPhase Phase, IReadOnlyList<MarkerTrend> Trends);
 
 public sealed record MarkerTrend(IdentityMarker Marker, IReadOnlyList<TrendPoint> Points, double AxisMax);
 

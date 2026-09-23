@@ -13,8 +13,11 @@ namespace StartPraksisGruppe3Prosjekt.Controllers;
 /// already sees every team (see CoachController). The Player Highlight does name players --
 /// which is exactly why the role gate is the whole controller and not one action.
 ///
-/// Read-only. Both actions are GET, so the match picker works as a plain form without
+/// Read-only. Every action is GET, so the match picker works as a plain form without
 /// JavaScript and a view can be bookmarked or sent to another coach.
+///
+/// The benchmark is three pages -- Overview, Key Insights, Development over time -- over the
+/// same team and match, with buttons between them (Views/Identity/_IdentityLayout.cshtml).
 /// </summary>
 [Authorize(Roles = Roles.Coach + "," + Roles.Admin)]
 public class IdentityController : Controller
@@ -28,9 +31,19 @@ public class IdentityController : Controller
         _catalog = catalog;
     }
 
+    /// <summary>Overview: both benchmark tables and the status legend.</summary>
     /// <param name="team">"U14". Left out, the first team with data.</param>
     /// <param name="match">A match id, or "all" / left out for the average of every match.</param>
-    public IActionResult Index(string? team, string? match)
+    public IActionResult Index(string? team, string? match) => Benchmark(team, match);
+
+    /// <summary>Key Insights: Key Tactical Insights and the Player Highlight.</summary>
+    public IActionResult Insights(string? team, string? match) => Benchmark(team, match);
+
+    /// <summary>Development over time: every match, marker by marker.</summary>
+    public IActionResult Development(string? team, string? match) => Benchmark(team, match);
+
+    /// <summary>The same page model for all three; the view of the action picks what to show.</summary>
+    private IActionResult Benchmark(string? team, string? match)
     {
         var model = _builder.Build(team, match);
 

@@ -9,10 +9,15 @@ namespace StartPraksisGruppe3Prosjekt.Tests;
 /// What the Identity page says about a team, against the fictional squad in
 /// Identity/Fixtures/u14.json and the shipped Gold Standard.
 ///
-/// The fixture, by match (possession, pass accuracy, dribbles, interceptions):
-///   2026-04-01 home vs Testby       60 / 80 / 12 / 20
-///   2026-05-01 away at Prøvestad    45 / 84 / 30 / 26
-///   2026-06-01 home vs Eksempel     51 / 86 /  3 / 10
+/// The fixture, by match -- the club's four markers (possession, pass accuracy, dribbles,
+/// interceptions), then the six substitutes (final-third passes, total passes, pressures,
+/// counterpresses, tackle success, pressure regains):
+///   2026-04-01 home vs Testby       60 / 80 / 12 / 20     70 / 560 / 200 / 50 / 60 / 65
+///   2026-05-01 away at Prøvestad    45 / 84 / 30 / 26    150 / 300 / 250 / 60 / 70 / 70
+///   2026-06-01 home vs Eksempel     51 / 86 /  3 / 10     60 / 580 / 170 / 40 / 90 / 50
+///
+/// The substitutes' averages are all inside their ranges, so they never push the club's
+/// markers out of the insights that the tests below read.
 /// </summary>
 public class IdentityBenchmarkBuilderTests
 {
@@ -47,12 +52,35 @@ public class IdentityBenchmarkBuilderTests
         Assert.Equal("20", Reading(page, "interceptions").DisplayValue);
         Assert.Equal(IdentityStatus.Developing, Reading(page, "interceptions").Status);        // 20 vs 25
         Assert.Equal(23, Reading(page, "interceptions").Sources.Single().Page);
+
+        Assert.Equal(15, Reading(page, "counterpresses").Sources.Single().Page);               // the Gegenpressing page
+        Assert.Equal(IdentityStatus.StrongAlignment, Reading(page, "tackle-success").Status);  // 60 vs 64
     }
 
     [Fact]
-    public void Markers_the_reports_cannot_answer_get_no_value_no_status_and_no_source()
+    public void A_substitute_is_graded_against_its_own_provisional_range()
     {
-        var page = Build(Testby);
+        var page = Build(Provestad);
+
+        var passes = Reading(page, "total-passes");
+        Assert.True(passes.Marker.Target.Provisional);
+        Assert.Equal(300, passes.Value);
+        Assert.Equal("300", passes.DisplayValue);
+        Assert.Equal(IdentityStatus.BelowTarget, passes.Status);                               // 300 of 471 is under 75 %
+        Assert.Equal(3, passes.Sources.Single().Page);
+
+        Assert.Equal(IdentityStatus.Exceptional, Reading(page, "final-third-passes").Status);   // 150 over 140
+        Assert.Equal(21, Reading(page, "final-third-passes").Sources.Single().Page);
+        Assert.Equal("70%", Reading(page, "tackle-success").DisplayValue);
+    }
+
+    [Fact]
+    public void A_club_marker_put_back_without_data_gets_no_value_no_status_and_no_source()
+    {
+        // The club's six, moved back out in place of their substitutes: what the page does with
+        // any marker the reports cannot answer.
+        var matches = Catalog.FindTeam("U14")!.Data!.Matches.ToArray();
+        var page = Build(Testby, new FixedCatalog(WithClubMarkersRestored(Catalog.GoldStandard), matches));
 
         var notMeasured = page.AllReadings.Where(r => !r.IsMeasured).ToList();
 
@@ -67,6 +95,12 @@ public class IdentityBenchmarkBuilderTests
             Assert.Null(r.Status);
             Assert.Empty(r.Sources);
         });
+
+        // Nor are they written about, or drawn.
+        Assert.DoesNotContain(page.Insights, i => notMeasured.Any(r => r.Marker.Name == i.MarkerName));
+        Assert.Equal(
+            new[] { "possession", "pass-accuracy", "successful-dribbles", "interceptions" },
+            page.Trends.SelectMany(g => g.Trends).Select(t => t.Marker.Key));
     }
 
     [Fact]
@@ -208,6 +242,20 @@ public class IdentityBenchmarkBuilderTests
     }
 
     [Fact]
+    public void An_insight_on_a_substitute_calls_its_range_provisional_not_elite()
+    {
+        var insights = Build(Provestad).Insights;
+
+        var passes = insights.Single(i => i.MarkerName == "Total Passes");
+        Assert.Equal("Growth area", passes.Label);
+        Assert.Equal("300 — 171 short of the provisional range of 471 – 596 / match.", passes.Text);
+
+        var finalThird = insights.Single(i => i.MarkerName == "Final Third Passes");
+        Assert.Equal("Strength", finalThird.Label);
+        Assert.Equal("150 — above the provisional range of 68 – 140 / match.", finalThird.Text);
+    }
+
+    [Fact]
     public void An_insight_leaves_out_a_tie_that_crosses_the_three_names_it_gives()
     {
         // Four players on one interception each: naming whichever sorts first would rank them.
@@ -223,14 +271,26 @@ public class IdentityBenchmarkBuilderTests
     [Fact]
     public void Development_covers_every_match_oldest_first_for_measured_markers_only()
     {
-        var trends = Build(Eksempel).Trends;
+        var groups = Build(Eksempel).Trends;
 
-        Assert.Equal(new[] { "possession", "pass-accuracy", "successful-dribbles", "interceptions" }, trends.Select(t => t.Marker.Key));
+        // In Possession, then Out of Possession, each in the Gold Standard's order.
+        Assert.Equal(new[] { "in-possession", "out-of-possession" }, groups.Select(g => g.Phase.Key));
+        Assert.Equal(
+            new[] { "possession", "final-third-passes", "total-passes", "pass-accuracy", "successful-dribbles" },
+            groups[0].Trends.Select(t => t.Marker.Key));
+        Assert.Equal(
+            new[] { "pressures", "counterpresses", "tackle-success", "pressure-regains", "interceptions" },
+            groups[1].Trends.Select(t => t.Marker.Key));
+
+        var trends = groups.SelectMany(g => g.Trends).ToList();
         Assert.All(trends, t => Assert.Equal(new[] { Testby, Provestad, Eksempel }, t.Points.Select(p => p.MatchId)));
 
-        Assert.Equal(100, trends[0].AxisMax);                 // a percentage
-        Assert.Equal(40, trends[2].AxisMax);                  // dribbles: 30 * 1.1 -> next ten
-        Assert.Equal(IdentityStatus.Exceptional, trends[2].Points[1].Status);
+        MarkerTrend Trend(string key) => trends.Single(t => t.Marker.Key == key);
+
+        Assert.Equal(100, Trend("possession").AxisMax);               // a percentage
+        Assert.Equal(40, Trend("successful-dribbles").AxisMax);       // 30 * 1.1 -> next ten
+        Assert.Equal(IdentityStatus.Exceptional, Trend("successful-dribbles").Points[1].Status);
+        Assert.Equal(660, Trend("total-passes").AxisMax);             // the range's 596 fits: 655.6 -> next ten
     }
 
     [Fact]
@@ -263,6 +323,16 @@ public class IdentityBenchmarkBuilderTests
             Formula = "Test."
         };
 
+        // Every marker a test does not set sits at the floor of its range: Elite Alignment, so it
+        // never crowds the one under test out of the insights.
+        var metrics = Catalog.GoldStandard.AllMarkers
+            .Where(m => m.Measurement.IsMeasured)
+            .ToDictionary(m => m.Measurement.Metric!, m => Metric(m.Target.Min ?? m.Target.Max!.Value));
+        metrics["possessionPct"] = Metric(50);
+        metrics["passCompletionPct"] = Metric(passAccuracy);
+        metrics["successfulDribbles"] = Metric(10);
+        metrics["interceptions"] = Metric(players.Sum(p => p.Interceptions));
+
         return new IdentityMatch
         {
             Id = id,
@@ -271,19 +341,31 @@ public class IdentityBenchmarkBuilderTests
             HomeTeam = "Start U14",
             AwayTeam = "Test U14",
             StartIsHome = true,
-            Metrics = new Dictionary<string, SourcedMetric>
-            {
-                ["possessionPct"] = Metric(50),
-                ["passCompletionPct"] = Metric(passAccuracy),
-                ["successfulDribbles"] = Metric(10),
-                ["interceptions"] = Metric(players.Sum(p => p.Interceptions))
-            },
+            Metrics = metrics,
             Players = players
                 .Select(p => new MatchPlayerLine { Name = p.Name, Interceptions = p.Interceptions })
                 .ToList(),
             PlayersSource = new SourceReference { File = $"{id}.pdf", Page = 22 }
         };
     }
+
+    /// <summary>The shipped Gold Standard with each substitute's club marker back in its place.</summary>
+    private static GoldStandard WithClubMarkersRestored(GoldStandard standard) => new()
+    {
+        Version = standard.Version,
+        Title = standard.Title,
+        StatusRules = standard.StatusRules,
+        Phases = standard.Phases
+            .Select(phase => new IdentityPhase
+            {
+                Key = phase.Key,
+                Title = phase.Title,
+                Tagline = phase.Tagline,
+                Footnotes = phase.Footnotes,
+                Markers = phase.Markers.Select(m => m.Replaces?.Marker ?? m).ToList()
+            })
+            .ToList()
+    };
 
     private sealed class FixedCatalog : IIdentityCatalog
     {
