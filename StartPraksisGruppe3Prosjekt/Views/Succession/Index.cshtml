@@ -1,0 +1,477 @@
+@model SuccessionOverviewViewModel
+@inject ISuccessionCatalog Catalog
+@{
+    ViewData["Title"] = "Succession planning";
+    ViewData["FullWidth"] = true;
+
+    var filter = Model.Filter;
+    var settings = Catalog.Settings;
+    var ratedCount = Model.Rows.Count(r => r.Consensus is not null);
+
+    string CycleNote(BoardPlayer row) =>
+        row.IsFromEarlierCycle && row.ConsensusCycle is { } earlier ? $"From {earlier.Label}" : "";
+}
+
+@*
+    The coaches' succession planning workbook, pulled together: one row per player, with what
+    the coaches who rated them say TOGETHER in the cycle shown. Each coach's own row is on the
+    player page -- this page is the whole squad at once.
+
+    Four readings of the same rows, as tabs (survey.js builds the strip from data-tab-panel):
+    readiness, the six ratings, contracts and pathway, and where the coaches disagree. With
+    JavaScript off they are four tables down the page.
+
+    A player nobody has rated in this cycle yet shows their last cycle, greyed and labelled --
+    otherwise the board would be empty on the first day of every cycle.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">Succession planning</p>
+        <h1>@(filter.TeamName ?? "Whole club")</h1>
+
+        <div class="sc-hero__meta">
+            <span>@filter.Cycle.Label@(filter.IsCurrentCycle ? " (this cycle)" : "")</span>
+            <span>@settings.Cycle.LengthWeeks-week cycles</span>
+            <span>@Model.Rows.Count player@(Model.Rows.Count == 1 ? "" : "s")</span>
+            @if (Model.CanRate)
+            {
+                <span>You have rated @Model.RatedByYou</span>
+            }
+        </div>
+
+        <partial name="_SuccessionNav" model="@("board")" />
+    </div>
+</section>
+
+<div class="sc-page">
+    <div class="sc-toolbar">
+        @* A GET form, so a filtered board is a URL a coach can send to another. *@
+        <form method="get" asp-action="Index" class="sc-filterbar">
+            <div class="sc-form-field">
+                <label class="sc-label" for="board-cycle">Cycle</label>
+                <select class="sc-select" id="board-cycle" name="cycle">
+                    @foreach (var cycle in filter.Cycles)
+                    {
+                        <option value="@cycle.Key" selected="@(cycle.StartsOn == filter.Cycle.StartsOn)">
+                            @cycle.Label@(cycle.StartsOn == filter.CurrentCycle.StartsOn ? " (this cycle)" : "")
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="sc-form-field">
+                <label class="sc-label" for="board-team">Team</label>
+                <select class="sc-select" id="board-team" name="team">
+                    <option value="">Whole club</option>
+                    @foreach (var team in filter.Teams)
+                    {
+                        <option value="@team.Id" selected="@(team.Id == filter.TeamId)">@team.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="sc-form-field">
+                <label class="sc-label" for="board-sort">Order</label>
+                <select class="sc-select" id="board-sort" name="sort">
+                    <option value="code" selected="@(Model.Sort == "code")">Player code</option>
+                    <option value="team" selected="@(Model.Sort == "team")">Team</option>
+                    <option value="readiness" selected="@(Model.Sort == "readiness")">Overall readiness</option>
+                </select>
+            </div>
+            <button type="submit" class="sc-btn sc-btn--secondary">Show</button>
+        </form>
+
+        <a class="sc-help-link" asp-controller="Help" asp-action="Index" asp-fragment="succession">How to read this page</a>
+    </div>
+
+    @if (TempData["SuccessionMessage"] is string message)
+    {
+        <div class="sc-notice sc-mt" role="status"><p>@message</p></div>
+    }
+
+    <section class="sc-section">
+        <div class="sc-stats">
+            <article class="sc-stat">
+                <p class="sc-stat__label">Rated this cycle</p>
+                <p class="sc-stat__value">
+                    @Model.RatedThisCycle<span class="sc-stat__unit"> / @Model.Rows.Count</span>
+                </p>
+                <p class="sc-stat__note">
+                    players have been rated by at least one coach in @filter.Cycle.Label.
+                    @if (ratedCount > Model.RatedThisCycle)
+                    {
+                        <text>@(ratedCount - Model.RatedThisCycle) more show an earlier cycle.</text>
+                    }
+                </p>
+            </article>
+
+            <article class="sc-stat">
+                <p class="sc-stat__label">Readiness</p>
+                <p class="sc-stat__line">
+                    <span class="@SuccessionFormat.LevelClass(ReadinessLevel.Ready)">@Model.ReadyNow</span>
+                    ready (@settings.ReadyAt.ToString("0") or more)
+                </p>
+                <p class="sc-stat__line">
+                    <span class="@SuccessionFormat.LevelClass(ReadinessLevel.Developing)">@Model.Developing</span>
+                    developing (@settings.DevelopingAt.ToString("0")–@settings.ReadyAt.ToString("0"))
+                </p>
+                <p class="sc-stat__note">Overall readiness, the average of the six ratings.</p>
+            </article>
+
+            <article class="sc-stat @(Model.Disagreements.Count > 0 ? "sc-stat--alert" : "")">
+                <p class="sc-stat__label">Coaches disagree</p>
+                <p class="sc-stat__value">
+                    @Model.Disagreements.Count<span class="sc-stat__unit"> player@(Model.Disagreements.Count == 1 ? "" : "s")</span>
+                </p>
+                <p class="sc-stat__note">
+                    with coaches @settings.DisagreementAt.ToString("0") or more points apart on a
+                    rating, or split on the category. Listed under Where coaches disagree.
+                </p>
+            </article>
+
+            <article class="sc-stat @(Model.ContractsEnding.Count > 0 ? "sc-stat--alert" : "")">
+                <p class="sc-stat__label">Contracts ending</p>
+                <p class="sc-stat__value">
+                    @Model.ContractsEnding.Count<span class="sc-stat__unit"> in 6 months</span>
+                </p>
+                @if (Model.ContractsEnding.Count > 0)
+                {
+                    <p class="sc-stat__note">
+                        <span class="sc-summary__codes">@string.Join(", ", Model.ContractsEnding.Take(6).Select(r => r.Player.Code))</span>@(Model.ContractsEnding.Count > 6 ? $" and {Model.ContractsEnding.Count - 6} more" : "")
+                    </p>
+                }
+                else
+                {
+                    <p class="sc-stat__note">No contract on the board ends before @SuccessionFormat.Date(Model.Today.AddDays(SuccessionOverviewViewModel.ContractWarningDays)).</p>
+                }
+            </article>
+        </div>
+    </section>
+
+    <div class="sc-filters sc-mt" data-player-filter hidden>
+        <div class="sc-form-row">
+            <div class="sc-form-field">
+                <label class="sc-label" for="board-search">Find a player</label>
+                <input class="sc-input" id="board-search" type="search" autocomplete="off"
+                       placeholder="TS-08, RB or Senior" />
+            </div>
+        </div>
+        <div class="sc-filters__actions">
+            <button type="button" class="sc-btn sc-btn--secondary" data-player-filter-clear>Clear</button>
+            <p class="sc-filters__summary" data-player-filter-summary role="status" aria-live="polite"></p>
+        </div>
+    </div>
+
+    <div>
+        @* ----------------------------------------------------------- readiness ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="Readiness"
+                 data-tab-hint="How close each player is">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Readiness</h2>
+            <p class="sc-footnote sc-footnote--top">
+                Overall is the average of the six ratings, and the coaches' average of it. Off is
+                how far below @settings.ReadyAt.ToString("0") that is; the weeks are the trend across
+                cycles, carried forward. Each position column is what most coaches wrote in it.
+                Under Rated by, open the count to see which coaches it is.
+            </p>
+
+            @*
+                The workbook's three position columns, kept as three -- 1st, 2nd, 3rd -- under one
+                heading, the grouped layout the 5C player list uses. Each is its own vote; see
+                PlayerConsensus.PositionsByRank for why that is not the first three of the list
+                the best eleven picks from.
+            *@
+            <div class="sc-table-wrap">
+                <table class="sc-table sc-table--squad sc-table--grouped">
+                    <thead>
+                        <tr>
+                            <th scope="col" rowspan="2">Code</th>
+                            <th scope="col" rowspan="2">Team</th>
+                            <th scope="colgroup" colspan="3" class="sc-th-group">Positions</th>
+                            <th scope="col" rowspan="2">Ability</th>
+                            <th scope="col" rowspan="2">Rated as</th>
+                            <th scope="col" rowspan="2">Overall</th>
+                            <th scope="col" rowspan="2">Coaches' call<span class="sc-th-note">Personal readiness</span></th>
+                            <th scope="col" rowspan="2">Off and weeks to ready</th>
+                            <th scope="col" rowspan="2">Risk</th>
+                            <th scope="col" rowspan="2">Rated by</th>
+                        </tr>
+                        <tr>
+                            <th scope="col" class="sc-cell--position">1st</th>
+                            <th scope="col" class="sc-cell--position">2nd</th>
+                            <th scope="col" class="sc-cell--position">3rd</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            var c = row.Consensus;
+                            <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
+                                data-player-row data-player-key="@row.Player.Id"
+                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                @if (c is null)
+                                {
+                                    <td colspan="10" class="sc-muted sc-small">Not rated by any coach yet.</td>
+                                }
+                                else
+                                {
+                                    foreach (var vote in c.PositionsByRank)
+                                    {
+                                        <td class="sc-small sc-cell--position"><partial name="_SuccessionPositionVote" model="vote" /></td>
+                                    }
+                                    <td>
+                                        @if (Catalog.AbilityCategory(c.AbilityCategory.Winner) is { } category)
+                                        {
+                                            <span class="@SuccessionTones.CssClass(category.Tone)">@category.Name</span>
+                                        }
+                                        else if (c.AbilityCategory.IsSplit)
+                                        {
+                                            <span class="sc-badge sc-badge--muted">Split</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                    <td class="sc-small">
+                                        @(Catalog.Level(c.RatedAs.Winner)?.Name ?? (c.RatedAs.IsSplit ? "Split" : "–"))
+                                    </td>
+                                    <td>
+                                        <span class="@SuccessionFormat.RatingClass(c.Overall)">@SuccessionFormat.Number(c.Overall)</span>
+                                        @if (row.IsFromEarlierCycle)
+                                        {
+                                            <span class="sc-th-note">@CycleNote(row)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="@SuccessionFormat.RatingClass(c.PersonalReadiness)">@SuccessionFormat.Number(c.PersonalReadiness)</span>
+                                    </td>
+                                    <td class="sc-small">
+                                        <span class="@SuccessionFormat.LevelClass(row.Level)">@SuccessionFormat.LevelName(row.Level)</span>
+                                        <span class="sc-th-note">@SuccessionFormat.Outlook(row.Outlook)</span>
+                                    </td>
+                                    <td>
+                                        @if (Catalog.Risk(c.WorstRisk) is { } risk)
+                                        {
+                                            <span class="@SuccessionTones.CssClass(risk.Tone)">@risk.Name</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                    <td class="sc-small">
+                                        <partial name="_SuccessionRaters" model="Model.RatersOf(row)" />
+                                        @if (!row.IsFromEarlierCycle && c.CoachesDisagree)
+                                        {
+                                            <span class="sc-badge sc-badge--alert">Apart</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        <tr data-player-filter-empty hidden>
+                            <td colspan="12" class="sc-muted sc-small">No player matches that. The search covers code, team and position.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @* ------------------------------------------------------------- ratings ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="Ratings"
+                 data-tab-hint="The six, 1–10">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Ratings</h2>
+            <p class="sc-footnote sc-footnote--top">
+                The coaches' average on each rating, coloured like the workbook: red at 1, yellow at 6,
+                green at 10. The spread is the widest gap between two coaches on any of the six.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table sc-table--squad">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Team</th>
+                            @foreach (var rating in settings.Ratings)
+                            {
+                                <th scope="col">@rating.Name</th>
+                            }
+                            <th scope="col">Overall</th>
+                            <th scope="col">Spread</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            var c = row.Consensus;
+                            var widest = c?.Ratings.Max(r => r.Spread);
+                            <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
+                                data-player-row data-player-key="@row.Player.Id"
+                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                @foreach (var rating in settings.Ratings)
+                                {
+                                    var summary = c?.Ratings.FirstOrDefault(r => r.Key == rating.Key);
+                                    <td><span class="@SuccessionFormat.RatingClass(summary?.Mean)">@SuccessionFormat.Number(summary?.Mean)</span></td>
+                                }
+                                <td><span class="@SuccessionFormat.RatingClass(c?.Overall)">@SuccessionFormat.Number(c?.Overall)</span></td>
+                                <td class="sc-small">
+                                    @if (widest is { } spread)
+                                    {
+                                        <span class="@(spread >= settings.DisagreementAt ? "sc-badge sc-badge--alert" : "sc-badge sc-badge--muted")">@spread</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sc-muted">@(c is null ? "–" : "1 coach")</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @* ----------------------------------------------------------- contracts ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="Contracts and pathway"
+                 data-tab-hint="Contract, group, blocked"
+                 data-tab-flag="@(Model.ContractsEnding.Count > 0 ? "true" : "false")">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Contracts and pathway</h2>
+            <p class="sc-footnote sc-footnote--top">
+                Contract and training group are the club's facts, entered once on the player page.
+                Pathway blocked and external needed are the coaches' answers: how many said yes.
+            </p>
+
+            <div class="sc-table-wrap">
+                <table class="sc-table sc-table--squad">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Team</th>
+                            <th scope="col">Born</th>
+                            <th scope="col">Contract</th>
+                            <th scope="col">Ends</th>
+                            <th scope="col">Training group</th>
+                            <th scope="col">Pathway blocked</th>
+                            <th scope="col">External needed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Rows)
+                        {
+                            var c = row.Consensus;
+                            var ending = Model.ContractsEnding.Contains(row);
+                            <tr class="@(ending ? "sc-row--alert" : "")"
+                                data-player-row data-player-key="@row.Player.Id"
+                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                <td class="sc-small">@row.Player.BirthDate.Year</td>
+                                <td>
+                                    @if (Catalog.ContractType(row.Profile?.ContractType) is { } contract)
+                                    {
+                                        <span class="@SuccessionTones.CssClass(contract.Tone)">@contract.Name</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sc-muted">–</span>
+                                    }
+                                </td>
+                                <td class="sc-small">
+                                    @SuccessionFormat.Date(row.Profile?.ContractEndsOn)
+                                    @if (ending)
+                                    {
+                                        <span class="sc-badge sc-badge--alert">Within 6 months</span>
+                                    }
+                                </td>
+                                <td class="sc-small">@(Catalog.Level(row.Profile?.TrainingGroup)?.Name ?? "–")</td>
+                                <td class="sc-small">@(c is null ? "–" : SuccessionFormat.YesCount(c.PathwayBlocked))</td>
+                                <td class="sc-small">@(c is null ? "–" : SuccessionFormat.YesCount(c.ExternalNeeded))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @* -------------------------------------------------------- disagreement ---- *@
+        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Where coaches disagree"
+                 data-tab-hint="Worth talking about"
+                 data-tab-count="@Model.Disagreements.Count"
+                 data-tab-flag="@(Model.Disagreements.Count > 0 ? "true" : "false")">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Where coaches disagree</h2>
+            <p class="sc-footnote sc-footnote--top">
+                Players rated in this cycle where two coaches are @settings.DisagreementAt.ToString("0")
+                or more points apart on a rating, or split on the ability category. A reason to talk,
+                not a mistake to correct: the point of keeping each coach's view is to see this.
+            </p>
+
+            @if (Model.Disagreements.Count == 0)
+            {
+                <div class="sc-card sc-card--left">
+                    <h3>No disagreements</h3>
+                    <p class="sc-card__meta">
+                        Nobody rated in @filter.Cycle.Label has coaches @settings.DisagreementAt.ToString("0")
+                        points apart. With one coach per player there is nothing to compare yet.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="sc-table-wrap">
+                    <table class="sc-table sc-table--squad">
+                        <thead>
+                            <tr>
+                                <th scope="col">Code</th>
+                                <th scope="col">Team</th>
+                                <th scope="col">Rated by</th>
+                                <th scope="col">Apart on</th>
+                                <th scope="col">Ability category</th>
+                                </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.Disagreements)
+                            {
+                                var c = row.Consensus!;
+                                <tr data-player-row data-player-key="@row.Player.Id" data-player-search="@row.Player.Code @row.Player.Team?.Name">
+                                    <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                    <td class="sc-small">@row.Player.Team?.Name</td>
+                                    <td class="sc-small"><partial name="_SuccessionRaters" model="Model.RatersOf(row)" /></td>
+                                    <td>
+                                        <div class="sc-inline-list">
+                                            @foreach (var rating in c.Disagreements)
+                                            {
+                                                <span class="sc-badge sc-badge--alert">@rating.Name @rating.Min–@rating.Max</span>
+                                            }
+                                            @if (c.PersonalReadinessSpread >= settings.DisagreementAt)
+                                            {
+                                                <span class="sc-badge sc-badge--alert">Coaches' call</span>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td class="sc-small">
+                                        @if (c.AbilityCategory.IsSplit)
+                                        {
+                                            @string.Join(" / ", c.AbilityCategory.Votes.Select(v => $"{Catalog.AbilityCategory(v.Key)?.Name ?? v.Key} ({v.Count})"))
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">Agreed</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    </div>
+</div>

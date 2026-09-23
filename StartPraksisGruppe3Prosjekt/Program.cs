@@ -11,6 +11,7 @@ using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
 using StartPraksisGruppe3Prosjekt.Services.Identity;
+using StartPraksisGruppe3Prosjekt.Services.Succession;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -216,6 +217,16 @@ builder.Services.Configure<IdentityBenchmarkOptions>(
 builder.Services.AddSingleton<IIdentityCatalog, IdentityCatalog>();
 builder.Services.AddSingleton<IIdentityBenchmarkBuilder, IdentityBenchmarkBuilder>();
 
+// ---------------------------------------------------------------------------
+// Succession planning: trenernes vurderinger per spiller hver åttende uke, side om side.
+//
+// Samme ordning som de to over: Data/Succession/succession-planning.json (posisjoner,
+// formasjoner, kategorier, terskler) leses én gang og valideres ved oppstart. Vurderingene
+// ligger i databasen. Se docs/succession-planning.md.
+// ---------------------------------------------------------------------------
+builder.Services.AddSingleton<ISuccessionCatalog, SuccessionCatalog>();
+builder.Services.AddScoped<ISuccessionPlanningService, SuccessionPlanningService>();
+
 builder.Services.Configure<SupabaseOptions>(
     builder.Configuration.GetSection(SupabaseOptions.SectionName));
 
@@ -379,6 +390,10 @@ using (var scope = app.Services.CreateScope())
 
     // Av samme grunn: Gold Standard og kampdataene valideres i konstruktøren.
     _ = scope.ServiceProvider.GetRequiredService<IIdentityCatalog>();
+
+    // Og succession-fila: en formasjon med ti spillere skal stoppe oppstarten, ikke vise en
+    // bane med et hull i.
+    _ = scope.ServiceProvider.GetRequiredService<ISuccessionCatalog>();
 
     var store = scope.ServiceProvider.GetRequiredService<ISurveySubmissionStore>();
 

@@ -1,0 +1,43 @@
+@model CategoryVote
+@inject ISuccessionCatalog Catalog
+@*
+    One of the workbook's three position columns, for the coaches together: the position most
+    of them wrote in it, or -- when no position has the most -- the tied ones, marked as a split.
+    Shown as a split rather than resolved, for the same reason the ability category is: picking
+    one would hide that the coaches do not agree where the player plays.
+
+    The key is the text; the full name is the abbreviation's title, so "RCB" reads as
+    "Right centre-back" on hover and to a screen reader that announces titles.
+*@
+@if (Model.Winner is { } winner)
+{
+    <abbr class="sc-position" title="@(Catalog.Position(winner)?.Name ?? winner)">@winner</abbr>
+}
+else if (Model.IsSplit)
+{
+    var top = Model.Votes[0].Count;
+    var tied = Model.Votes.Where(v => v.Count == top).ToList();
+
+    @* The slash travels with the position after it, so a narrow column breaks as "LCB" over
+       "/ LWB" and never leaves a slash on a line of its own. *@
+    <span class="sc-position sc-position--split">
+        @for (var i = 0; i < tied.Count; i++)
+        {
+            var name = Catalog.Position(tied[i].Key)?.Name ?? tied[i].Key;
+
+            if (i == 0)
+            {
+                <abbr title="@name">@tied[i].Key</abbr>
+            }
+            else
+            {
+                <span class="sc-position__next">/ <abbr title="@name">@tied[i].Key</abbr></span>
+            }
+        }
+    </span>
+    <span class="sc-th-note">Split</span>
+}
+else
+{
+    <span class="sc-muted">–</span>
+}

@@ -37,6 +37,21 @@ public interface IPlayerAccessLog
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Records one lookup for each of several players, as a single write.
+    ///
+    /// For the pages that show many players' individual data at once -- the succession board
+    /// and the best eleven name every player's ratings. Same rules as <see cref="RecordAsync"/>:
+    /// the viewer's own record is skipped, and a failure is logged rather than thrown. One save
+    /// rather than one per player, because a club-wide page is ninety players and each save is
+    /// a round trip to a database on another continent.
+    /// </summary>
+    Task RecordManyAsync(
+        ClaimsPrincipal user,
+        IReadOnlyCollection<int> playerIds,
+        string context,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// The log for one player, newest first. For the admin audit view and for a data
     /// subject access request -- a player is entitled to know who has looked at them.
     /// </summary>

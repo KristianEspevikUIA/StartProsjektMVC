@@ -3716,3 +3716,463 @@ main .form-control:focus {
         padding: 20px;
     }
 }
+
+/* ------------------------------------------------------- succession planning ---- */
+
+/*
+    The coaches' workbook, as pages: the board, the best eleven, one player, the rating form.
+
+    Most of it is the system that is already here -- .sc-table, .sc-stat, .sc-tabs, the scale
+    buttons from the form. What is new is the three things the workbook had and the rest of
+    the app did not: its 1-10 colour scale, its coloured categories, and a pitch.
+*/
+
+/* The board and the eleven are two pages of one thing. A pair of links in the hero rather
+   than two menu items: the menu has one "Succession", and this is where it splits. */
+.sc-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.sc-subnav__link,
+.sc-subnav__link:visited {
+    border: 2px solid var(--sc-ink);
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 7px 16px;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.sc-subnav__link:hover,
+.sc-subnav__link:focus {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+.sc-subnav__link--active,
+.sc-subnav__link--active:visited {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+/* The filters above the board: cycle, team, sort, and Show. The period picker's layout, with
+   more than one select in it. */
+.sc-filterbar {
+    align-items: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+}
+
+.sc-filterbar .sc-form-field {
+    min-width: 170px;
+}
+
+@media (max-width: 640px) {
+    .sc-filterbar .sc-form-field {
+        flex: 1 1 100%;
+    }
+}
+
+/*
+    The workbook's colour scale on a 1-10 rating: red at 1, yellow at 6, green at 10, the same
+    three anchors as its conditional formatting, one step per whole point in between.
+
+    A class per step rather than a colour per cell, because the CSP has no unsafe-inline. At the
+    club's saturation rather than Excel's -- these are washes, like the 5C score bands, with the
+    ink colour on top -- and the number is always printed, so the colour only ever helps.
+    Ink on the darkest step (--1) is about 7.5:1, and every other step is lighter.
+*/
+.sc-rate {
+    border-radius: 2px;
+    color: var(--sc-foreground);
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    min-width: 44px;
+    padding: 2px 8px;
+    text-align: right;
+}
+
+.sc-rate--1 { background: #eea39b; }
+.sc-rate--2 { background: #f0af98; }
+.sc-rate--3 { background: #f1bb94; }
+.sc-rate--4 { background: #f3c891; }
+.sc-rate--5 { background: #f4d48d; }
+.sc-rate--6 { background: #f6e08a; }
+.sc-rate--7 { background: #e0dd93; }
+.sc-rate--8 { background: #cbda9b; }
+.sc-rate--9 { background: #b5d6a4; }
+.sc-rate--10 { background: #9fd3ac; }
+
+.sc-rate--none {
+    background: transparent;
+    color: var(--sc-muted-foreground);
+    font-weight: 400;
+}
+
+/*
+    Coloured categories: ability, contract, risk. The workbook colours them -- Squad red, a Pro
+    contract green, both-at-once blue -- and the coaches read them that way. The name is always
+    inside, so the tone is never the only thing saying it.
+*/
+.sc-tone {
+    border-radius: 2px;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
+.sc-tone--blue {
+    background: #e6ecf7;
+    color: var(--sc-blue);
+}
+
+.sc-tone--green {
+    background: var(--sc-strong-wash);
+    color: var(--sc-ok);
+}
+
+.sc-tone--amber {
+    background: var(--sc-mid-wash);
+    color: var(--sc-warn);
+}
+
+.sc-tone--red {
+    background: var(--sc-low-wash);
+    color: var(--sc-alert);
+}
+
+.sc-tone--grey {
+    background: var(--sc-muted);
+    color: var(--sc-muted-foreground);
+}
+
+/* A row whose numbers are from an earlier cycle: nobody has rated the player in this one
+   yet. Quieter, and the badge in the row says why. */
+.sc-table tbody tr.sc-row--stale td {
+    color: var(--sc-muted-foreground);
+}
+
+.sc-table tbody tr.sc-row--stale .sc-rate {
+    opacity: 0.7;
+}
+
+/* The comparison on the player page: a row per rating, a column per coach. The first column
+   is the row's name and reads as a heading. */
+.sc-table--compare td,
+.sc-table--compare th[scope="row"] {
+    white-space: nowrap;
+}
+
+.sc-table--compare .sc-col-together {
+    background: var(--sc-muted);
+}
+
+/* Several short things in one cell: positions, votes. */
+.sc-inline-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/*
+    The pitch. A formation is rows of players, attack at the top, drawn as flex rows -- no
+    coordinates, so nothing positional has to reach the markup and a phone can squeeze a row
+    without anything overlapping. The halfway line sits behind the cards.
+*/
+.sc-pitch {
+    background: #2f6b45;
+    border: 3px solid #255a39;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    margin: 0 auto;
+    max-width: 860px;
+    padding: 26px 14px;
+    position: relative;
+}
+
+.sc-pitch::before {
+    background: rgba(255, 255, 255, 0.35);
+    content: "";
+    height: 2px;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 50%;
+}
+
+.sc-pitch__line {
+    display: flex;
+    gap: 10px;
+    justify-content: space-around;
+    position: relative;
+}
+
+.sc-slot {
+    background: var(--sc-card);
+    border-top: 5px solid var(--sc-border);
+    color: var(--sc-foreground);
+    display: flex;
+    flex: 0 1 150px;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px 10px 10px;
+    text-align: center;
+    text-decoration: none;
+}
+
+/* Colour only: a :visited rule that also set the border would outrank the readiness bar below
+   on every card a coach has opened before -- and they open them all. */
+a.sc-slot:visited {
+    color: var(--sc-foreground);
+}
+
+a.sc-slot:hover,
+a.sc-slot:focus {
+    outline: 3px solid var(--sc-yellow);
+    outline-offset: 1px;
+}
+
+/* The bar repeats the light on the number below it. On its own it would not be enough: the
+   green bar sits on a green pitch, and the number in its band is what actually reads. */
+.sc-slot.sc-slot--ready { border-top-color: var(--sc-ok); }
+.sc-slot.sc-slot--developing { border-top-color: var(--sc-warn); }
+.sc-slot.sc-slot--notyet { border-top-color: var(--sc-alert); }
+
+.sc-slot__value .sc-mean {
+    min-width: 0;
+    text-align: center;
+}
+
+/* Nobody was named for the position. Glass rather than a card, so it reads as a hole in the
+   team -- which is exactly what it is. */
+.sc-slot--empty {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px dashed rgba(255, 255, 255, 0.75);
+    color: #ffffff;
+}
+
+.sc-slot__pos {
+    font-family: var(--sc-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+}
+
+.sc-slot__code {
+    font-family: var(--sc-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sc-slot__value {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.sc-slot__meta {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.sc-slot--empty .sc-slot__meta {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+@media (max-width: 640px) {
+    .sc-pitch {
+        gap: 12px;
+        padding: 16px 6px;
+    }
+
+    .sc-pitch__line {
+        gap: 4px;
+    }
+
+    .sc-slot {
+        flex: 1 1 0;
+        padding: 6px 3px 8px;
+    }
+
+    .sc-slot__code {
+        font-size: 14px;
+    }
+
+    .sc-slot__meta {
+        display: none; /* The depth table under the pitch has all of it. */
+    }
+}
+
+/* The 1-10 scale on the rating form: the 5C scale buttons, ten to a row, five on a phone. */
+.sc-scale__options--ten {
+    gap: 4px;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+
+.sc-scale__options--ten .sc-scale__option label {
+    min-height: 46px;
+    padding: 6px 0;
+}
+
+@media (max-width: 520px) {
+    .sc-scale__options--ten {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+/* Groups on the rating form: Ratings, Role, Projection, Pathway, Development. */
+.sc-fieldset {
+    border: 0;
+    border-top: 2px solid var(--sc-ink);
+    margin: 36px 0 0;
+    padding: 18px 0 0;
+}
+
+.sc-fieldset legend {
+    float: left;
+    font-family: var(--sc-display);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    width: 100%;
+}
+
+.sc-fieldset legend + * {
+    clear: left;
+}
+
+/* Yes / No / Not answered, on one line. */
+.sc-yesno {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sc-yesno .sc-choice__option {
+    flex: 0 1 140px;
+}
+
+/* A stat whose value is words ("+0.4 per cycle") rather than a number. */
+.sc-stat__value--text {
+    font-size: 26px;
+}
+
+/* A position key in a table: "RCB", with the full name as its title. Bootstrap's abbr[title]
+   underline is kept -- it is the sign that hovering says more. */
+.sc-position {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* The coaches wrote different things in this column. Quieter than an agreed position, and
+   the word Split under it says why. Allowed to wrap between the positions: "RCB / LWB / RB"
+   on one line made all three position columns as wide as their widest split. */
+.sc-position--split {
+    color: var(--sc-muted-foreground);
+    font-weight: 600;
+    white-space: normal;
+}
+
+.sc-position--split abbr,
+.sc-position__next {
+    white-space: nowrap;
+}
+
+/* The three position columns hold three-letter keys; the table's usual 12px either side is
+   most of their width. */
+.sc-table .sc-cell--position {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* On the board a long category ("Performance & Potential") may take two lines rather than
+   push the table past the page. The badges elsewhere stay on one. */
+.sc-table--squad .sc-tone {
+    white-space: normal;
+}
+
+/*
+    Who is behind a row: the coach count opens into the list of coaches, in place. A native
+    <details>, so it works with the keyboard and without JavaScript; the summary is styled as the
+    link it behaves like, and keeps its disclosure triangle so it looks like something that opens.
+*/
+.sc-raters summary {
+    color: var(--sc-blue);
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+
+.sc-raters summary:hover {
+    color: var(--sc-ink);
+}
+
+.sc-raters summary:focus-visible {
+    outline: 3px solid var(--sc-blue);
+    outline-offset: 2px;
+}
+
+.sc-raters__body {
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.sc-raters__note {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    margin: 0 0 6px;
+}
+
+.sc-raters__list {
+    display: grid;
+    gap: 6px;
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+/* Their overall first, then the name with the date under it: two short lines rather than
+   one long one, so opening the list widens its column as little as it can. */
+.sc-raters__list li {
+    align-items: center;
+    column-gap: 8px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+}
+
+.sc-raters__list .sc-rate {
+    grid-row: span 2;
+    min-width: 40px;
+}
+
+.sc-raters__name {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sc-raters__date {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    grid-column: 2;
+}

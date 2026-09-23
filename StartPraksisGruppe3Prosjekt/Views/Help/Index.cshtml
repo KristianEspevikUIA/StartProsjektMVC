@@ -1,3 +1,4 @@
+@inject ISuccessionCatalog Succession
 @{
     ViewData["Title"] = "Help";
     ViewData["FullWidth"] = true;
@@ -10,6 +11,12 @@
     var large = FiveCRules.LargeDifferenceThreshold.ToString("0.0");
     var minimum = CanViewTeamAggregateRequirement.MinimumResponses;
     var followUpAnswers = FiveCRules.MinimumAnswersForFollowUp;
+
+    // Succession planning is for coaches and administrators, and so is its help. A player
+    // reading how the staff rank players would be reading about a page they cannot open.
+    var showSuccession = User.IsInRole(Roles.Coach) || User.IsInRole(Roles.Admin);
+    var succession = Succession.Settings;
+    var penalty = succession.PositionRankPenalty;
 }
 
 @*
@@ -24,6 +31,8 @@
       #player-overview  Player overview, and follow-up     (Coach/FiveCTeam)
       #follow-up        what follow-up is and is not       (Coach/FiveCTeam, Coach/FiveCPlayer)
       #player-page      one player's page                  (Coach/FiveCPlayer)
+      #succession       succession planning                (Succession/Index, Succession/Player)
+      #succession-eleven how the best eleven is picked     (Succession/Formation)
 *@
 
 <section class="sc-hero">
@@ -46,6 +55,11 @@
             <li><a href="#player-overview">Player overview</a></li>
             <li><a href="#follow-up">Follow-up</a></li>
             <li><a href="#player-page">One player's page</a></li>
+            @if (showSuccession)
+            {
+                <li><a href="#succession">Succession planning</a></li>
+                <li><a href="#succession-eleven">The best eleven</a></li>
+            }
         </ul>
     </nav>
 
@@ -182,7 +196,7 @@
         </p>
     </section>
 
-    <section class="sc-section sc-section--last sc-help" id="player-page">
+    <section class="sc-section @(showSuccession ? "" : "sc-section--last") sc-help" id="player-page">
         <div class="sc-rule"></div>
         <h2>One player's page</h2>
 
@@ -228,4 +242,111 @@
             access on its own: whoever follows it signs in as themselves.
         </p>
     </section>
+
+    @if (showSuccession)
+    {
+        <section class="sc-section sc-help" id="succession">
+            <div class="sc-rule"></div>
+            <h2>Succession planning</h2>
+
+            <h3>Where does it come from?</h3>
+            <p>
+                It is the coaches' succession planning workbook: the same columns, the same lists and
+                the same colours. What is different is that each coach fills in their own row, and the
+                pages put the rows together. Players are shown by code; there are no names in StartCompass.
+            </p>
+
+            <h3>How often?</h3>
+            <p>
+                Every @succession.Cycle.LengthWeeks weeks. Each cycle has fixed dates, and you rate in the one
+                that is open now. Rating a player again in the same cycle replaces your rating; earlier
+                cycles are kept as history. Only coaches rate. Players and guardians never see this.
+            </p>
+
+            <h3>What is overall readiness?</h3>
+            <p>
+                The average of the @succession.Ratings.Count ratings, as in the workbook. The one difference
+                is that a blank rating is left out instead of counted as 0, but the form asks for all of
+                them anyway. @succession.ReadyAt.ToString("0") or more is <strong>Ready</strong>,
+                @succession.DevelopingAt.ToString("0") to @succession.ReadyAt.ToString("0") is
+                <strong>Developing</strong>, and below that is <strong>Not yet</strong>. These are the
+                workbook's green, amber and red lights.
+            </p>
+
+            <h3>What does "together" mean?</h3>
+            <p>
+                The average of the coaches who rated the player in the cycle, with each coach counting
+                once. For the ability category, "rated as" and each of the three position columns, the
+                answer most coaches gave wins. If there is a tie, the page says <strong>Split</strong>
+                and shows the tied answers instead of picking one. For succession risk, the page shows
+                the most severe one any coach gave.
+            </p>
+
+            <h3>Which coaches are behind a row?</h3>
+            <p>
+                Open the count under <strong>Rated by</strong> on the board. It lists each coach with
+                their own overall readiness and the day they rated, and links to the player page, where
+                every coach is side by side. On a grey row these are the coaches from the earlier cycle
+                the numbers come from.
+            </p>
+
+            <h3>When do coaches disagree?</h3>
+            <p>
+                When two coaches are @succession.DisagreementAt.ToString("0") or more points apart on a
+                rating, or split on the ability category. The board lists these players under
+                <strong>Where coaches disagree</strong>. That is a reason to talk, not a mistake to fix.
+            </p>
+
+            <h3>What do "off" and "weeks to ready" mean?</h3>
+            <p>
+                <strong>Off</strong> is how far below @succession.ReadyAt.ToString("0") the player's overall
+                readiness is. <strong>Weeks to ready</strong> is a straight line through every cycle the
+                player has been rated in, extended until it reaches @succession.ReadyAt.ToString("0").
+                It needs at least two cycles. If the line is flat or going down, the page says the
+                player is not closing the gap. If it would take more than @succession.HorizonWeeks weeks,
+                the page gives no number. It is the current rate, not a promise.
+            </p>
+
+            <h3>Why does a row look grey?</h3>
+            <p>
+                Nobody has rated the player in this cycle yet. The row shows the last cycle they were
+                rated in, and says which one.
+            </p>
+        </section>
+
+        <section class="sc-section sc-section--last sc-help" id="succession-eleven">
+            <div class="sc-rule"></div>
+            <h2>The best eleven</h2>
+
+            <h3>Who can play where?</h3>
+            <p>
+                A player can fill a position if any coach listed it among their three positions. It
+                counts as the best rank any coach gave it: if one coach put RB first, RB is a first
+                position for that player.
+            </p>
+
+            <h3>How is the eleven picked?</h3>
+            <p>
+                Each player gets a fit score for each position: their overall readiness, minus
+                @penalty.ElementAtOrDefault(1).ToString("0.0") if it is their second position and
+                @penalty.ElementAtOrDefault(2).ToString("0.0") if it is their third. So a natural in the
+                position goes ahead of someone slightly better who is only covering there. The highest
+                fit is placed first, then the next highest, and so on. Nobody is placed twice. If nobody
+                is listed for a position, it stays empty and says so.
+            </p>
+
+            <h3>What is "next in line"?</h3>
+            <p>
+                The next @SuccessionRules.NextInLine best fits for that position, even if they start
+                somewhere else. That shows who would replace the starter, and whether anyone is ready to.
+                A position with nobody next in line has no successor in the club yet.
+            </p>
+
+            <h3>What does "rated as" do?</h3>
+            <p>
+                It only uses ratings where the coach judged the player against that level, for example
+                1st team. A 7 as a U17 player and a 7 as a 1st team player mean different things.
+            </p>
+        </section>
+    }
 </div>

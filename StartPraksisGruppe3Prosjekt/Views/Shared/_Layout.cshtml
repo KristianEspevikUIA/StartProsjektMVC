@@ -102,6 +102,12 @@
                             <li class="nav-item">
                                 <a class="@NavClass("Identity")" asp-controller="Identity" asp-action="Index">Identity</a>
                             </li>
+
+                            @* Same roles as SuccessionController. The coaches' ratings of each
+                               player are staff-only, so a player or a guardian never sees the link. *@
+                            <li class="nav-item">
+                                <a class="@NavClass("Succession")" asp-controller="Succession" asp-action="Index">Succession</a>
+                            </li>
                         }
                         @if (User.IsInRole(Roles.Guardian))
                         {

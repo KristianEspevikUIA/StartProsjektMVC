@@ -1,0 +1,480 @@
+@model SuccessionPlayerViewModel
+@inject ISuccessionCatalog Catalog
+@{
+    var detail = Model.Detail;
+    var player = detail.Player;
+    var consensus = detail.Consensus;
+    var filter = Model.Filter;
+    var settings = Catalog.Settings;
+    var level = SuccessionMath.LevelOf(consensus?.Overall, settings);
+
+    ViewData["Title"] = $"Succession – {player.Code}";
+    ViewData["FullWidth"] = true;
+
+    // Each text column of the workbook, with each coach's answer to it.
+    var written = new (string Name, Func<SuccessionAssessment, string?> Read)[]
+    {
+        ("0–6 month projection", a => a.Projection0To6Months),
+        ("6–18 month projection", a => a.Projection6To18Months),
+        ("18–36 month projection", a => a.Projection18To36Months),
+        ("What now?", a => a.WhatNow),
+        ("Key development focus", a => a.KeyDevelopmentFocus),
+        ("Super strengths", a => a.SuperStrengths),
+        ("Notes", a => a.Notes)
+    };
+
+    var anyWritten = Model.Raters.Any(r => written.Any(w => !string.IsNullOrWhiteSpace(w.Read(r.Assessment))));
+
+    string Option(SuccessionOption? option, string? key) => option?.Name ?? key ?? "–";
+}
+
+@*
+    One player's succession row, with every coach who rated them in the cycle side by side --
+    "compare coaches' responses". The Together column is what the board shows for them; the
+    columns before it are why.
+
+    Coaches and administrators only. This is the staff's working view of a player and it is
+    never shown to the player or a guardian. Opening it is written to the audit log.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <a class="sc-hero__back" asp-action="Index" asp-route-cycle="@filter.Cycle.Key">← Squad board</a>
+
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">Succession planning</p>
+        <h1>@player.Code</h1>
+        <p class="sc-hero__lead">
+            @player.Team?.Name · born @player.BirthDate.Year
+            @if (consensus is not null && consensus.Positions.Count > 0)
+            {
+                <text>· @SuccessionFormat.Positions(consensus.Positions)</text>
+            }
+        </p>
+
+        <div class="sc-hero__meta">
+            <span>@filter.Cycle.Label@(filter.IsCurrentCycle ? " (this cycle)" : "")</span>
+            <span>Rated by @Model.Raters.Count coach@(Model.Raters.Count == 1 ? "" : "es")</span>
+            @if (consensus?.Overall is { } overall)
+            {
+                <span>Overall @SuccessionFormat.Number(overall) · @SuccessionFormat.LevelName(level)</span>
+            }
+        </div>
+
+        @if (Model.CanRate)
+        {
+            <div class="sc-actions">
+                <a class="sc-btn" asp-action="Rate" asp-route-id="@player.Id">
+                    @(Model.HasOwn ? "Correct your rating" : "Rate this player")
+                </a>
+            </div>
+        }
+    </div>
+</section>
+
+<div class="sc-page">
+    <div class="sc-toolbar">
+        @if (filter.Cycles.Count > 1)
+        {
+            <form method="get" asp-action="Player" asp-route-id="@player.Id" class="sc-period">
+                <label class="sc-label" for="player-cycle">Cycle</label>
+                <select class="sc-select" id="player-cycle" name="cycle">
+                    @foreach (var cycle in filter.Cycles)
+                    {
+                        <option value="@cycle.Key" selected="@(cycle.StartsOn == filter.Cycle.StartsOn)">
+                            @cycle.Label@(cycle.StartsOn == filter.CurrentCycle.StartsOn ? " (this cycle)" : "")
+                        </option>
+                    }
+                </select>
+                <button type="submit" class="sc-btn sc-btn--secondary">Show</button>
+            </form>
+        }
+
+        <a class="sc-help-link" asp-controller="Help" asp-action="Index" asp-fragment="succession">How to read this page</a>
+    </div>
+
+    @if (TempData["SuccessionMessage"] is string message)
+    {
+        <div class="sc-notice sc-mt" role="status"><p>@message</p></div>
+    }
+
+    @if (!filter.IsCurrentCycle && User.IsInRole(Roles.Coach))
+    {
+        <p class="sc-footnote">
+            This is an earlier cycle, and it is closed. Ratings go into the current one:
+            <a asp-action="Player" asp-route-id="@player.Id">open @filter.CurrentCycle.Label</a>.
+        </p>
+    }
+
+    <div>
+        @* ---------------------------------------------------------- side by side ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="Coaches side by side"
+                 data-tab-hint="Each coach, and together"
+                 data-tab-count="@Model.Raters.Count"
+                 data-tab-flag="@(consensus?.CoachesDisagree == true ? "true" : "false")">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Coaches side by side</h2>
+
+            @if (Model.Raters.Count == 0)
+            {
+                <div class="sc-card sc-card--left">
+                    <h3>Nobody has rated @player.Code in this cycle</h3>
+                    <p class="sc-card__meta">
+                        @if (detail.History.Count > 0)
+                        {
+                            <text>The last cycle with ratings was @detail.History[^1].Cycle.Label; see Over time.</text>
+                        }
+                        else
+                        {
+                            <text>There are no ratings for @player.Code in any cycle yet.</text>
+                        }
+                    </p>
+                </div>
+            }
+            else
+            {
+                <p class="sc-footnote sc-footnote--top">
+                    Together is the coaches' average, each coach counting once. Spread is the highest
+                    rating minus the lowest; @settings.DisagreementAt.ToString("0") or more is marked.
+                </p>
+
+                <div class="sc-table-wrap">
+                    <table class="sc-table sc-table--compare">
+                        <thead>
+                            <tr>
+                                <th scope="col"><span class="visually-hidden">What</span></th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <th scope="col">
+                                        @rater.Name
+                                        <span class="sc-th-note">@SuccessionFormat.Date(DateOnly.FromDateTime(rater.Assessment.UpdatedAt.UtcDateTime))</span>
+                                    </th>
+                                }
+                                <th scope="col" class="sc-col-together">Together</th>
+                                <th scope="col">Spread</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Rated as</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td class="sc-small">@Option(Catalog.Level(rater.Assessment.RatedAs), rater.Assessment.RatedAs)</td>
+                                }
+                                <td class="sc-small sc-col-together">@(consensus!.RatedAs.IsSplit ? "Split" : Option(Catalog.Level(consensus.RatedAs.Winner), consensus.RatedAs.Winner))</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Ability category</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td>
+                                        @if (Catalog.AbilityCategory(rater.Assessment.AbilityCategory) is { } category)
+                                        {
+                                            <span class="@SuccessionTones.CssClass(category.Tone)">@category.Name</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="sc-col-together">
+                                    @if (Catalog.AbilityCategory(consensus.AbilityCategory.Winner) is { } agreed)
+                                    {
+                                        <span class="@SuccessionTones.CssClass(agreed.Tone)">@agreed.Name</span>
+                                    }
+                                    else if (consensus.AbilityCategory.IsSplit)
+                                    {
+                                        <span class="sc-badge sc-badge--alert">Split</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sc-muted">–</span>
+                                    }
+                                </td>
+                                <td></td>
+                            </tr>
+                            @for (var rank = 1; rank <= SuccessionRules.PositionsPerPlayer; rank++)
+                            {
+                                var index = rank;
+                                <tr>
+                                    <th scope="row">@SuccessionFormat.Rank(rank) position</th>
+                                    @foreach (var rater in Model.Raters)
+                                    {
+                                        var key = index switch
+                                        {
+                                            1 => rater.Assessment.FirstPosition,
+                                            2 => rater.Assessment.SecondPosition,
+                                            _ => rater.Assessment.ThirdPosition
+                                        };
+                                        <td class="sc-small">@(key ?? "–")</td>
+                                    }
+                                    <td class="sc-small sc-col-together">
+                                        @* What most of the coaches wrote in this column -- the same
+                                           vote the board shows, so the two pages agree. *@
+                                        <partial name="_SuccessionPositionVote" model="consensus.PositionsByRank[index - 1]" />
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            }
+                            @foreach (var rating in settings.Ratings)
+                            {
+                                var summary = consensus.Ratings.First(r => r.Key == rating.Key);
+                                <tr>
+                                    <th scope="row">@rating.Name</th>
+                                    @foreach (var rater in Model.Raters)
+                                    {
+                                        var value = rater.Assessment.Ratings.FirstOrDefault(r => r.RatingKey == rating.Key)?.Value;
+                                        <td><span class="@SuccessionFormat.RatingClass(value)">@(value?.ToString() ?? "–")</span></td>
+                                    }
+                                    <td class="sc-col-together"><span class="@SuccessionFormat.RatingClass(summary.Mean)">@SuccessionFormat.Number(summary.Mean)</span></td>
+                                    <td>
+                                        @if (summary.Spread is { } spread)
+                                        {
+                                            <span class="@(spread >= settings.DisagreementAt ? "sc-badge sc-badge--alert" : "sc-badge sc-badge--muted")">@spread</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            <tr class="sc-row--total">
+                                <th scope="row">Overall readiness</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td><span class="@SuccessionFormat.RatingClass(rater.Overall)">@SuccessionFormat.Number(rater.Overall)</span></td>
+                                }
+                                <td class="sc-col-together"><span class="@SuccessionFormat.RatingClass(consensus.Overall)">@SuccessionFormat.Number(consensus.Overall)</span></td>
+                                <td class="sc-small">@(consensus.OverallSpread is { } overallSpread ? overallSpread.ToString("0.0") : "")</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Coach's own call</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td><span class="@SuccessionFormat.RatingClass(rater.Assessment.PersonalReadiness)">@(rater.Assessment.PersonalReadiness?.ToString() ?? "–")</span></td>
+                                }
+                                <td class="sc-col-together"><span class="@SuccessionFormat.RatingClass(consensus.PersonalReadiness)">@SuccessionFormat.Number(consensus.PersonalReadiness)</span></td>
+                                <td>
+                                    @if (consensus.PersonalReadinessSpread is { } personalSpread)
+                                    {
+                                        <span class="@(personalSpread >= settings.DisagreementAt ? "sc-badge sc-badge--alert" : "sc-badge sc-badge--muted")">@personalSpread.ToString("0")</span>
+                                    }
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Succession risk</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td>
+                                        @if (Catalog.Risk(rater.Assessment.SuccessionRisk) is { } risk)
+                                        {
+                                            <span class="@SuccessionTones.CssClass(risk.Tone)">@risk.Name</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="sc-muted">–</span>
+                                        }
+                                    </td>
+                                }
+                                <td class="sc-col-together">
+                                    @if (Catalog.Risk(consensus.WorstRisk) is { } worst)
+                                    {
+                                        <span class="@SuccessionTones.CssClass(worst.Tone)">@worst.Name</span>
+                                        <span class="sc-th-note">most severe named, by @consensus.WorstRiskCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="sc-muted">–</span>
+                                    }
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Pathway blocked?</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td class="sc-small">@SuccessionFormat.YesOrNo(rater.Assessment.PathwayBlocked)</td>
+                                }
+                                <td class="sc-small sc-col-together">@SuccessionFormat.YesCount(consensus.PathwayBlocked)</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">External needed?</th>
+                                @foreach (var rater in Model.Raters)
+                                {
+                                    <td class="sc-small">@SuccessionFormat.YesOrNo(rater.Assessment.ExternalNeeded)</td>
+                                }
+                                <td class="sc-small sc-col-together">@SuccessionFormat.YesCount(consensus.ExternalNeeded)</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        @* ------------------------------------------------------------- over time ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="Over time"
+                 data-tab-hint="How far off, and how long">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Over time</h2>
+
+            <div class="sc-stats">
+                <article class="sc-stat">
+                    <p class="sc-stat__label">Where @player.Code is</p>
+                    <p class="sc-stat__value">
+                        <span class="@SuccessionFormat.RatingClass(detail.Outlook.Current)">@SuccessionFormat.Number(detail.Outlook.Current)</span>
+                    </p>
+                    <p class="sc-stat__note">
+                        <span class="@SuccessionFormat.LevelClass(SuccessionMath.LevelOf(detail.Outlook.Current, settings))">@SuccessionFormat.LevelName(SuccessionMath.LevelOf(detail.Outlook.Current, settings))</span>
+                        @if (detail.Outlook.Gap is > 0 and var gap)
+                        {
+                            <text>@SuccessionFormat.Number(gap) below @settings.ReadyAt.ToString("0").</text>
+                        }
+                    </p>
+                </article>
+                <article class="sc-stat">
+                    <p class="sc-stat__label">Trend</p>
+                    <p class="sc-stat__value sc-stat__value--text">@SuccessionFormat.Trend(detail.Outlook.ChangePerCycle)</p>
+                    <p class="sc-stat__note">Across every cycle rated, not only the last two.</p>
+                </article>
+                <article class="sc-stat">
+                    <p class="sc-stat__label">Weeks to ready</p>
+                    <p class="sc-stat__value">
+                        @(detail.Outlook.Kind switch
+                        {
+                            OutlookKind.Weeks => $"~{detail.Outlook.Weeks}",
+                            OutlookKind.ReadyNow => "0",
+                            _ => "–"
+                        })
+                    </p>
+                    <p class="sc-stat__note">@SuccessionFormat.Outlook(detail.Outlook). At the current rate, not a promise.</p>
+                </article>
+            </div>
+
+            @if (detail.History.Count == 0)
+            {
+                <p class="sc-footnote">No cycles with ratings yet.</p>
+            }
+            else
+            {
+                <div class="sc-table-wrap sc-mt">
+                    <table class="sc-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Cycle</th>
+                                <th scope="col">Overall</th>
+                                <th scope="col">Coaches' call</th>
+                                <th scope="col">Readiness</th>
+                                <th scope="col">Coaches</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var point in detail.History.Reverse())
+                            {
+                                <tr>
+                                    <td>
+                                        <a asp-action="Player" asp-route-id="@player.Id" asp-route-cycle="@point.Cycle.Key">@point.Cycle.Label</a>
+                                    </td>
+                                    <td><span class="@SuccessionFormat.RatingClass(point.Overall)">@SuccessionFormat.Number(point.Overall)</span></td>
+                                    <td><span class="@SuccessionFormat.RatingClass(point.PersonalReadiness)">@SuccessionFormat.Number(point.PersonalReadiness)</span></td>
+                                    <td><span class="@SuccessionFormat.LevelClass(point.Level)">@SuccessionFormat.LevelName(point.Level)</span></td>
+                                    <td class="sc-small">@point.Raters</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        @* ------------------------------------------------------ in their words ---- *@
+        <section class="sc-section" data-tab-panel data-tab-label="In their words"
+                 data-tab-hint="Projections and notes">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>In their words</h2>
+
+            @if (!anyWritten)
+            {
+                <p class="sc-footnote">No coach has written anything about @player.Code in this cycle.</p>
+            }
+            else
+            {
+                <div class="sc-reflection">
+                    @foreach (var field in written)
+                    {
+                        var answers = Model.Raters
+                            .Select(r => (r.Name, Text: field.Read(r.Assessment)))
+                            .Where(a => !string.IsNullOrWhiteSpace(a.Text))
+                            .ToList();
+
+                        if (answers.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        @* The 5C reflection's layout: prose, one field at a time, each coach's
+                           words under their name, marked up as the quotations they are. *@
+                        <article class="sc-reflection__item">
+                            <p class="sc-reflection__question"><strong>@field.Name</strong></p>
+                            <dl class="sc-reflection__answers">
+                                @foreach (var answer in answers)
+                                {
+                                    <div class="sc-reflection__row">
+                                        <dt>@answer.Name</dt>
+                                        <dd><blockquote class="sc-reflection__text">@answer.Text</blockquote></dd>
+                                    </div>
+                                }
+                            </dl>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        @* --------------------------------------------------------- club details ---- *@
+        <section class="sc-section sc-section--last" data-tab-panel data-tab-label="Club details"
+                 data-tab-hint="Contract and training group">
+            <div class="sc-rule"></div>
+            <h2 data-tab-heading>Club details</h2>
+            <p class="sc-footnote sc-footnote--top">
+                Facts, not opinions, so they are entered once for the player rather than by every coach.
+                @if (detail.Profile is { } saved)
+                {
+                    <text>Last changed @SuccessionFormat.Date(DateOnly.FromDateTime(saved.UpdatedAt.UtcDateTime)).</text>
+                }
+            </p>
+
+            <form method="post" asp-action="Profile" asp-route-id="@player.Id" class="sc-card sc-card--left">
+                <div class="sc-form-row">
+                    <div class="sc-form-field">
+                        <label class="sc-label" asp-for="Profile.ContractType">Contract type</label>
+                        <select class="sc-select" asp-for="Profile.ContractType">
+                            <option value="">Not set</option>
+                            @foreach (var contract in settings.ContractTypes)
+                            {
+                                <option value="@contract.Key" selected="@(contract.Key == Model.Profile.ContractType)">@contract.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="sc-form-field">
+                        <label class="sc-label" asp-for="Profile.ContractEndsOn">Contract ends</label>
+                        <input class="sc-input" type="date" asp-for="Profile.ContractEndsOn" />
+                    </div>
+                    <div class="sc-form-field">
+                        <label class="sc-label" asp-for="Profile.TrainingGroup">MESO training group</label>
+                        <select class="sc-select" asp-for="Profile.TrainingGroup">
+                            <option value="">Not set</option>
+                            @foreach (var group in settings.Levels)
+                            {
+                                <option value="@group.Key" selected="@(group.Key == Model.Profile.TrainingGroup)">@group.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="sc-actions">
+                    <button type="submit" class="sc-btn">Save club details</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</div>

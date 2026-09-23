@@ -1,0 +1,294 @@
+@model SuccessionRateViewModel
+@inject ISuccessionCatalog Catalog
+@{
+    ViewData["Title"] = $"Rate {Model.Code}";
+    ViewData["FullWidth"] = true;
+
+    var settings = Catalog.Settings;
+    var scale = Enumerable.Range(settings.Scale.Min, settings.Scale.Max - settings.Scale.Min + 1).ToList();
+    var positions = new[]
+    {
+        (Field: nameof(Model.FirstPosition), Label: "1st position", Value: Model.FirstPosition),
+        (Field: nameof(Model.SecondPosition), Label: "2nd position", Value: Model.SecondPosition),
+        (Field: nameof(Model.ThirdPosition), Label: "3rd position", Value: Model.ThirdPosition)
+    };
+}
+
+@*
+    One row of the coaches' workbook, for one coach, one player and the current cycle.
+
+    The six ratings are required -- overall readiness is their average, and an average of five
+    next to another coach's average of six is not a comparison. Everything else may be left
+    blank, and a blank is stored as "not answered", never as a middling answer.
+
+    Which player, which coach and which cycle are not fields: they come from the URL, the
+    sign-in and the date. See SuccessionController.Rate.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <a class="sc-hero__back" asp-action="Player" asp-route-id="@Model.PlayerId">← @Model.Code</a>
+
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">Succession planning · @(Model.IsCorrection ? "Correct your rating" : "Rate")</p>
+        <h1>@Model.Code</h1>
+        <p class="sc-hero__lead">
+            @Model.TeamName · your assessment for @Model.CycleLabel.
+            The other coaches rate on their own; you see theirs side by side once you have saved.
+        </p>
+    </div>
+</section>
+
+<div class="sc-page">
+    <form method="post" asp-action="Rate" asp-route-id="@Model.PlayerId" class="sc-section sc-section--last">
+        @if (Model.PrefilledFrom is { } from)
+        {
+            <div class="sc-notice sc-notice--info">
+                <p>
+                    Filled in from your assessment in @from. Change what has moved since then and save --
+                    nothing is stored for this cycle until you do.
+                </p>
+            </div>
+        }
+        else if (Model.IsCorrection)
+        {
+            <div class="sc-notice sc-notice--info">
+                <p>You have rated @Model.Code in this cycle already. Saving again replaces that assessment.</p>
+            </div>
+        }
+
+        <div asp-validation-summary="ModelOnly" class="sc-field-error"></div>
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div class="sc-notice sc-notice--warn" role="alert">
+                <p>Some of it needs another look -- see the marked fields below. Nothing has been saved.</p>
+            </div>
+        }
+
+        @* --------------------------------------------------------------- ratings ---- *@
+        <fieldset class="sc-fieldset">
+            <legend>Ratings, @settings.Scale.Min–@settings.Scale.Max</legend>
+            <p class="sc-footnote sc-footnote--top">
+                All @settings.Ratings.Count. Overall readiness is their average; @settings.ReadyAt.ToString("0") or more is ready.
+            </p>
+
+            @foreach (var rating in settings.Ratings)
+            {
+                var field = $"{nameof(Model.Ratings)}[{rating.Key}]";
+                var current = Model.Ratings.TryGetValue(rating.Key, out var given) ? given : null;
+
+                <div class="sc-question" role="radiogroup" aria-labelledby="rating-@rating.Key">
+                    <p class="sc-question__text" id="rating-@rating.Key"><strong>@rating.Name</strong></p>
+                    <div class="sc-scale__options sc-scale__options--ten">
+                        @foreach (var value in scale)
+                        {
+                            <div class="sc-scale__option">
+                                <input type="radio" id="rating-@rating.Key-@value" name="@field" value="@value"
+                                       checked="@(current == value)" />
+                                <label for="rating-@rating.Key-@value"><span class="sc-scale__num">@value</span></label>
+                            </div>
+                        }
+                    </div>
+                    @Html.ValidationMessage(field, new { @class = "sc-field-error" })
+                </div>
+            }
+
+            <div class="sc-question" role="radiogroup" aria-labelledby="rating-personal">
+                <p class="sc-question__text" id="rating-personal">
+                    <strong>Your own call: ready for the next step</strong>
+                    <span class="sc-optional">Optional</span>
+                </p>
+                <p class="sc-footnote sc-footnote--top">
+                    Your gut, next to the average above. They are allowed to disagree, and it is worth seeing when they do.
+                </p>
+                <div class="sc-scale__options sc-scale__options--ten">
+                    @foreach (var value in scale)
+                    {
+                        <div class="sc-scale__option">
+                            <input type="radio" id="personal-@value" name="@nameof(Model.PersonalReadiness)" value="@value"
+                                   checked="@(Model.PersonalReadiness == value)" />
+                            <label for="personal-@value"><span class="sc-scale__num">@value</span></label>
+                        </div>
+                    }
+                </div>
+                <div class="sc-choice sc-mt">
+                    <div class="sc-choice__option sc-choice__option--none">
+                        <input type="radio" id="personal-none" name="@nameof(Model.PersonalReadiness)" value=""
+                               checked="@(Model.PersonalReadiness is null)" />
+                        <label for="personal-none">Not answered</label>
+                    </div>
+                </div>
+                @Html.ValidationMessage(nameof(Model.PersonalReadiness), new { @class = "sc-field-error" })
+            </div>
+        </fieldset>
+
+        @* ------------------------------------------------------------------ role ---- *@
+        <fieldset class="sc-fieldset">
+            <legend>Role</legend>
+
+            <div class="sc-form-row">
+                <div class="sc-form-field">
+                    <label class="sc-label" for="rated-as">Rated as</label>
+                    <select class="sc-select" id="rated-as" name="@nameof(Model.RatedAs)">
+                        <option value="">Not set</option>
+                        @foreach (var level in settings.Levels)
+                        {
+                            <option value="@level.Key" selected="@(level.Key == Model.RatedAs)">@level.Name</option>
+                        }
+                    </select>
+                    @Html.ValidationMessage(nameof(Model.RatedAs), new { @class = "sc-field-error" })
+                </div>
+
+                @foreach (var position in positions)
+                {
+                    <div class="sc-form-field">
+                        <label class="sc-label" for="pos-@position.Field">@position.Label</label>
+                        <select class="sc-select" id="pos-@position.Field" name="@position.Field">
+                            <option value="">Not set</option>
+                            @foreach (var option in settings.Positions)
+                            {
+                                <option value="@option.Key" selected="@(option.Key == position.Value)">@option.Key – @option.Name</option>
+                            }
+                        </select>
+                        @Html.ValidationMessage(position.Field, new { @class = "sc-field-error" })
+                    </div>
+                }
+            </div>
+
+            <div class="sc-question" role="radiogroup" aria-labelledby="ability-label">
+                <p class="sc-question__text" id="ability-label"><strong>Ability category</strong></p>
+                <div class="sc-choice">
+                    @foreach (var category in settings.AbilityCategories)
+                    {
+                        <div class="sc-choice__option">
+                            <input type="radio" id="ability-@category.Key" name="@nameof(Model.AbilityCategory)" value="@category.Key"
+                                   checked="@(category.Key == Model.AbilityCategory)" />
+                            <label for="ability-@category.Key">@category.Name</label>
+                        </div>
+                    }
+                    <div class="sc-choice__option sc-choice__option--none">
+                        <input type="radio" id="ability-none" name="@nameof(Model.AbilityCategory)" value=""
+                               checked="@(Model.AbilityCategory is null)" />
+                        <label for="ability-none">Not set</label>
+                    </div>
+                </div>
+                @Html.ValidationMessage(nameof(Model.AbilityCategory), new { @class = "sc-field-error" })
+            </div>
+        </fieldset>
+
+        @* ------------------------------------------------------------ projection ---- *@
+        <fieldset class="sc-fieldset">
+            <legend>Projection</legend>
+            <p class="sc-footnote sc-footnote--top">Where you expect @Model.Code to be, e.g. "U19s starter" or "1st team squad".</p>
+
+            <div class="sc-form-row">
+                <div class="sc-form-field">
+                    <label class="sc-label" asp-for="Projection0To6Months"></label>
+                    <input class="sc-input" asp-for="Projection0To6Months" maxlength="@SuccessionRules.ProjectionLimit" />
+                    <span class="sc-field-error" asp-validation-for="Projection0To6Months"></span>
+                </div>
+                <div class="sc-form-field">
+                    <label class="sc-label" asp-for="Projection6To18Months"></label>
+                    <input class="sc-input" asp-for="Projection6To18Months" maxlength="@SuccessionRules.ProjectionLimit" />
+                    <span class="sc-field-error" asp-validation-for="Projection6To18Months"></span>
+                </div>
+                <div class="sc-form-field">
+                    <label class="sc-label" asp-for="Projection18To36Months"></label>
+                    <input class="sc-input" asp-for="Projection18To36Months" maxlength="@SuccessionRules.ProjectionLimit" />
+                    <span class="sc-field-error" asp-validation-for="Projection18To36Months"></span>
+                </div>
+            </div>
+        </fieldset>
+
+        @* --------------------------------------------------------------- pathway ---- *@
+        <fieldset class="sc-fieldset">
+            <legend>Pathway</legend>
+
+            <div class="sc-question" role="radiogroup" aria-labelledby="blocked-label">
+                <p class="sc-question__text" id="blocked-label"><strong>Pathway blocked?</strong></p>
+                <div class="sc-yesno">
+                    @foreach (var (value, label) in new[] { ("true", "Yes"), ("false", "No"), ("", "Not answered") })
+                    {
+                        var id = $"blocked-{(value == "" ? "none" : value)}";
+                        <div class="sc-choice__option @(value == "" ? "sc-choice__option--none" : "")">
+                            <input type="radio" id="@id" name="@nameof(Model.PathwayBlocked)" value="@value"
+                                   checked="@((value == "" && Model.PathwayBlocked is null) || (value == "true" && Model.PathwayBlocked == true) || (value == "false" && Model.PathwayBlocked == false))" />
+                            <label for="@id">@label</label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="sc-form-field sc-mt">
+                <label class="sc-label" asp-for="WhatNow"></label>
+                <textarea class="sc-input sc-textarea" asp-for="WhatNow" maxlength="@SuccessionRules.TextLimit"></textarea>
+                <span class="sc-field-error" asp-validation-for="WhatNow"></span>
+            </div>
+
+            <div class="sc-question" role="radiogroup" aria-labelledby="risk-label">
+                <p class="sc-question__text" id="risk-label"><strong>Succession risk</strong></p>
+                <div class="sc-choice">
+                    @foreach (var risk in settings.Risks)
+                    {
+                        <div class="sc-choice__option">
+                            <input type="radio" id="risk-@risk.Key" name="@nameof(Model.SuccessionRisk)" value="@risk.Key"
+                                   checked="@(risk.Key == Model.SuccessionRisk)" />
+                            <label for="risk-@risk.Key">@risk.Name</label>
+                        </div>
+                    }
+                    <div class="sc-choice__option sc-choice__option--none">
+                        <input type="radio" id="risk-none" name="@nameof(Model.SuccessionRisk)" value=""
+                               checked="@(Model.SuccessionRisk is null)" />
+                        <label for="risk-none">Not set</label>
+                    </div>
+                </div>
+                @Html.ValidationMessage(nameof(Model.SuccessionRisk), new { @class = "sc-field-error" })
+            </div>
+
+            <div class="sc-question" role="radiogroup" aria-labelledby="external-label">
+                <p class="sc-question__text" id="external-label"><strong>External needed?</strong></p>
+                <div class="sc-yesno">
+                    @foreach (var (value, label) in new[] { ("true", "Yes"), ("false", "No"), ("", "Not answered") })
+                    {
+                        var id = $"external-{(value == "" ? "none" : value)}";
+                        <div class="sc-choice__option @(value == "" ? "sc-choice__option--none" : "")">
+                            <input type="radio" id="@id" name="@nameof(Model.ExternalNeeded)" value="@value"
+                                   checked="@((value == "" && Model.ExternalNeeded is null) || (value == "true" && Model.ExternalNeeded == true) || (value == "false" && Model.ExternalNeeded == false))" />
+                            <label for="@id">@label</label>
+                        </div>
+                    }
+                </div>
+            </div>
+        </fieldset>
+
+        @* ----------------------------------------------------------- development ---- *@
+        <fieldset class="sc-fieldset">
+            <legend>Development</legend>
+            <p class="sc-footnote sc-footnote--top">
+                Written about a player, often a minor, and read by every coach in the club. Keep it to
+                football: no health details, and no names of anybody else.
+            </p>
+
+            <div class="sc-form-field">
+                <label class="sc-label" asp-for="KeyDevelopmentFocus"></label>
+                <textarea class="sc-input sc-textarea" asp-for="KeyDevelopmentFocus" maxlength="@SuccessionRules.TextLimit"></textarea>
+                <span class="sc-field-error" asp-validation-for="KeyDevelopmentFocus"></span>
+            </div>
+            <div class="sc-form-field sc-mt">
+                <label class="sc-label" asp-for="SuperStrengths"></label>
+                <textarea class="sc-input sc-textarea" asp-for="SuperStrengths" maxlength="@SuccessionRules.TextLimit"></textarea>
+                <span class="sc-field-error" asp-validation-for="SuperStrengths"></span>
+            </div>
+            <div class="sc-form-field sc-mt">
+                <label class="sc-label" asp-for="Notes"></label>
+                <textarea class="sc-input sc-textarea" asp-for="Notes" maxlength="@SuccessionRules.NotesLimit"></textarea>
+                <span class="sc-field-error" asp-validation-for="Notes"></span>
+            </div>
+        </fieldset>
+
+        <div class="sc-actions">
+            <button type="submit" class="sc-btn">Save for @Model.CycleLabel</button>
+            <a class="sc-btn sc-btn--secondary" asp-action="Player" asp-route-id="@Model.PlayerId">Cancel</a>
+        </div>
+    </form>
+</div>

@@ -23,7 +23,7 @@ public static class SeedData
     private const string DefaultDevPassword = "Dev!passord1";
 
     /// <summary>The one coach account. Kept as-is so nobody has to relearn a login.</summary>
-    private const string CoachEmail = "trener.senior@ikstart.example";
+    internal const string CoachEmail = "trener.senior@ikstart.example";
 
     /// <summary>The second coach account, folded into <see cref="CoachEmail"/>.</summary>
     private const string RetiredCoachEmail = "trener.ungdom@ikstart.example";
@@ -85,6 +85,15 @@ public static class SeedData
             services.GetRequiredService<IQuestionCatalog>(),
             services.GetRequiredService<ISurveySubmissionStore>(),
             demoPeriods,
+            logger);
+
+        // Succession planning: three coaches' ratings over three cycles. Its own file, since
+        // none of it touches anything above. See SeedSuccession.
+        await SeedSuccession.SeedAsync(
+            db,
+            userManager,
+            services.GetRequiredService<Services.Succession.ISuccessionCatalog>(),
+            password,
             logger);
     }
 
@@ -1156,7 +1165,7 @@ public static class SeedData
     /// nye tall for de samme spillerne ved hver kjøring. FNV-1a er ikke det -- og poenget her
     /// er nettopp at demodataene skal se like ut i morgen.
     /// </summary>
-    private static int StableSeed(string value)
+    internal static int StableSeed(string value)
     {
         unchecked
         {
@@ -1175,7 +1184,7 @@ public static class SeedData
         }
     }
 
-    private static async Task<string> EnsureUserAsync(
+    internal static async Task<string> EnsureUserAsync(
         UserManager<IdentityUser> userManager,
         string email,
         string password,

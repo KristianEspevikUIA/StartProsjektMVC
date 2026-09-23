@@ -80,6 +80,14 @@
                         <td class="sc-num">@Model.FeedbackReleaseCount</td>
                     </tr>
                     <tr>
+                        <td>Succession assessments (coaches' ratings and notes)</td>
+                        <td class="sc-num">@Model.SuccessionAssessmentCount</td>
+                    </tr>
+                    <tr>
+                        <td>Contract and training group</td>
+                        <td class="sc-num">@(Model.HasSuccessionProfile ? 1 : 0)</td>
+                    </tr>
+                    <tr>
                         <td>Sign-in account</td>
                         <td class="sc-num">
                             @if (Model.HasAccount)

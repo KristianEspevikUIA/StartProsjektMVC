@@ -350,7 +350,7 @@
         var summary = panel.querySelector("[data-player-filter-summary]");
         var clear = panel.querySelector("[data-player-filter-clear]");
         var rows = document.querySelectorAll("[data-player-row]");
-        var empty = document.querySelector("[data-player-filter-empty]");
+        var empties = document.querySelectorAll("[data-player-filter-empty]");
 
         if (!input || rows.length === 0) {
             return;
@@ -360,27 +360,41 @@
             // Case-folded and trimmed, so "ts-08" finds TS-08-16 and a stray space does not
             // empty the table.
             var query = input.value.trim().toLowerCase();
+
+            // Counted per player, not per row. The succession board shows the same squad in
+            // several tables, one per tab, and "Showing 12 of 132" would be counting the
+            // tables. A row without data-player-key is its own player, as it always was.
+            var all = {};
+            var shownKeys = {};
+            var total = 0;
             var shown = 0;
 
             for (var i = 0; i < rows.length; i++) {
                 var haystack = (rows[i].getAttribute("data-player-search") || "").toLowerCase();
                 var matches = query === "" || haystack.indexOf(query) !== -1;
+                var key = rows[i].getAttribute("data-player-key") || "row-" + i;
 
                 rows[i].hidden = !matches;
 
-                if (matches) {
+                if (!all[key]) {
+                    all[key] = true;
+                    total++;
+                }
+
+                if (matches && !shownKeys[key]) {
+                    shownKeys[key] = true;
                     shown++;
                 }
             }
 
-            if (empty) {
-                empty.hidden = shown !== 0;
+            for (var e = 0; e < empties.length; e++) {
+                empties[e].hidden = shown !== 0;
             }
 
             if (summary) {
                 summary.textContent = query === ""
                     ? ""
-                    : "Showing " + shown + " of " + rows.length;
+                    : "Showing " + shown + " of " + total;
             }
 
             if (clear) {
