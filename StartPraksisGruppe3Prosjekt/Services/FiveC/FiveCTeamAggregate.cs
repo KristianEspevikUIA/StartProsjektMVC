@@ -224,7 +224,7 @@ public sealed record TeamCategoryAverage(
 /// diligent respondent quietly weigh the most, and a team average is meant to describe the
 /// average player.
 ///
-/// No player code and no player id leaves this record. It is an aggregate, it is built from
+/// No player name and no player id leaves this record. It is an aggregate, it is built from
 /// ids the caller already had, and there is nothing here to trace back to one person -- see
 /// <see cref="TeamRoleAverage"/> for the rule that keeps it that way.
 ///

@@ -243,7 +243,7 @@ public sealed class AdminGdprTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Deleting_without_typing_the_player_code_does_nothing()
+    public async Task Deleting_without_typing_the_players_name_does_nothing()
     {
         var playerId = _factory.PlayerId;
 
@@ -251,7 +251,7 @@ public sealed class AdminGdprTests : IAsyncLifetime
 
         // Back to the form rather than on to the redirect, and the player is still there.
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Type the player code", await response.Content.ReadAsStringAsync());
+        Assert.Contains("name exactly as it is shown above", await response.Content.ReadAsStringAsync());
 
         await _factory.WithServicesAsync(async services =>
         {

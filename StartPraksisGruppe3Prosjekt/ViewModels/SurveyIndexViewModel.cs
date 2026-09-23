@@ -90,7 +90,7 @@ public class SurveyIndexViewModel
 
         public FormStatus Status { get; set; } = FormStatus.All;
 
-        /// <summary>Free text against the player code. Codes, never names.</summary>
+        /// <summary>Free text against the player's name.</summary>
         public string? Query { get; set; }
     }
 }

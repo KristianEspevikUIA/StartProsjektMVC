@@ -10,8 +10,8 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 public interface IFiveCTrend
 {
     /// <summary>
-    /// Who the line is about, written as the page should write it: a player code, or a
-    /// team name. Codes for people, names for teams.
+    /// Who the line is about, written as the page should write it: the player's name, or
+    /// the team's.
     /// </summary>
     string Subject { get; }
 
@@ -40,7 +40,7 @@ public interface IFiveCTrend
 /// raw answers each time it is asked for.
 /// </summary>
 /// <param name="PlayerId">The player.</param>
-/// <param name="PlayerCode">Player code. Codes, not names.</param>
+/// <param name="PlayerCode">The player's name (Player.Code).</param>
 /// <param name="Periods">The periods, oldest first. Every category lines up with this list.</param>
 /// <param name="Categories">One line per C.</param>
 public sealed record PlayerTrend(

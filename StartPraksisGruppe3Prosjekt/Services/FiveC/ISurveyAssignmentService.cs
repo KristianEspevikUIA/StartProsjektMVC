@@ -42,9 +42,8 @@ public interface ISurveyAssignmentService
 /// <summary>One form a user is expected to fill in.</summary>
 /// <param name="PlayerId">The player the form is about.</param>
 /// <param name="PlayerCode">
-/// Player code, e.g. "TS-08-16". CODES, NOT NAMES -- and not because a name column has not
-/// been built yet: there are no names anywhere in this data model, on purpose, so the code
-/// is what identifies a player in every list in the application.
+/// The player's name, e.g. "Brage Kristoffersen" (Player.Code). What identifies a player in
+/// every list in the application.
 /// </param>
 /// <param name="TeamName">The player's team.</param>
 /// <param name="Position">Their position, or null when the club has not recorded one.</param>

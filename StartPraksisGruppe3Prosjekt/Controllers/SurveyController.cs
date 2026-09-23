@@ -177,8 +177,7 @@ public class SurveyController : Controller
         {
             var query = filter.Query.Trim();
 
-            // Player code only. Names are not in this system, and searching one would be a
-            // different feature with a different privacy question attached.
+            // The player's name only.
             result = result.Where(a =>
                 a.PlayerCode.Contains(query, StringComparison.OrdinalIgnoreCase));
         }

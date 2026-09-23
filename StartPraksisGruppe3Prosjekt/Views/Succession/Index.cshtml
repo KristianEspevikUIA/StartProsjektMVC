@@ -73,7 +73,7 @@
             <div class="sc-form-field">
                 <label class="sc-label" for="board-sort">Order</label>
                 <select class="sc-select" id="board-sort" name="sort">
-                    <option value="code" selected="@(Model.Sort == "code")">Player code</option>
+                    <option value="code" selected="@(Model.Sort == "code")">Name</option>
                     <option value="team" selected="@(Model.Sort == "team")">Team</option>
                     <option value="readiness" selected="@(Model.Sort == "readiness")">Overall readiness</option>
                 </select>
@@ -153,7 +153,7 @@
             <div class="sc-form-field">
                 <label class="sc-label" for="board-search">Find a player</label>
                 <input class="sc-input" id="board-search" type="search" autocomplete="off"
-                       placeholder="TS-08, RB or Senior" />
+                       placeholder="Viljar, RB or Senior" />
             </div>
         </div>
         <div class="sc-filters__actions">
@@ -184,7 +184,7 @@
                 <table class="sc-table sc-table--squad sc-table--grouped">
                     <thead>
                         <tr>
-                            <th scope="col" rowspan="2">Code</th>
+                            <th scope="col" rowspan="2">Player</th>
                             <th scope="col" rowspan="2">Team</th>
                             <th scope="colgroup" colspan="3" class="sc-th-group">Positions</th>
                             <th scope="col" rowspan="2">Ability</th>
@@ -272,7 +272,7 @@
                             </tr>
                         }
                         <tr data-player-filter-empty hidden>
-                            <td colspan="12" class="sc-muted sc-small">No player matches that. The search covers code, team and position.</td>
+                            <td colspan="12" class="sc-muted sc-small">No player matches that. The search covers name, team and position.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -292,7 +292,7 @@
                 <table class="sc-table sc-table--squad">
                     <thead>
                         <tr>
-                            <th scope="col">Code</th>
+                            <th scope="col">Player</th>
                             <th scope="col">Team</th>
                             @foreach (var rating in settings.Ratings)
                             {
@@ -349,7 +349,7 @@
                 <table class="sc-table sc-table--squad">
                     <thead>
                         <tr>
-                            <th scope="col">Code</th>
+                            <th scope="col">Player</th>
                             <th scope="col">Team</th>
                             <th scope="col">Born</th>
                             <th scope="col">Contract</th>
@@ -425,7 +425,7 @@
                     <table class="sc-table sc-table--squad">
                         <thead>
                             <tr>
-                                <th scope="col">Code</th>
+                                <th scope="col">Player</th>
                                 <th scope="col">Team</th>
                                 <th scope="col">Rated by</th>
                                 <th scope="col">Apart on</th>

@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Authorization;
@@ -11,8 +12,9 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// Eier: Brage.
 ///
 /// ALLE DATA HER ER OPPDIKTET. Ekte spillerdata skal ikke inn i dette repoet før
-/// prosjektet er meldt til Sikt. Ingen navn, telefonnumre eller e-postadresser til
-/// virkelige personer — bruk koder og example-domener.
+/// prosjektet er meldt til Sikt. Spillernavnene er tilfeldige, bortsett fra prosjektgruppas
+/// egne fire (se <see cref="Squads"/>). Ingen telefonnumre eller e-postadresser til
+/// virkelige personer — bruk example-domener.
 ///
 /// Seedingen er idempotent: hvert steg hopper over seg selv hvis dataene finnes.
 /// Brukerkontoer opprettes bare i Development.
@@ -67,6 +69,10 @@ public static class SeedData
 
         var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
         var password = configuration["Seed:DevPassword"] ?? DefaultDevPassword;
+
+        // Before the squads are seeded: a player still under the old code would otherwise
+        // not be found by name, and would get a second row next to it.
+        await RenameCodedPlayersAsync(db, userManager, logger);
 
         await SeedUsersAndPlayersAsync(db, userManager, teams, password, logger);
 
@@ -480,6 +486,111 @@ public static class SeedData
     }
 
     /// <summary>
+    /// Gives the players seeded while they were codes ("TS-08-16") their names.
+    ///
+    /// Renamed in place, like the teams and periods above: the player keeps its id, and with
+    /// it every answer, rating and consent event. A new row next to the old one would give
+    /// every team two squads, and the shared database was seeded long before the names.
+    ///
+    /// Three things follow the name, and none of them is saved after the code. The code is
+    /// what marks a player as done, so a start that stops halfway leaves the rest to the next.
+    ///   * The copy of the code on each 5C submission (FiveCSubmission.PlayerCode).
+    ///   * The accounts derived from the code -- the player's own and a derived guardian's --
+    ///     move to the address derived from the name. Any other address, foresatt1..7 for
+    ///     one, was never derived from anything and stays.
+    ///   * The seeded first name was drawn at random, and a player called Brage should not be
+    ///     welcomed as Amund.
+    /// </summary>
+    private static async Task RenameCodedPlayersAsync(
+        AppDbContext db,
+        UserManager<IdentityUser> userManager,
+        ILogger logger)
+    {
+        var renamed = 0;
+
+        foreach (var member in Squads.SelectMany(team => team.Squad))
+        {
+            var player = await db.Players
+                .Include(p => p.Guardianships)
+                .FirstOrDefaultAsync(p => p.Code == member.FormerCode);
+
+            if (player is null || await db.Players.AnyAsync(p => p.Code == member.Name))
+            {
+                continue;
+            }
+
+            await db.FiveCSubmissions
+                .Where(s => s.PlayerId == player.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.PlayerCode, member.Name));
+
+            var formerEmailPart = member.FormerCode.Replace("-", string.Empty).ToLowerInvariant();
+
+            await MoveAccountAsync(
+                userManager,
+                player.UserId,
+                $"spiller.{formerEmailPart}@ikstart.example",
+                PlayerEmail(member.Name));
+
+            foreach (var guardianship in player.Guardianships)
+            {
+                await MoveAccountAsync(
+                    userManager,
+                    guardianship.GuardianUserId,
+                    $"foresatt.{formerEmailPart}@example.test",
+                    GuardianEmail(member.Name));
+            }
+
+            var details = await db.PlayerPersonalDetails.FirstOrDefaultAsync(d => d.PlayerId == player.Id);
+            if (details is not null)
+            {
+                details.FirstName = FirstNameOf(member.Name);
+            }
+
+            player.Code = member.Name;
+            await db.SaveChangesAsync();
+
+            renamed++;
+        }
+
+        if (renamed > 0)
+        {
+            logger.LogInformation("Gave {Count} players their names in place of their codes.", renamed);
+        }
+    }
+
+    /// <summary>
+    /// Moves an account from one address to another. Only an account that still has the old
+    /// address, and only when the new one is free.
+    /// </summary>
+    private static async Task MoveAccountAsync(
+        UserManager<IdentityUser> userManager,
+        string? userId,
+        string from,
+        string to)
+    {
+        if (userId is null
+            || await userManager.FindByIdAsync(userId) is not { } user
+            || !string.Equals(user.Email, from, StringComparison.OrdinalIgnoreCase)
+            || await userManager.FindByEmailAsync(to) is not null)
+        {
+            return;
+        }
+
+        // Set directly rather than with SetEmailAsync, which also marks the address as
+        // unconfirmed. UpdateAsync normalises both for the lookups.
+        user.Email = to;
+        user.UserName = to;
+
+        var result = await userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                $"Klarte ikke å flytte demobrukeren {from} til {to}: " +
+                string.Join("; ", result.Errors.Select(e => e.Description)));
+        }
+    }
+
+    /// <summary>
     /// Oppdiktede brukere, spillere, koblinger og samtykkehendelser.
     ///
     /// IDEMPOTENT PER SPILLER, ikke "hopp over alt hvis det finnes spillere". Den gamle
@@ -534,7 +645,7 @@ public static class SeedData
                 var member = squad[slot];
                 var position = Formation[slot];
 
-                if (byCode.TryGetValue(member.Code, out var player))
+                if (byCode.TryGetValue(member.Name, out var player))
                 {
                     // Positions are seeded and never edited in the app, so this is the only
                     // writer and it can line an older squad up with the formation. Nothing
@@ -544,12 +655,12 @@ public static class SeedData
                 }
 
                 var userId = member.HasAccount
-                    ? await EnsureUserAsync(userManager, PlayerEmail(member.Code), password, Roles.Player)
+                    ? await EnsureUserAsync(userManager, PlayerEmail(member.Name), password, Roles.Player)
                     : null;
 
                 player = new Player
                 {
-                    Code = member.Code,
+                    Code = member.Name,
                     TeamId = team.Id,
                     BirthDate = member.BirthDate,
                     Position = position,
@@ -559,15 +670,15 @@ public static class SeedData
                 db.Players.Add(player);
                 await db.SaveChangesAsync();
 
-                byCode[member.Code] = player;
+                byCode[member.Name] = player;
                 created++;
 
                 // A guardian where the club needs one: an explicitly named account, or one
-                // derived from the code for anybody still under the age limit. Adults on the
+                // derived from the name for anybody still under the age limit. Adults on the
                 // senior side get none, which is the point of the rule.
                 var guardianEmail = member.GuardianEmail
                     ?? (player.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge
-                        ? GuardianEmail(member.Code)
+                        ? GuardianEmail(member.Name)
                         : null);
 
                 string? guardianUserId = null;
@@ -634,10 +745,14 @@ public static class SeedData
     /// <summary>
     /// Troppene. Elleve spillere per lag, i samme rekkefølge som <see cref="Formation"/>.
     ///
-    /// Kodene til de tolv opprinnelige spillerne står urørt, og med dem særtilfellene de
-    /// finnes for: en spiller uten samtykkehendelse i det hele tatt, en med tilbaketrukket
-    /// samtykke, to søsken på samme foresatte, og et par uten egen konto. De er de eneste
-    /// radene her som betyr noe utover å fylle en tropp.
+    /// Navnene er tilfeldige og oppdiktet, med ett unntak: prosjektgruppa -- Brage
+    /// Kristoffersen, Kristian Espevik, Victor Ziad og Taavi-Topias Henell -- spiller på
+    /// seniorlaget. Ingen fornavn går igjen i klubben, så en drakt på beste elleve aldri
+    /// trenger mer enn fornavnet. De to som deler etternavn, er søsknene nedenfor.
+    ///
+    /// Særtilfellene er de samme som da spillerne het koder: en spiller uten samtykkehendelse
+    /// i det hele tatt, en med tilbaketrukket samtykke, to søsken på samme foresatte, og et par
+    /// uten egen konto. De er de eneste radene her som betyr noe utover å fylle en tropp.
     ///
     /// Fødselsdatoene er valgt slik at hvert lag har både myndige og mindreårige. Seniorlaget
     /// har fire spillere under aldersgrensen -- unge som er tatt opp fra akademiet -- og det
@@ -648,95 +763,147 @@ public static class SeedData
         {
             ("Senior", new SquadMember[]
             {
-                new("TS-98-07", new DateOnly(1998, 3, 11), ConsentLevel.Full),
-                new("TS-02-05", new DateOnly(2002, 5, 14), ConsentLevel.Full),
-                new("TS-01-22", new DateOnly(2001, 11, 2), ConsentLevel.Aggregated),
-                new("TS-99-18", new DateOnly(1999, 7, 23), ConsentLevel.Full),
-                new("TS-08-30", new DateOnly(2008, 3, 15), ConsentLevel.Full),
-                new("TS-00-13", new DateOnly(2000, 9, 17), ConsentLevel.Full),
-                new("TS-03-06", new DateOnly(2003, 4, 30), ConsentLevel.Aggregated),
-                new("TS-08-24", new DateOnly(2008, 5, 2), ConsentLevel.Full),
-                new("TS-05-09", new DateOnly(2005, 6, 19), ConsentLevel.Full),
-                new("TS-08-16", new DateOnly(2008, 9, 30), ConsentLevel.Full, GuardianEmail: "foresatt1@example.test"),
-                new("TS-09-21", new DateOnly(2009, 1, 27), ConsentLevel.Full)
+                new("Kristian Espevik", "TS-98-07", new DateOnly(1998, 3, 11), ConsentLevel.Full),
+                new("Victor Ziad", "TS-02-05", new DateOnly(2002, 5, 14), ConsentLevel.Full),
+                new("Magnus Haugland", "TS-01-22", new DateOnly(2001, 11, 2), ConsentLevel.Aggregated),
+                new("Henrik Tveit", "TS-99-18", new DateOnly(1999, 7, 23), ConsentLevel.Full),
+                new("Elias Vatne", "TS-08-30", new DateOnly(2008, 3, 15), ConsentLevel.Full),
+                new("Taavi-Topias Henell", "TS-00-13", new DateOnly(2000, 9, 17), ConsentLevel.Full),
+                new("Jonas Aasland", "TS-03-06", new DateOnly(2003, 4, 30), ConsentLevel.Aggregated),
+                new("Noah Berntsen", "TS-08-24", new DateOnly(2008, 5, 2), ConsentLevel.Full),
+                new("Brage Kristoffersen", "TS-05-09", new DateOnly(2005, 6, 19), ConsentLevel.Full),
+                new("Filip Salvesen", "TS-08-16", new DateOnly(2008, 9, 30), ConsentLevel.Full, GuardianEmail: "foresatt1@example.test"),
+                new("Lucas Birkeland", "TS-09-21", new DateOnly(2009, 1, 27), ConsentLevel.Full)
             }),
 
             ("G19", new SquadMember[]
             {
-                new("TS-07-21", new DateOnly(2007, 8, 9), ConsentLevel.Full),
-                new("TS-07-14", new DateOnly(2007, 12, 1), ConsentLevel.Full, GuardianEmail: "foresatt2@example.test"),
+                new("Sander Fjeld", "TS-07-21", new DateOnly(2007, 8, 9), ConsentLevel.Full),
+                new("Mathias Lunde", "TS-07-14", new DateOnly(2007, 12, 1), ConsentLevel.Full, GuardianEmail: "foresatt2@example.test"),
 
                 // Ingen egen konto, og samtykke None. Foresatt og trener har svart om hen;
                 // spilleren selv kan ikke, og det skal se annerledes ut enn "har ikke svart".
-                new("TS-08-05", new DateOnly(2008, 2, 17), ConsentLevel.None, HasAccount: false,
+                new("Tobias Moe", "TS-08-05", new DateOnly(2008, 2, 17), ConsentLevel.None, HasAccount: false,
                     GuardianEmail: "foresatt3@example.test"),
 
-                new("TS-08-27", new DateOnly(2008, 4, 25), ConsentLevel.Full),
-                new("TS-07-09", new DateOnly(2007, 10, 30), ConsentLevel.Aggregated),
-                new("TS-08-19", new DateOnly(2008, 7, 14), ConsentLevel.Full),
-                new("TS-07-03", new DateOnly(2007, 4, 5), ConsentLevel.Aggregated),
-                new("TS-08-02", new DateOnly(2008, 1, 19), ConsentLevel.Full),
-                new("TS-07-26", new DateOnly(2007, 6, 22), ConsentLevel.Full),
+                new("Jakob Strand", "TS-08-27", new DateOnly(2008, 4, 25), ConsentLevel.Full),
+                new("William Eide", "TS-07-09", new DateOnly(2007, 10, 30), ConsentLevel.Aggregated),
+                new("Oskar Nygård", "TS-08-19", new DateOnly(2008, 7, 14), ConsentLevel.Full),
+                new("Markus Dahl", "TS-07-03", new DateOnly(2007, 4, 5), ConsentLevel.Aggregated),
+                new("Daniel Sørensen", "TS-08-02", new DateOnly(2008, 1, 19), ConsentLevel.Full),
+                new("Martin Aune", "TS-07-26", new DateOnly(2007, 6, 22), ConsentLevel.Full),
 
                 // Samtykket ble senere trukket ned fra Full til Aggregated. Se SeedWithdrawnConsentAsync.
-                new("TS-08-11", new DateOnly(2008, 8, 22), ConsentLevel.Aggregated, GuardianEmail: "foresatt4@example.test"),
+                new("Viljar Holm", "TS-08-11", new DateOnly(2008, 8, 22), ConsentLevel.Aggregated, GuardianEmail: "foresatt4@example.test"),
 
-                new("TS-08-14", new DateOnly(2008, 3, 8), ConsentLevel.Full)
+                new("Adrian Lie", "TS-08-14", new DateOnly(2008, 3, 8), ConsentLevel.Full)
             }),
 
             ("G16", new SquadMember[]
             {
-                // Samme foresatte som TS-08-05 på G19 -- søsken i to lag skal fungere.
-                new("TS-10-02", new DateOnly(2010, 1, 14), ConsentLevel.Full, GuardianEmail: "foresatt3@example.test"),
+                // Lillebroren til Tobias Moe på G19, med samme foresatte -- søsken i to lag
+                // skal fungere.
+                new("Emil Moe", "TS-10-02", new DateOnly(2010, 1, 14), ConsentLevel.Full, GuardianEmail: "foresatt3@example.test"),
 
-                new("TS-10-19", new DateOnly(2010, 4, 3), ConsentLevel.Full),
-                new("TS-10-25", new DateOnly(2010, 8, 11), ConsentLevel.Aggregated),
-                new("TS-11-07", new DateOnly(2011, 2, 26), ConsentLevel.Full),
-                new("TS-10-31", new DateOnly(2010, 11, 5), ConsentLevel.Full),
-                new("TS-11-16", new DateOnly(2011, 5, 19), ConsentLevel.Full),
-                new("TS-10-08", new DateOnly(2010, 5, 27), ConsentLevel.Aggregated, GuardianEmail: "foresatt5@example.test"),
-                new("TS-11-21", new DateOnly(2011, 7, 8), ConsentLevel.Full),
-                new("TS-11-04", new DateOnly(2011, 3, 9), ConsentLevel.None, GuardianEmail: "foresatt6@example.test"),
+                new("Isak Rønning", "TS-10-19", new DateOnly(2010, 4, 3), ConsentLevel.Full),
+                new("Sebastian Olsen", "TS-10-25", new DateOnly(2010, 8, 11), ConsentLevel.Aggregated),
+                new("Johannes Berg", "TS-11-07", new DateOnly(2011, 2, 26), ConsentLevel.Full),
+                new("Aksel Vik", "TS-10-31", new DateOnly(2010, 11, 5), ConsentLevel.Full),
+                new("Håkon Lien", "TS-11-16", new DateOnly(2011, 5, 19), ConsentLevel.Full),
+                new("Theo Myhre", "TS-10-08", new DateOnly(2010, 5, 27), ConsentLevel.Aggregated, GuardianEmail: "foresatt5@example.test"),
+                new("Leon Hagen", "TS-11-21", new DateOnly(2011, 7, 8), ConsentLevel.Full),
+                new("Ludvig Bakke", "TS-11-04", new DateOnly(2011, 3, 9), ConsentLevel.None, GuardianEmail: "foresatt6@example.test"),
 
                 // Ingen ConsentEvent i det hele tatt -- gjeldende nivå blir None. Det er en
                 // egen tilstand fra "noen har aktivt satt None", og begge skal virke. Uten
                 // konto, så det finnes heller ingen svar fra spilleren selv.
-                new("TS-11-12", new DateOnly(2011, 10, 21), null, HasAccount: false,
+                new("Kasper Solberg", "TS-11-12", new DateOnly(2011, 10, 21), null, HasAccount: false,
                     GuardianEmail: "foresatt7@example.test"),
 
-                new("TS-10-14", new DateOnly(2010, 9, 30), ConsentLevel.Full)
+                new("Mikkel Tangen", "TS-10-14", new DateOnly(2010, 9, 30), ConsentLevel.Full)
             })
         };
 
     /// <summary>
-    /// Spillerkontoen som hører til en kode: "TS-08-16" blir spiller.ts0816@ikstart.example.
-    /// Samme regel som de fire kontoene som ble seedet for hånd tidligere, så de gjenkjennes
-    /// og ingen må lære seg en ny innlogging.
+    /// Koden hver seedet spiller het før navnene, slått opp på navnet. Se
+    /// <see cref="SquadMember.FormerCode"/>.
     /// </summary>
-    private static string PlayerEmail(string code) =>
-        $"spiller.{code.Replace("-", string.Empty).ToLowerInvariant()}@ikstart.example";
+    private static readonly IReadOnlyDictionary<string, string> FormerCodeByName = Squads
+        .SelectMany(team => team.Squad)
+        .ToDictionary(member => member.Name, member => member.FormerCode, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Foresattkontoen som hører til en kode, for spillere uten en av de nummererte
+    /// Det demodataene til en spiller trekkes fra: koden spilleren het før navnene, eller
+    /// navnet for en spiller som aldri hadde kode. Slik gir samme spiller de samme svarene og
+    /// vurderingene i en ny base som i en som ble seedet før navnene -- og en base som ble
+    /// seedet før, får ikke nye svar fra et annet frø ved siden av de gamle.
+    /// </summary>
+    internal static string SeedKey(Player player) =>
+        FormerCodeByName.TryGetValue(player.Code, out var former) ? former : player.Code;
+
+    /// <summary>"Taavi-Topias Henell" blir "Taavi-Topias". Til velkomsten og draktene på beste elleve.</summary>
+    internal static string FirstNameOf(string name) => name.Trim().Split(' ')[0];
+
+    /// <summary>
+    /// Spillerkontoen som hører til et navn: "Brage Kristoffersen" blir
+    /// spiller.brage.kristoffersen@ikstart.example.
+    /// </summary>
+    private static string PlayerEmail(string name) => $"spiller.{EmailPart(name)}@ikstart.example";
+
+    /// <summary>
+    /// Foresattkontoen som hører til et navn, for spillere uten en av de nummererte
     /// foresatt-kontoene. foresatt1..7@example.test er navngitt i README og i troppen over,
     /// og beholdes som de er.
     /// </summary>
-    private static string GuardianEmail(string code) =>
-        $"foresatt.{code.Replace("-", string.Empty).ToLowerInvariant()}@example.test";
+    private static string GuardianEmail(string name) => $"foresatt.{EmailPart(name)}@example.test";
+
+    /// <summary>
+    /// Et navn som delen foran @ i en adresse: små bokstaver, punktum mellom navnene, og æ, ø
+    /// og å skrevet ut, så adressen kan tastes på et hvilket som helst tastatur. "Oskar
+    /// Nygård" blir oskar.nygaard.
+    /// </summary>
+    private static string EmailPart(string name)
+    {
+        var part = new StringBuilder();
+
+        foreach (var character in name.Trim().ToLowerInvariant())
+        {
+            part.Append(character switch
+            {
+                'æ' => "ae",
+                'ø' => "o",
+                'å' => "aa",
+                ' ' => ".",
+                _ when char.IsAsciiLetterOrDigit(character) || character == '-' => character.ToString(),
+                _ => string.Empty
+            });
+        }
+
+        return part.ToString();
+    }
 
     /// <summary>
     /// Én spiller i en tropp. Posisjonen kommer fra plassen i <see cref="Formation"/>.
     /// </summary>
-    /// <param name="Code">Klubbintern kode. Aldri navn.</param>
+    /// <param name="Name">
+    /// Fornavn og etternavn, slik spilleren står i appen. Lagres i <see cref="Player.Code"/>,
+    /// og er derfor høyst 20 tegn.
+    /// </param>
+    /// <param name="FormerCode">
+    /// Koden spilleren het før navnene, f.eks. "TS-08-16". Den finner spilleren igjen i en base
+    /// som ble seedet før (se <see cref="RenameCodedPlayersAsync"/>), og den er frøet
+    /// demodataene trekkes fra (se <see cref="SeedKey"/>).
+    /// </param>
     /// <param name="BirthDate">Fødselsdato. Avgjør om det kreves foresatt.</param>
     /// <param name="Consent">Samtykkenivå, eller null for "ingen hendelse i det hele tatt".</param>
     /// <param name="HasAccount">Om spilleren har fått egen Identity-konto ennå.</param>
     /// <param name="GuardianEmail">
-    /// En navngitt foresattkonto. Null betyr at en utledes av koden når spilleren er under
+    /// En navngitt foresattkonto. Null betyr at en utledes av navnet når spilleren er under
     /// aldersgrensen, og at det ikke opprettes noen når hen er myndig.
     /// </param>
     private sealed record SquadMember(
-        string Code,
+        string Name,
+        string FormerCode,
         DateOnly BirthDate,
         ConsentLevel? Consent,
         bool HasAccount = true,
@@ -752,7 +919,7 @@ public static class SeedData
     /// </summary>
     private static async Task SeedWithdrawnConsentAsync(AppDbContext db)
     {
-        var player = await db.Players.FirstOrDefaultAsync(p => p.Code == "TS-08-11");
+        var player = await db.Players.FirstOrDefaultAsync(p => p.Code == "Viljar Holm");
         if (player is null)
         {
             return;
@@ -918,10 +1085,10 @@ public static class SeedData
 
         foreach (var player in players)
         {
-            // Én tilfeldighetskilde per spiller, sådd fra koden. Samme kode gir samme
-            // spiller hver gang, så to kjøringer av seedingen gir det samme bildet og
+            // Én tilfeldighetskilde per spiller, sådd fra SeedKey. Samme spiller gir samme
+            // svar hver gang, så to kjøringer av seedingen gir det samme bildet og
             // "endret tallene seg?" er et spørsmål som kan besvares.
-            var profile = ProfileFor(new Random(StableSeed(player.Code)), catalog, periods.Count);
+            var profile = ProfileFor(new Random(StableSeed(SeedKey(player))), catalog, periods.Count);
 
             var guardianUserId = player.Guardianships.FirstOrDefault()?.GuardianUserId;
             coachByTeam.TryGetValue(player.TeamId, out var coachUserId);
@@ -945,7 +1112,7 @@ public static class SeedData
                 // og hoppes over, flytter da ikke på hva den neste ville blitt. Med én felles
                 // kilde gjorde den det -- og andre oppstart la til svar som ikke fantes i
                 // den første, hver gang, helt til alt var fylt ut.
-                var forPeriod = new Random(StableSeed($"{player.Code}|{index}"));
+                var forPeriod = new Random(StableSeed($"{SeedKey(player)}|{index}"));
 
                 // Spilleren selv. Uten konto finnes det ingen respondent-ID, og da er det
                 // ingen som har svart -- ikke en anonym besvarelse.
@@ -1020,7 +1187,7 @@ public static class SeedData
         // Sådd fra spiller, periode og rolle, ikke ført videre fra forrige besvarelse. Den
         // samme besvarelsen får da de samme svarene uansett hva som ble skrevet før den, og
         // periodens nummer brukes framfor rundens ID fordi ID-en er ulik fra base til base.
-        var random = new Random(StableSeed($"{player.Code}|{periodIndex}|{role}"));
+        var random = new Random(StableSeed($"{SeedKey(player)}|{periodIndex}|{role}"));
 
         var answers = new List<FiveCAnswer>();
 

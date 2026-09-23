@@ -462,7 +462,7 @@ public class CoachController : Controller
     }
 
     /// <summary>
-    /// Search by player code.
+    /// Search by name.
     /// TODO (Taavi): hits have to be filtered through CanViewPlayer before they are shown --
     /// a search that confirms a player exists is also a disclosure.
     /// </summary>

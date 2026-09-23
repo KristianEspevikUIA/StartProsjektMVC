@@ -233,7 +233,7 @@ if the two disagree the C# one wins.
 {
   "round_id": 2,
   "player_id": 14,
-  "player_code": "TS-08-16",
+  "player_code": "Brage Kristoffersen",
   "respondent_role": "coach",
   "respondent_user_id": "9f0c...",
   "question_set_version": "placeholder-2026-08-26",

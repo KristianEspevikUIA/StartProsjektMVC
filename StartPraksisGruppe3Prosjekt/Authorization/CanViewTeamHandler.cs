@@ -11,7 +11,7 @@ namespace StartPraksisGruppe3Prosjekt.Authorization;
 ///            trener for et bestemt lag.
 ///   Andre  — nei. En foresatt eller spiller ser sitt eget via CanViewPlayer.
 ///
-/// Merk at et lag i seg selv bare er et navn og en liste med spillerkoder. Selve svarene
+/// Merk at et lag i seg selv bare er et navn og en liste med spillere. Selve svarene
 /// til en enkeltspiller er fortsatt vernet av CanViewPlayer, som krever fullt samtykke.
 ///
 /// Handleren slår ikke lenger opp i databasen, men er fortsatt registrert som scoped i

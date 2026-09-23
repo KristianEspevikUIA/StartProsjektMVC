@@ -5,17 +5,19 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// <summary>
 /// En spiller i klubben. Merk at <see cref="UserId"/> er nullbar: en spiller kan være
 /// registrert i systemet lenge før hen har fått egen Identity-konto.
-/// Bruk <see cref="Code"/> (f.eks. "TS-03-14") i lister og eksport der det er mulig,
-/// slik at færrest mulig navn er i omløp.
+/// <see cref="Code"/> er navnet spilleren står med i alle lister i appen.
 /// </summary>
 public class Player
 {
     public int Id { get; set; }
 
-    /// <summary>Klubbintern, pseudonym kode, f.eks. "TS-03-14".</summary>
+    /// <summary>
+    /// Spillerens navn, f.eks. "Brage Kristoffersen". Heter Code fordi spillerne het koder
+    /// ("TS-08-16") før de fikk navn -- kolonnen er den samme, og navnet er høyst 20 tegn.
+    /// </summary>
     [Required]
     [StringLength(20)]
-    [Display(Name = "Player code")]
+    [Display(Name = "Name")]
     public string Code { get; set; } = string.Empty;
 
     /// <summary>Identity-bruker-ID. Null til spilleren har fått egen konto.</summary>

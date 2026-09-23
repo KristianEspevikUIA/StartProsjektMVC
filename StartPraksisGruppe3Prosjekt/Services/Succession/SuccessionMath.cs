@@ -293,7 +293,7 @@ public static class SuccessionMath
     /// Filled strongest pairing first. Every (player, slot) pair is ranked by fit, and taken
     /// when both the slot and the player are still free -- so nobody plays twice, and a slot
     /// nobody was named for stays empty and says so instead of borrowing someone at random.
-    /// Ties go to the higher overall, then the better rank, then the player code, so the same
+    /// Ties go to the higher overall, then the better rank, then the player's name, so the same
     /// ratings always give the same team.
     /// </summary>
     public static IReadOnlyList<SlotResult> PickEleven(

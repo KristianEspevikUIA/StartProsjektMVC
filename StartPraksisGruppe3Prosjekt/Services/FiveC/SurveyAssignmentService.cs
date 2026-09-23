@@ -116,7 +116,7 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
                     IsAboutSelf: key.Role == RespondentType.Player,
                     SubmittedAt: submittedAt.TryGetValue(key, out var at) ? at : null);
             })
-            // Your own form first, then children, then the team -- and player code within
+            // Your own form first, then children, then the team -- and name within
             // each group, so a coach with twenty players gets a stable list.
             .OrderBy(a => a.Role switch
             {

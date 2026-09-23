@@ -205,7 +205,7 @@ public sealed record ReflectionComparison(
 /// All five categories for one player in one round, plus what is missing.
 /// </summary>
 /// <param name="PlayerId">The player.</param>
-/// <param name="PlayerCode">Player code, e.g. "TS-08-16". Codes, not names.</param>
+/// <param name="PlayerCode">The player's name, e.g. "Brage Kristoffersen" (Player.Code).</param>
 /// <param name="RoundId">The round.</param>
 /// <param name="Categories">The five C's, in the order the question set lists them.</param>
 /// <param name="PlayerSubmittedAt">When the player answered, or null.</param>

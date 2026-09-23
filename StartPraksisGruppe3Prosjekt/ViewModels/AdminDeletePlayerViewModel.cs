@@ -11,13 +11,13 @@ namespace StartPraksisGruppe3Prosjekt.ViewModels;
 /// before they run it, not afterwards.
 ///
 /// Nothing here identifies anybody but the player the page is about. The counts are numbers,
-/// and the code is the club-internal pseudonym the rest of the interface already shows.
+/// and the name is the one the rest of the interface already shows.
 /// </summary>
 public class AdminDeletePlayerViewModel
 {
     public int PlayerId { get; set; }
 
-    /// <summary>The club-internal code, e.g. "TS-08-16". Also what has to be typed back.</summary>
+    /// <summary>The player's name, e.g. "Brage Kristoffersen". Also what has to be typed back.</summary>
     public string PlayerCode { get; set; } = string.Empty;
 
     /// <summary>Whether an Identity account is attached, and so goes with the player.</summary>
@@ -56,10 +56,10 @@ public class AdminDeletePlayerViewModel
     /// <summary>
     /// What the admin types to confirm. Has to match <see cref="PlayerCode"/>.
     ///
-    /// A typed code rather than a second button: the point is to make the operation cost a
-    /// deliberate act. Copying eight characters off the page is short enough to be no real
-    /// obstacle and long enough that it cannot happen by reflex on the wrong row.
+    /// A typed name rather than a second button: the point is to make the operation cost a
+    /// deliberate act. Copying a name off the page is short enough to be no real obstacle and
+    /// long enough that it cannot happen by reflex on the wrong row.
     /// </summary>
-    [Display(Name = "Player code")]
+    [Display(Name = "Player name")]
     public string ConfirmCode { get; set; } = string.Empty;
 }

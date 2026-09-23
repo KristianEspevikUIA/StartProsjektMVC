@@ -137,12 +137,12 @@
             return value >= data.developingAt ? "sc-light sc-light--developing" : "sc-light sc-light--notyet";
         }
 
-        // "Viljar (TS-08-11)": for what is read out, where a second line is not an option.
+        // "Viljar (Viljar Holm)": for what is read out, where a second line is not an option.
         function fullName(player) {
             return player.tag ? player.name + " (" + player.tag + ")" : player.name;
         }
 
-        // The name, and the code under it when another player on the page has the same one.
+        // The name, and the full name under it when another player on the page has the same one.
         function nameNode(className, player) {
             var node = element("span", className, player.name);
             if (player.tag) {

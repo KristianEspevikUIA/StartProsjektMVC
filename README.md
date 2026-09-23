@@ -120,21 +120,30 @@ som gjorde hva.
 | `admin@ikstart.example` | Admin |
 | `trener.senior@ikstart.example` | Trener (alle lag) |
 | `trener.akademi@ikstart.example`, `trener.utvikling@ikstart.example` | Trener, for succession planning |
-| `spiller.ts0816@ikstart.example` m.fl. | Spiller |
+| `spiller.brage.kristoffersen@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
-| `foresatt.ts1019@example.test` m.fl. | Foresatt |
+| `foresatt.isak.ronning@example.test` m.fl. | Foresatt |
 
 De to siste trenerkontoene finnes fordi succession planning sammenligner trenere, og én konto
 kan ikke være uenig med seg selv. De har vurderinger i demodataene, og man kan logge inn som en
 av dem og se sin egen kolonne. Se `Data/SeedSuccession.cs`.
 
-Spillerkontoen utledes av koden: `TS-08-16` blir `spiller.ts0816@ikstart.example`. De fire
-kontoene som ble seedet for hånd tidligere følger allerede den regelen, så de gjenkjennes og
-ingen må lære seg en ny innlogging. Foresatte følger samme regel — `foresatt.ts1019@example.test`
-— bortsett fra de sju nummererte over, som er navngitt i troppen og beholdes som de er.
+Spillerne har tilfeldige, oppdiktede navn — bortsett fra prosjektgruppa (Brage Kristoffersen,
+Kristian Espevik, Victor Ziad og Taavi-Topias Henell), som spiller på seniorlaget og kan logge
+inn som seg selv. Troppene står i `SeedData.Squads`.
 
-To spillere har med vilje **ingen** konto (`TS-08-05`, `TS-11-12`). Det er en egen tilstand
-fra «har ikke svart», og begge skal virke.
+Spillerkontoen utledes av navnet: `Brage Kristoffersen` blir
+`spiller.brage.kristoffersen@ikstart.example`, med æ, ø og å skrevet ae, o og aa. Foresatte
+følger samme regel — `foresatt.isak.ronning@example.test` — bortsett fra de sju nummererte over,
+som er navngitt i troppen og beholdes som de er.
+
+Før het spillerne koder (`TS-08-16`, innlogging `spiller.ts0816@ikstart.example`). En base som
+ble seedet med kodene, døpes om på stedet ved neste oppstart
+(`SeedData.RenameCodedPlayersAsync`): spillerne får navnene, kontoene flyttes til de nye
+adressene, og svar og vurderinger blir der de var.
+
+To spillere har med vilje **ingen** konto (Tobias Moe og Kasper Solberg). Det er en egen
+tilstand fra «har ikke svart», og begge skal virke.
 
 Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
 og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
@@ -177,7 +186,7 @@ Det som testes er reglene som ikke tåler å bli feil:
   innsynet havner i revisjonsloggen, at slettingen faktisk tar svar, samtykkelogg,
   foresattkoblinger, loggrader, succession-vurderinger og Identity-kontoen — kontrollert både før og etter, siden
   hver eneste påstand ellers ville holdt mot en tom base — at den etterlater et spor som
-  overlever spilleren, og at den ikke skjer uten at spillerkoden er skrevet inn.
+  overlever spilleren, og at den ikke skjer uten at spillerens navn er skrevet inn.
 - **Succession planning** (`SuccessionMathTests`, `SuccessionCatalogTests`,
   `SuccessionPageTests`): at overall er snittet av de seks vurderingene og at en tom vurdering
   ikke teller som 0, at hver trener teller én gang, at uavgjort kategori er «Split», uker til
@@ -345,16 +354,15 @@ for hvert oppslag, og det kan den det gjelder også.
 foresatt én per barn, for en trener én per spiller i klubben. Visningen forgrener seg ikke
 på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører hjemme i lista.
 
-**En tabell, ikke kort.** Kolonnene er spillerkode, posisjon, lag, alder, hvilken rolle du
+**En tabell, ikke kort.** Kolonnene er navn, posisjon, lag, alder, hvilken rolle du
 svarer i, og status. Kort var greit for en spiller med ett skjema og en foresatt med to; en
 trener får ett per spiller i klubben, og tretti kort er tretti overskrifter og en side man
-ruller i stedet for å skumme. Identifikatoren er **koden** — datamodellen har ingen navn
-utenom velkomsten (se «Velkomst med navn og bilde»), med vilje, så koden er det en spiller
+ruller i stedet for å skumme. Identifikatoren er spillerens **navn**, som er det en spiller
 heter i hele applikasjonen. Alderen regnes ut av
 `PlayerRules.AgeAt`, samme regel som kravet om foresatt henger på; fødselsdatoen selv vises
 aldri.
 
-Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og spillerkode.
+Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og navn.
 Filtrene ligger i query-strengen, så en filtrert liste er en URL som kan deles og som
 tilbakeknappen forstår. Totalene telles **før** filtrering — et fremdriftstall som flytter
 seg når du filtrerer, forteller om filteret og ikke om arbeidet som gjenstår.
@@ -420,14 +428,13 @@ påstand ville vært den ene kolonnen i seksjonen som pekte motsatt vei.
 
 ### Søk i troppen
 
-Spillerlista på lagsiden filtreres levende, på spillerkode og posisjon, over den troppen som
-allerede står på siden. Ingenting hentes og ingen kode forlater nettleseren — hver rad ligger
+Spillerlista på lagsiden filtreres levende, på navn og posisjon, over den troppen som
+allerede står på siden. Ingenting hentes og ingenting forlater nettleseren — hver rad ligger
 i dokumentet, og filteret avgjør bare hvilke som vises. Feltet er `hidden` i markupen og
 avdekkes av `survey.js`, så uten JavaScript står tabellen komplett og det dukker ikke opp en
 søkeboks som ikke gjør noe.
 
-Kode og posisjon, fordi det er det som finnes: trenersidene har ingen navn. (Fornavnet til
-velkomsten finnes, men bare spilleren selv og admin ser det.)
+Navn og posisjon, fordi det er det som står i tabellen.
 
 ### Utvikling over tid
 
@@ -616,25 +623,28 @@ og administrator har tilgang, men bare trenere vurderer.
 - **Off og uker til klar:** hvor langt unna 8 spilleren er, og hvor mange uker det tar med
   trenden så langt.
 - **Lister og terskler** ligger i `Data/Succession/succession-planning.json`, validert ved oppstart.
-- **Ingen navn fra arket.** Arket har ekte navn, appen har koder. Arket ligger ikke i repoet.
-  «Best eleven» viser fornavnet klubben har lagt inn til velkomsten, og ellers koden.
+- **Ingen navn fra arket.** Arket har ekte navn; appen har sine egne, oppdiktede demospillere.
+  Arket ligger ikke i repoet. «Best eleven» viser fornavnet klubben har lagt inn til
+  velkomsten, og ellers hele navnet.
 
 **Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
 
 ## Velkomst med navn og bilde
 
-Når en spiller logger inn, står det «Welcome, Alex» på forsiden, med spillerens eget bilde.
+Når en spiller logger inn, står det «Welcome, Brage» på forsiden, med spillerens eget bilde.
 Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle spillerbildene.
 
 - **Admin legger inn** fornavn og bilde på `/Admin/Players`. Lista har også lenker til innsyn og
   sletting for hver spiller.
-- **Bare spilleren selv** ser det. Trenere, foresatte og alle andre sider bruker fortsatt koden.
+- **Bare spilleren selv** ser bildet. Andre sider viser spillerens fulle navn, og «Best eleven»
+  fornavnet.
   `/Player/Photo` har ingen ID, så den gir bare ditt eget bilde.
 - **Bildet kontrolleres og renses:** bare JPEG, PNG og WebP (lest av filens bytes), høyst 2 MB,
   og GPS, bildetekst og annen metadata tas ut før det lagres.
-- **Det eneste stedet et spillernavn lagres,** i egen tabell (`PlayerPersonalDetails`). Ingen
-  ekte navn eller bilder ligger i repoet.
-- **Må avklares:** Sikt-meldingen er oppdatert, men må sendes før ekte navn og bilder legges inn.
+- **Fornavn og bilde** ligger i egen tabell (`PlayerPersonalDetails`). Ingen bilder ligger i
+  repoet, og navnene i demodataene er oppdiktet — bortsett fra prosjektgruppas egne.
+- **Må avklares:** Sikt-meldingen beskriver fortsatt spillerkoder i stedet for navn. Den må
+  oppdateres og sendes før ekte navn og bilder legges inn.
 
 **Alt om dette: [`docs/player-welcome.md`](docs/player-welcome.md).**
 
@@ -782,7 +792,7 @@ side, når. Loggen er append-only som samtykkeloggen. Slutter den å skrives, st
 kalle `IPlayerAccessLog.RecordAsync`.
 
 **`CanViewTeam`** (`AuthorizationHandler<CanViewTeamRequirement, Team>`) — admin eller
-trener. Et lag er i seg selv bare et navn og en liste med spillerkoder; enkeltsvarene er
+trener. Et lag er i seg selv bare et navn og en liste med spillere; enkeltsvarene er
 vernet av `CanViewPlayer` og loggen over.
 
 **`CanViewTeamAggregate`** — trener med `CoachTeam` på laget, eller admin. I tillegg:

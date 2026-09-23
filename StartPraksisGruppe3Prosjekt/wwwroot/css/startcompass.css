@@ -924,7 +924,7 @@ body {
     margin: 4px 0 0;
 }
 
-/* Player codes read as codes wherever they appear, so they are told apart from the words
+/* Player names stand out wherever they appear, so they are told apart from the words
    around them at a glance rather than by reading. Same treatment as .sc-code in a table. */
 .sc-summary__codes {
     color: var(--sc-foreground);
@@ -1589,7 +1589,7 @@ body {
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.04em;
-    /* A code is one identifier. Broken over three lines in a narrow column it reads as
+    /* A name is one identifier. Broken over three lines in a narrow column it reads as
        three of them, and costs more height than the column ever saved in width. */
     white-space: nowrap;
 }

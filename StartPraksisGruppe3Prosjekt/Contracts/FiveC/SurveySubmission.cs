@@ -19,7 +19,7 @@ namespace StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 /// {
 ///   "round_id": 2,
 ///   "player_id": 14,
-///   "player_code": "TS-08-16",
+///   "player_code": "Brage Kristoffersen",
 ///   "respondent_role": "coach",
 ///   "respondent_user_id": "9f0c...",
 ///   "question_set_version": "placeholder-2026-08-26",
@@ -47,8 +47,8 @@ public sealed record SurveySubmission
     public required int PlayerId { get; init; }
 
     /// <summary>
-    /// The club-internal pseudonymous code, e.g. "TS-08-16". Sent so that a row is
-    /// readable without joining back to a table of minors. Never a name.
+    /// The player's name, e.g. "Brage Kristoffersen" (Player.Code). Sent so that a row is
+    /// readable without joining back to the players table.
     /// </summary>
     [JsonPropertyName("player_code")]
     public required string PlayerCode { get; init; }

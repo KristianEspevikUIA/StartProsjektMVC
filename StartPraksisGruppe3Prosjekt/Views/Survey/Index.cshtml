@@ -112,9 +112,9 @@
                     </div>
 
                     <div class="sc-form-field">
-                        <label class="sc-label" for="filter-query">Player code</label>
+                        <label class="sc-label" for="filter-query">Name</label>
                         <input class="sc-input" id="filter-query" name="Query" type="search"
-                               value="@Model.Filter.Query" placeholder="TS-08" />
+                               value="@Model.Filter.Query" placeholder="Viljar" />
                     </div>
                 </div>
 
@@ -168,9 +168,8 @@
                     be compared down a column -- which is the only thing anybody does with
                     this list.
 
-                    The identifying column is the player CODE. There are no names in this
-                    data model, deliberately, and the code is what a player is called
-                    everywhere in the application.
+                    The identifying column is the player's name, which is what a player is
+                    called everywhere in the application.
                 *@
                 <div class="sc-table-wrap">
                     <table class="sc-table sc-table--squad">

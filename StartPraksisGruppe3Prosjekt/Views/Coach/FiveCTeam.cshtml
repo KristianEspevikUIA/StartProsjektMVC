@@ -3,9 +3,9 @@
     ViewData["Title"] = $"5C – {Model.TeamName}";
     ViewData["FullWidth"] = true;
 
-    // How many player codes the Answers card prints before it gives up and counts the rest.
+    // How many player names the Answers card prints before it gives up and counts the rest.
     // Enough to chase a normal round's stragglers from the card itself; short of a whole
-    // squad's worth of codes on a card that is meant to be read at a glance.
+    // squad's worth of names on a card that is meant to be read at a glance.
     const int AwaitingShown = 6;
 }
 
@@ -25,7 +25,7 @@
     Two states that easily collapse into the same grey row are kept apart here: "not allowed
     to see" and "has not answered". The cell says which one it is, in words.
 
-    Sorting is by player code. Sorting by the largest disagreement is more useful, but it
+    Sorting is by name. Sorting by the largest disagreement is more useful, but it
     also turns the table into a ranking of minors, so it is a deliberate click rather than
     the default.
 
@@ -111,7 +111,7 @@
                 <div class="sc-stats">
                     @*
                         Said from the missing end as well as the answered one: WHICH players are
-                        still out, by code, so they can be chased without opening the list.
+                        still out, by name, so they can be chased without opening the list.
                     *@
                     <article class="sc-stat">
                         <p class="sc-stat__label">Answers</p>
@@ -271,7 +271,7 @@
                                 Find a player in @Model.TeamName
                             </label>
                             <input class="sc-input" id="team-player-search" type="search"
-                                   autocomplete="off" placeholder="TS-08 or striker"
+                                   autocomplete="off" placeholder="Viljar or striker"
                                    aria-controls="team-player-rows" />
                         </div>
                     </div>
@@ -298,7 +298,7 @@
                     <table class="sc-table sc-table--squad sc-table--grouped">
                         <thead>
                             <tr>
-                                <th scope="col" rowspan="2">Code</th>
+                                <th scope="col" rowspan="2">Name</th>
                                 <th scope="col" rowspan="2">Position</th>
                                 <th scope="colgroup" colspan="3" class="sc-th-group">Answered</th>
                                 <th scope="col" rowspan="2" class="sc-th-group">
@@ -318,8 +318,7 @@
                             </tr>
                         </thead>
                         <tbody id="team-player-rows">
-                            @* Code and position are what the filter matches on. There are no
-                               names in this system to search by, and none are wanted. *@
+                            @* Name and position are what the filter matches on. *@
                             @foreach (var row in Model.Players)
                             {
                                 <tr class="@(row.NeedsFollowUp ? "sc-row--alert" : row.CanView ? "" : "sc-row--hidden")"
@@ -417,7 +416,7 @@
                             <tr data-player-filter-empty hidden>
                                 <td colspan="10" class="sc-muted sc-small">
                                     No player in @Model.TeamName matches that. The search covers
-                                    player code and position, and only this squad.
+                                    name and position, and only this squad.
                                 </td>
                             </tr>
                         </tbody>
