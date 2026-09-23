@@ -141,8 +141,8 @@ public sealed class SuccessionFormationViewModel
 }
 
 /// <summary>
-/// What a shirt says: the first name, or the code where there is none. <see cref="Tag"/> is the
-/// code as well, for a first name two players on the page share.
+/// What a shirt says: the first name, or the full name where there is none. <see cref="Tag"/> is
+/// the full name, for a first name two players on the page share.
 /// </summary>
 public sealed record ShirtName(string Name, string? Tag)
 {

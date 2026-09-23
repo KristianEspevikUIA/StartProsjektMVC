@@ -35,12 +35,12 @@ public class FiveCSubmission
     public Player? Player { get; set; }
 
     /// <summary>
-    /// The club-internal pseudonymous code, e.g. "TS-08-16". Denormalised so a row is
-    /// readable without joining back to a table of minors. Never a name.
+    /// The player's name, e.g. "Brage Kristoffersen" -- a copy of <see cref="Models.Player.Code"/>.
+    /// Denormalised so a row is readable without joining back to the players table.
     /// </summary>
     [Required]
     [StringLength(20)]
-    [Display(Name = "Player code")]
+    [Display(Name = "Player")]
     public string PlayerCode { get; set; } = string.Empty;
 
     /// <summary>

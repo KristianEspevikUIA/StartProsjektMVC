@@ -142,8 +142,7 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         Assert.Contains("data-player-filter", html);
         Assert.Contains("Find a player in Test team", html);
 
-        // Code and position are what it matches on. There are no names in this system to
-        // search by, and none are wanted.
+        // Name and position are what it matches on.
         Assert.Contains("data-player-search=\"TS-TEST-01 Midfielder\"", html);
         Assert.Contains("data-player-search=\"TS-TEST-02 Striker\"", html);
     }
@@ -445,7 +444,7 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Who has not answered, by code, so the coach can chase them without opening the
+    /// Who has not answered, by name, so the coach can chase them without opening the
     /// player list to find out who they are. Who answered is neutral progress -- it says
     /// that somebody answered, never what they answered.
     /// </summary>
@@ -459,7 +458,7 @@ public sealed class TeamOverviewPageTests : IAsyncLifetime
         Assert.Equal(1, Occurrences(html, "players have answered about themselves."));
         Assert.Equal(1, Occurrences(html, "Not yet:"));
 
-        // By code, in the card, after the words that introduce it.
+        // By name, in the card, after the words that introduce it.
         var notYet = html.IndexOf("Not yet:", StringComparison.Ordinal);
         Assert.True(
             html.IndexOf("TS-TEST-02", notYet, StringComparison.Ordinal) > notYet,

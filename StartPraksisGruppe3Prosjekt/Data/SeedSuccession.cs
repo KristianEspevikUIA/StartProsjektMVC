@@ -12,7 +12,7 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///
 /// ALT ER OPPDIKTET, som resten av seedingen. Arbeidsboka trenerne leverte har ekte navn på
 /// ekte spillere, de fleste mindreårige, og ingenting fra den er her -- bare formen på den.
-/// Spillerne er de seedede kodene, tekstene er skrevet for denne fila og nevner ingen.
+/// Spillerne er de oppdiktede fra SeedData, tekstene er skrevet for denne fila og nevner ingen.
 ///
 /// Hva dataene er laget for å vise:
 ///   * Sammenligning. Tre trenere, og de er ikke enige: én er rausere, én strengere, og noen
@@ -24,7 +24,7 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///   * Hull på banen. Posisjonene følger de seedede posisjonene, så det finnes spillere til
 ///     alle elleve i 4-3-3 -- men ikke dobbelt opp overalt.
 ///
-/// Idempotent per (spiller, trener, syklus), og tilfeldigheten er sådd fra spillerkode og
+/// Idempotent per (spiller, trener, syklus), og tilfeldigheten er sådd fra SeedData.SeedKey og
 /// syklusdato: samme base gir det samme bildet i morgen.
 /// </summary>
 internal static class SeedSuccession
@@ -114,7 +114,7 @@ internal static class SeedSuccession
                         continue;
                     }
 
-                    var random = new Random(SeedData.StableSeed($"{player.Code}|{cycle.Key}|{r}"));
+                    var random = new Random(SeedData.StableSeed($"{SeedData.SeedKey(player)}|{cycle.Key}|{r}"));
 
                     // The main coach sees almost everyone; the other two not quite. The current
                     // cycle is under way, so about half the ratings are in.
@@ -154,7 +154,7 @@ internal static class SeedSuccession
 
         foreach (var player in players.Where(p => !have.Contains(p.Id)))
         {
-            var random = new Random(SeedData.StableSeed($"{player.Code}|profile"));
+            var random = new Random(SeedData.StableSeed($"{SeedData.SeedKey(player)}|profile"));
             var team = player.Team?.Name;
 
             var contract = team switch
@@ -187,7 +187,7 @@ internal static class SeedSuccession
     }
 
     /// <summary>
-    /// Én oppdiktet spillers utgangspunkt: nivå, retning og posisjoner. Sådd fra koden alene, så
+    /// Én oppdiktet spillers utgangspunkt: nivå, retning og posisjoner. Sådd fra spilleren alene, så
     /// alle tre trenerne vurderer den samme spilleren -- det er trenerne som skiller seg, ikke
     /// spilleren.
     /// </summary>
@@ -200,7 +200,7 @@ internal static class SeedSuccession
 
     private static PlayerProfile ProfileFor(Player player, int centreBackIndex)
     {
-        var random = new Random(SeedData.StableSeed($"{player.Code}|succession"));
+        var random = new Random(SeedData.StableSeed($"{SeedData.SeedKey(player)}|succession"));
         var team = player.Team?.Name;
 
         var level = team switch

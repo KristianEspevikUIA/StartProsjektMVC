@@ -6,13 +6,12 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// The player's first name and photo, for one thing only: welcoming them by name when they
 /// sign in. One row per player, entered by an administrator.
 ///
-/// THIS IS THE ONLY PLACE A PLAYER'S NAME IS STORED, and it is kept apart from
-/// <see cref="Player"/> on purpose. Everywhere else in the system -- the coach pages, the
-/// team lists, the succession board, the exports' references to other people -- a player is
-/// their code, and that stays true. The one exception is the coaches' best eleven, which shows
-/// the first name on each shirt because the coaches asked for it (see SuccessionController's
-/// DisplayNamesAsync). Nothing reads this table except through IPlayerWelcomeService, so a page
-/// that should show a code cannot show a name by accident.
+/// Kept apart from <see cref="Player"/> on purpose. Everywhere else in the system -- the coach
+/// pages, the team lists, the succession board -- a player goes by the full name in
+/// <see cref="Player.Code"/>. The one other use of the first name is the coaches' best eleven,
+/// which puts it on each shirt because the coaches asked for it (see SuccessionController's
+/// DisplayNamesAsync). Nothing reads this table except through IPlayerWelcomeService, so the
+/// photo cannot turn up on a page by accident.
 ///
 /// A first name and not a full name: "Welcome, Alex" needs no more, and less is less to
 /// lose. The photo is the club's official squad photo, published by the club and used here

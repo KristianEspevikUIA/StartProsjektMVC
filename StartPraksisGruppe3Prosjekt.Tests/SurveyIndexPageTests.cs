@@ -33,8 +33,8 @@ public sealed class SurveyIndexPageTests : IAsyncLifetime
         Assert.Contains("<th scope=\"col\">Team</th>", html);
         Assert.Contains("<th scope=\"col\">Age</th>", html);
 
-        // The identifying column is the player CODE. There are no names in this data model,
-        // deliberately, so this is what a player is called in every list in the application.
+        // The identifying column is the player's name (Player.Code), which is what a player
+        // is called in every list in the application.
         Assert.Contains("TS-TEST-01", html);
 
         // Position and team come from the player, not from the submission.

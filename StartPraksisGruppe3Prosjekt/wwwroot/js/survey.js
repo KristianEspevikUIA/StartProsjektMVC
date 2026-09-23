@@ -357,7 +357,7 @@
         }
 
         function apply() {
-            // Case-folded and trimmed, so "ts-08" finds TS-08-16 and a stray space does not
+            // Case-folded and trimmed, so "viljar" finds Viljar Holm and a stray space does not
             // empty the table.
             var query = input.value.trim().toLowerCase();
 

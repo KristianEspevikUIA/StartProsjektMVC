@@ -15,7 +15,7 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// So there is no foreign key here. <see cref="PlayerId"/> is a plain number, kept as the
 /// reference the club can quote afterwards, and by design it resolves to nothing.
 ///
-/// What is deliberately NOT here: the player code, the team, the birth date, how many
+/// What is deliberately NOT here: the player's name, the team, the birth date, how many
 /// answers were removed. A deletion log that describes the person is a copy of the data the
 /// deletion was meant to remove, and it would outlive every retention rule in the system.
 /// Who deleted, when, and which row id. Nothing more.

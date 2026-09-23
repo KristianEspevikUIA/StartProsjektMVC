@@ -57,7 +57,7 @@ public sealed record FiveCScoreCardViewModel
     /// A card for one pair, e.g. coach against player.
     /// </summary>
     /// <param name="gap">The measured gap, or null when one of the two has not answered.</param>
-    /// <param name="playerCode">Player code for the sentence. Codes, not names.</param>
+    /// <param name="playerCode">The player's name, for the sentence.</param>
     /// <param name="missingReason">What to say when <paramref name="gap"/> is null.</param>
     /// <param name="accent">Accent stripe: "coach", "guardian" or "all".</param>
     public static FiveCScoreCardViewModel ForGap(

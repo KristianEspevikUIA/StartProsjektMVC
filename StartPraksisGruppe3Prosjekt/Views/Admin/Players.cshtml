@@ -23,7 +23,7 @@
         <h1>Players</h1>
         <p class="sc-hero__lead">
             The first name and photo a player is welcomed with when they sign in. Only the player
-            sees them; everywhere else in StartCompass a player is their code.
+            sees the photo; the first name is also on their shirt in the coaches' best eleven.
         </p>
         <div class="sc-hero__meta">
             <span>@Model.Count players</span>
@@ -40,7 +40,7 @@
                 <div class="sc-form-field">
                     <label class="sc-label" for="admin-player-search">Find a player</label>
                     <input class="sc-input" id="admin-player-search" type="search" autocomplete="off"
-                           placeholder="TS-10 or G16" />
+                           placeholder="Emil or G16" />
                 </div>
             </div>
             <div class="sc-filters__actions">
@@ -53,7 +53,7 @@
             <table class="sc-table">
                 <thead>
                     <tr>
-                        <th scope="col">Code</th>
+                        <th scope="col">Player</th>
                         <th scope="col">Team</th>
                         <th scope="col">First name</th>
                         <th scope="col">Photo</th>
@@ -80,7 +80,7 @@
                         </tr>
                     }
                     <tr data-player-filter-empty hidden>
-                        <td colspan="6" class="sc-muted sc-small">No player matches that. The search covers code and team.</td>
+                        <td colspan="6" class="sc-muted sc-small">No player matches that. The search covers name and team.</td>
                     </tr>
                 </tbody>
             </table>

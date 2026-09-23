@@ -55,7 +55,7 @@ public interface IFiveCAnalysisService
     /// per-player numbers rather than by pooling every answer -- see
     /// <see cref="TeamFiveCAggregate"/> for why.
     ///
-    /// Player IDS are asked for and player CODES are not, deliberately: an aggregate has no
+    /// Player IDS are asked for and player NAMES are not, deliberately: an aggregate has no
     /// use for them, and a method that never receives them cannot leak one.
     ///
     /// The caller still decides whether an aggregate may be shown at all. That is

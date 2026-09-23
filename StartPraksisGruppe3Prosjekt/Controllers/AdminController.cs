@@ -631,7 +631,7 @@ public class AdminController : Controller
     }
 
     /// <summary>
-    /// Bekreftelsessteget foran en sletting: hva som forsvinner, og feltet der spillerkoden
+    /// Bekreftelsessteget foran en sletting: hva som forsvinner, og feltet der spillerens navn
     /// skrives av for hånd.
     ///
     /// Slettingen er den ene operasjonen som fjerner ConsentEvent-rader, og den kan ikke
@@ -676,15 +676,15 @@ public class AdminController : Controller
             return NotFound();
         }
 
-        // Sammenligningen ser bort fra ytre mellomrom og store/små bokstaver. Koden skrives
+        // Sammenligningen ser bort fra ytre mellomrom og store/små bokstaver. Navnet skrives
         // av for hånd fra siden foran, og en Caps Lock-tast skal ikke koste et nytt forsøk på
         // en irreversibel handling — det som skal stanses er å treffe feil spiller, ikke å
-        // skrive «ts-08-16».
+        // skrive «viljar holm».
         if (!string.Equals(confirmCode?.Trim(), player.Code, StringComparison.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(
                 nameof(AdminDeletePlayerViewModel.ConfirmCode),
-                "Type the player code exactly as it is shown above to confirm the deletion.");
+                "Type the player's name exactly as it is shown above to confirm the deletion.");
 
             var again = await BuildDeleteViewAsync(id, cancellationToken);
 

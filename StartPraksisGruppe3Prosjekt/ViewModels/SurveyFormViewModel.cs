@@ -35,7 +35,7 @@ public class SurveyFormViewModel
     /// <summary>The player the answers are about, also when a coach or guardian is answering.</summary>
     public int PlayerId { get; set; }
 
-    /// <summary>Player code, e.g. "TS-08-16". Codes are used in the UI, not names.</summary>
+    /// <summary>The player's name, e.g. "Brage Kristoffersen".</summary>
     public string PlayerCode { get; set; } = string.Empty;
 
     public string TeamName { get; set; } = string.Empty;

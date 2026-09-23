@@ -97,8 +97,8 @@ export interface SurveySubmission {
   player_id: number;
 
   /**
-   * The club-internal pseudonymous code, e.g. "TS-08-16". Sent so that a row is readable
-   * without joining back to a table of minors. Never a name.
+   * The player's name, e.g. "Brage Kristoffersen" (Player.Code). Sent so that a row is
+   * readable without joining back to the players table.
    */
   player_code: string;
 
@@ -138,7 +138,7 @@ export interface SurveySubmission {
 export const exampleSubmission: SurveySubmission = {
   round_id: 2,
   player_id: 14,
-  player_code: "TS-08-16",
+  player_code: "Brage Kristoffersen",
   respondent_role: "coach",
   respondent_user_id: "9f0c1f4e-1f2a-4a5b-9a3d-7c1e2b8d4f60",
   question_set_version: "placeholder-2026-08-26",

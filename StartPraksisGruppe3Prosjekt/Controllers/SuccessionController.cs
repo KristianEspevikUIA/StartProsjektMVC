@@ -572,11 +572,10 @@ public class SuccessionController : Controller
 
     /// <summary>
     /// What each player is called on the best eleven: the first name the club entered for the
-    /// welcome, or the code where there is none. The only staff page that shows a name -- the
-    /// coaches asked to see the team as a team, and a pitch of codes is not one.
+    /// welcome, or the full name where there is none. A shirt has room for one name.
     ///
-    /// Two players with the same first name get their code as a tag under it, so a shirt can
-    /// never be mistaken for the other one.
+    /// Two players with the same first name get their full name as a tag under it, so a shirt
+    /// can never be mistaken for the other one.
     /// </summary>
     private async Task<Dictionary<int, ShirtName>> DisplayNamesAsync(
         IEnumerable<BoardPlayer> rows,

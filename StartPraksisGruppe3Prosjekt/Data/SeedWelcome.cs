@@ -5,29 +5,22 @@ using StartPraksisGruppe3Prosjekt.Models;
 namespace StartPraksisGruppe3Prosjekt.Data;
 
 /// <summary>
-/// Oppdiktede fornavn til velkomsten, for Development.
+/// Fornavn til velkomsten, for Development.
 ///
-/// OPPDIKTET, som resten av seedingen: fornavnene er valgt fra en liste med vanlige navn, og
-/// ingen av dem står i trenernes arbeidsbok eller er navnet på noen i prosjektgruppa. De
-/// knyttes til de oppdiktede spillerkodene, så de er ikke noen.
+/// Fornavnet er første del av navnet spilleren har i SeedData -- oppdiktet, som resten av
+/// seedingen, bortsett fra prosjektgruppas egne. Ingenting her står i trenernes arbeidsbok.
 ///
 /// Bare fornavn, og ingen bilder. Ekte bilder av spillerne legges inn av admin i appen, på
 /// /Admin/Players, og aldri i repoet. Uten bilde viser velkomsten bare navnet -- vil man se
 /// bildet i utvikling, er det én opplasting på den siden.
 ///
 /// Bare spillere med konto: velkomsten vises når man logger inn, og uten konto logger ingen inn.
-/// Idempotent per spiller -- et navn som finnes, er ikke seedingens å endre.
+/// Idempotent per spiller -- et navn som finnes, er ikke seedingens å endre. Unntaket er
+/// omdøpingen fra kode til navn i SeedData, som bytter ut fornavnet som ble trukket tilfeldig
+/// den gang spillerne het koder.
 /// </summary>
 internal static class SeedWelcome
 {
-    private static readonly string[] FirstNames =
-    {
-        "Alex", "Sam", "Robin", "Kim", "Andrea", "Chris", "Sigurd", "Ola", "Håvard", "Vetle",
-        "Sindre", "Torstein", "Aksel", "Isak", "Mikkel", "Adrian", "Oliver", "Olav", "Kristoffer",
-        "Jørgen", "Erlend", "Sverre", "Trym", "Eskil", "Ivar", "Petter", "Ruben", "Simen", "Viljar",
-        "Amund"
-    };
-
     public static async Task SeedAsync(AppDbContext db, UserManager<IdentityUser> userManager, ILogger logger)
     {
         var admin = await userManager.FindByEmailAsync("admin@ikstart.example");
@@ -51,7 +44,7 @@ internal static class SeedWelcome
             db.PlayerPersonalDetails.Add(new PlayerPersonalDetails
             {
                 PlayerId = player.Id,
-                FirstName = FirstNames[SeedData.StableSeed($"{player.Code}|first-name") % FirstNames.Length],
+                FirstName = SeedData.FirstNameOf(player.Code),
                 UpdatedByUserId = admin.Id,
                 UpdatedAt = DateTimeOffset.UtcNow
             });
@@ -66,6 +59,6 @@ internal static class SeedWelcome
 
         await db.SaveChangesAsync();
 
-        logger.LogInformation("La til oppdiktede fornavn for {Count} spillere med konto.", added);
+        logger.LogInformation("La til fornavn for {Count} spillere med konto.", added);
     }
 }
