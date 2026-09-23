@@ -15,6 +15,10 @@
     marker with display: block, and Safari drops table semantics when that happens -- the
     roles keep "row", "column header" and "cell" for a screen reader either way.
 
+    A substitute says which club marker it replaces, and its range says Provisional when it is
+    not the club's. Why, and where the range comes from, opens from the "Replaces" line --
+    under the table there is only the club's own footnotes.
+
     A marker the reports cannot answer says "Not measured", points to the reason below the
     table, and has no status. Not a dash that could be read as zero, and not a badge.
 *@
@@ -44,7 +48,7 @@
                 var marker = reading.Marker;
 
                 <tr role="row">
-                    <th role="rowheader" scope="row" class="sc-id-table__marker">@marker.Name</th>
+                    <th role="rowheader" scope="row" class="sc-id-table__marker"><partial name="_IdentityMarkerName" model="marker" /></th>
 
                     <td role="cell" class="sc-id-table__value" data-label="@Model.ValueHeading">
                         @if (reading.IsMeasured)
@@ -56,7 +60,7 @@
                                 <p>@reading.Formula</p>
                                 @if (Model.IsAverage && reading.MatchesAtOrAboveRange is { } inRange)
                                 {
-                                    <p>In or above the elite range in @inRange of @Model.MatchCount matches.</p>
+                                    <p>In or above the @IdentityFormat.RangeName(marker) in @inRange of @Model.MatchCount matches.</p>
                                 }
                                 <partial name="_IdentitySources" model="reading.Sources" />
                             </details>
@@ -69,7 +73,13 @@
                         }
                     </td>
 
-                    <td role="cell" class="sc-id-table__target" data-label="Target">@marker.Target.Display</td>
+                    <td role="cell" class="sc-id-table__target" data-label="Target">
+                        @marker.Target.Display
+                        @if (marker.Target.Provisional)
+                        {
+                            <span class="sc-id-provisional">Provisional</span>
+                        }
+                    </td>
 
                     <td role="cell" class="sc-id-table__status" data-label="Status">
                         @if (reading.Status is { } status)

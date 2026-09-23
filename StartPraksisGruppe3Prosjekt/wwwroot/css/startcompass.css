@@ -3077,9 +3077,33 @@ main .form-control:focus {
 .sc-id-reference:focus-visible,
 .sc-id-noteref:focus-visible,
 .sc-id-source summary:focus-visible,
+.sc-id-replaces summary:focus-visible,
 .sc-id-minitable a:focus-visible {
     outline: 3px solid var(--sc-blue);
     outline-offset: 2px;
+}
+
+/* ----- the three pages */
+
+/* Overview, Key Insights, Development over time: one button each, the page shown filled. The
+   full width of the page and equal in size, so they read as the page's own navigation and not
+   as more teams. */
+.sc-id-sections {
+    margin-top: 28px;
+}
+
+.sc-id-sections ul {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sc-id-sections .sc-btn {
+    display: block;
+    text-align: center;
 }
 
 .sc-id-selection {
@@ -3334,6 +3358,68 @@ main .form-control:focus {
     outline: 2px solid var(--sc-yellow);
 }
 
+/* ----- substitutes and provisional ranges */
+
+/* Under a substitute's name: the club marker it stands in for. It opens to why, in the row,
+   rather than as a note under the table. A dotted underline, not the Source link's blue:
+   it is a detail of the name, not a link away. */
+.sc-id-replaces {
+    color: var(--sc-muted-foreground);
+    font-family: var(--sc-sans);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+    margin-top: 3px;
+}
+
+.sc-id-replaces summary {
+    cursor: pointer;
+    display: inline-block;
+    font-weight: 600;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+
+.sc-id-replaces p {
+    margin: 6px 0 0;
+    max-width: 52ch;
+}
+
+/* A range that is not the club's, in words -- never a colour alone. Muted ink, which is
+   5.91:1 and 5.61:1 on the two row washes. */
+.sc-id-provisional {
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    color: var(--sc-muted-foreground);
+    display: inline-block;
+    font-family: var(--sc-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    padding: 1px 7px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* On a line of its own under the range, so the Target column keeps its width. */
+.sc-id-table .sc-id-provisional {
+    display: block;
+    margin-top: 4px;
+    width: fit-content;
+}
+
+/* The Gold Standard page's note on the substitutes, straight under the club's own intro. */
+.sc-id-subnote {
+    border-left: 4px solid var(--sc-yellow);
+    color: var(--sc-ink);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 18px 0 0;
+    max-width: 900px;
+    padding: 4px 0 4px 16px;
+}
+
 /* ----- statuses */
 
 .sc-id-status {
@@ -3530,10 +3616,46 @@ main .form-control:focus {
     padding: 18px 20px 16px;
 }
 
+/* An h4 under its phase's h3, set as the h3 it used to be. */
 .sc-section .sc-id-trend__title {
     color: var(--sc-ink);
+    font-family: var(--sc-display);
     font-size: 20px;
+    font-weight: 700;
+    line-height: 1.05;
     margin: 0 0 2px;
+    text-transform: uppercase;
+}
+
+/* In Possession and Out of Possession, each headed by a short band in the colours of its
+   table above: ink on yellow, yellow on ink (12.33:1 either way). */
+.sc-id-trends-phase + .sc-id-trends-phase {
+    margin-top: 32px;
+}
+
+.sc-section .sc-id-trends-phase__title {
+    display: inline-block;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    line-height: 1;
+    margin: 0 0 14px;
+    padding: 9px 16px;
+}
+
+.sc-id-trends-phase--light .sc-id-trends-phase__title {
+    background: var(--sc-yellow);
+    color: var(--sc-ink);
+}
+
+.sc-id-trends-phase--dark .sc-id-trends-phase__title {
+    background: var(--sc-ink);
+    color: var(--sc-yellow);
+}
+
+/* The cards take their phase's colour along the top edge. Decorative: the heading says it. */
+.sc-id-trends-phase--light .sc-id-trend {
+    border-top-color: var(--sc-yellow);
 }
 
 .sc-id-trend__meta {
@@ -3706,7 +3828,8 @@ main .form-control:focus {
     }
 
     /* Under the value, not under the label. */
-    .sc-id-table tbody td .sc-id-source {
+    .sc-id-table tbody td .sc-id-source,
+    .sc-id-table tbody td .sc-id-provisional {
         margin-left: 114px;
     }
 

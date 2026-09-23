@@ -587,15 +587,17 @@ en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelse
 ## Identity Benchmarking
 
 Lagenes kamptall fra StatsBomb-rapportene mot IK Starts Identity Gold Standard, på
-`/Identity`. Bare trener og administrator har tilgang.
+`/Identity`, fordelt på tre sider med knapper mellom: Overview, Key Insights og Development
+over time. Bare trener og administrator har tilgang.
 
 - **Gold Standard:** `Data/Identity/gold-standard.json`, transkribert ordrett fra klubbens PDF.
   `IdentityCatalogTests` holder fila til dokumentet.
 - **Kampdata:** hentes ut med `scripts/identity/extract_stats.py` til `Data/Identity/Matches/`,
   som er **git-ignorert** fordi rapportene navngir spillere.
-- **Not measured:** 4 av 10 markører kan måles fra rapportene (Possession, Pass Accuracy,
-  Dribbles, Interceptions). De andre seks vises som «Not measured» med begrunnelse, aldri med
-  et estimat.
+- **Erstatninger:** 4 av klubbens 10 markører kan måles direkte fra rapportene. De andre seks er
+  erstattet av det nærmeste rapporten har (for eksempel Pressures i stedet for PPDA), under eget
+  navn. Målområdene deres er **foreløpige**, utledet av motstanderne i rapportene med
+  `scripts/identity/derive_targets.py`, til klubben setter egne.
 
 **Alt om dette: [`docs/identity-benchmarking.md`](docs/identity-benchmarking.md).**
 

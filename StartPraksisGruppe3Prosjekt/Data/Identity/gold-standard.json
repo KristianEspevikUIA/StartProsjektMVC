@@ -3,22 +3,34 @@
     "THE IK START IDENTITY GOLD STANDARD. The source of truth for the Identity Benchmarking page.",
     "",
     "Transcribed from 'IK Start – Identity Gold Standard.pdf' (one page, no text layer -- it was",
-    "read as an image). Every 'name', 'eliteRange', 'bestAtIt', 'tagline' and footnote is word for",
-    "word from that page, in its order. Change them only when the club changes the document.",
+    "read as an image). Every 'name', 'eliteRange', 'bestAtIt', 'tagline' and footnote of the",
+    "club's ten markers is word for word from that page, in its order. Change them only when the",
+    "club changes the document.",
     "",
-    "What is NOT in the PDF, and is ours:",
-    "  * 'target'      -- the elite range as numbers, so a status can be worked out, plus the short",
+    "Six of the club's markers cannot be measured from a StatsBomb match report. Each of those",
+    "is kept exactly as it was, under 'replaces.marker' of a substitute that stands in its place,",
+    "so all ten are still here in the document's order. To restore one, move it back out. The",
+    "substitutes are ours, not the club's:",
+    "  * 'name', 'eliteRange', 'bestAtIt' -- of the measure the report does have.",
+    "  * 'replaces.rationale' -- why that measure is the closest the report has.",
+    "  * 'target.provisional' -- the range is not from the standard-setter clubs. It is derived",
+    "                     from Start's opponents in the match reports by",
+    "                     scripts/identity/derive_targets.py, and 'target.basis' says how. Replace",
+    "                     it when the club sets its own, and drop 'provisional' then.",
+    "",
+    "What is NOT in the PDF, and is ours, for every marker:",
+    "  * 'target'      -- the range as numbers, so a status can be worked out, plus the short",
     "                     form shown in the Target column. The numbers must agree with 'eliteRange';",
     "                     IdentityCatalogTests checks that they do.",
     "  * 'statusRules' -- the thresholds for Strong Alignment and Developing. Adjust them here.",
     "  * 'measurement' -- which value in the extracted match data answers the marker ('metric'),",
     "                     or why nothing in a StatsBomb match report can ('notMeasuredReason').",
     "                     A marker without a metric is shown as 'Not measured'. It is never",
-    "                     estimated, and never stood in for by a different number.",
+    "                     estimated, and never given another marker's number under its own name.",
     "",
     "The match data itself is NOT in this file and not in git: see Data/Identity/Matches/README.md."
   ],
-  "version": "2026-09-16",
+  "version": "2026-09-23",
   "source": { "file": "IK Start – Identity Gold Standard.pdf", "page": 1 },
 
   "eyebrow": "Identity Benchmarking",
@@ -31,13 +43,17 @@
     "title": "Why these are the gold standards",
     "text": "Benchmarks combine consistent team averages (the floor of performance) with peak match data (the ceiling). For example, while Malmö FF usually maintain a high volume of progressive passes, their 112-pass match against Skövde AIK shows the absolute maximum vertical courage we want to encourage in our players."
   },
+  "substitutes": {
+    "title": "Substitute markers",
+    "text": "Six of the club's ten markers cannot be measured from a StatsBomb match report. Each has been replaced by the closest measure the report does have, and says which marker it replaces. Their ranges are provisional and do not come from the six standard-setter clubs: by the same method, the floor is the average of Start's opponents in the match reports and the ceiling their best single match."
+  },
 
   "statusRules": {
     "//": [
       "Higher is better: above 'max' is Exceptional, from 'min' to 'max' is Elite Alignment, at or",
       "above strongAlignmentAtFractionOfMin x min is Strong Alignment, at or above",
       "developingAtFractionOfMin x min is Developing, anything lower is Below Target.",
-      "Lower is better (PPDA) has its own absolute thresholds on the marker, under 'target'."
+      "Lower is better (the club's PPDA) has its own absolute thresholds on the marker, under 'target'."
     ],
     "strongAlignmentAtFractionOfMin": 0.90,
     "developingAtFractionOfMin": 0.75
@@ -58,23 +74,53 @@
           "measurement": { "metric": "possessionPct" }
         },
         {
-          "key": "progressive-passes",
-          "name": "Progressive Passes",
-          "eliteRange": "50 – 112 / match",
-          "bestAtIt": "Malmö FF (peak 112)",
-          "target": { "direction": "higher-is-better", "min": 50, "max": 112, "display": "50–112" },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report has no progressive-pass count. Its passing tables split passes by final third, box and long balls, and none of those is a progressive pass."
+          "key": "final-third-passes",
+          "name": "Final Third Passes",
+          "eliteRange": "68 – 140 / match",
+          "bestAtIt": "Stabæk U14 (peak 140)",
+          "target": {
+            "direction": "higher-is-better", "min": 68, "max": 140, "display": "68–140",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 67.5, up to their best single match, 140 by Stabæk U14 on 23 Aug 2026."
+          },
+          "measurement": { "metric": "finalThirdPasses" },
+          "replaces": {
+            "rationale": "The report has no progressive-pass count. Open-play final-third passes are its closest measure of the same vertical intent.",
+            "marker": {
+              "key": "progressive-passes",
+              "name": "Progressive Passes",
+              "eliteRange": "50 – 112 / match",
+              "bestAtIt": "Malmö FF (peak 112)",
+              "target": { "direction": "higher-is-better", "min": 50, "max": 112, "display": "50–112" },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report has no progressive-pass count. Its passing tables split passes by final third, box and long balls, and none of those is a progressive pass."
+              }
+            }
           }
         },
         {
-          "key": "match-tempo",
-          "name": "Match Tempo",
-          "eliteRange": "15.5 – 19.8 p/min",
-          "bestAtIt": "Bayern München (peak 19.79)",
-          "target": { "direction": "higher-is-better", "min": 15.5, "max": 19.8, "display": "15.5–19.8" },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report has no tempo figure, and no ball-in-play time to work one out from."
+          "key": "total-passes",
+          "name": "Total Passes",
+          "eliteRange": "471 – 596 / match",
+          "bestAtIt": "Rosenborg U17 (peak 596)",
+          "target": {
+            "direction": "higher-is-better", "min": 471, "max": 596, "display": "471–596",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 470.9, up to their best single match, 596 by Rosenborg U17 on 7 Jun 2026."
+          },
+          "measurement": { "metric": "totalPasses" },
+          "replaces": {
+            "rationale": "Tempo is passes per minute, and the report has the passes but no playing time.",
+            "marker": {
+              "key": "match-tempo",
+              "name": "Match Tempo",
+              "eliteRange": "15.5 – 19.8 p/min",
+              "bestAtIt": "Bayern München (peak 19.79)",
+              "target": { "direction": "higher-is-better", "min": 15.5, "max": 19.8, "display": "15.5–19.8" },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report has no tempo figure, and no ball-in-play time to work one out from: its Possession % is each team's share of the passes, not of the time."
+              }
+            }
           }
         },
         {
@@ -105,50 +151,110 @@
       "tagline": "The \"Defending Forward\" — aggression & tactical reading to suffocate opponents",
       "markers": [
         {
-          "key": "ppda",
-          "name": "PPDA (Intensity)",
-          "eliteRange": "Under 10.0",
-          "bestAtIt": "Barcelona (peak 5.04)",
+          "key": "pressures",
+          "name": "Pressures",
+          "eliteRange": "182 – 298 / match",
+          "bestAtIt": "Haugesund U15 (peak 298)",
           "target": {
-            "direction": "lower-is-better",
-            "max": 10.0,
-            "display": "<10.0",
-            "exceptionalAtOrBelow": 5.04,
-            "strongAlignmentAtOrBelow": 11.0,
-            "developingAtOrBelow": 12.5
+            "direction": "higher-is-better", "min": 182, "max": 298, "display": "182–298",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 181.7, up to their best single match, 298 by Haugesund U15 on 26 Apr 2026."
           },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report has no PPDA. It counts pressures, which are a different measure, and gives no opponent passes or defensive actions by pitch zone to calculate PPDA from."
+          "measurement": { "metric": "pressures" },
+          "replaces": {
+            "rationale": "The report has no PPDA, but it counts the pressing itself: every time a player closes down an opponent on the ball.",
+            "marker": {
+              "key": "ppda",
+              "name": "PPDA (Intensity)",
+              "eliteRange": "Under 10.0",
+              "bestAtIt": "Barcelona (peak 5.04)",
+              "target": {
+                "direction": "lower-is-better",
+                "max": 10.0,
+                "display": "<10.0",
+                "exceptionalAtOrBelow": 5.04,
+                "strongAlignmentAtOrBelow": 11.0,
+                "developingAtOrBelow": 12.5
+              },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report has no PPDA. It counts pressures, which are a different measure, and gives no opponent passes or defensive actions by pitch zone to calculate PPDA from."
+              }
+            }
           }
         },
         {
-          "key": "opp-half-recoveries",
-          "name": "Opp. Half Recoveries",
-          "eliteRange": "22 – 42 / match",
-          "bestAtIt": "Malmö FF (peak 42)",
-          "target": { "direction": "higher-is-better", "min": 22, "max": 42, "display": "22–42" },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report has no ball recoveries, and does not split any regain by half of the pitch."
+          "key": "counterpresses",
+          "name": "Counterpresses",
+          "eliteRange": "45 – 77 / match",
+          "bestAtIt": "Haugesund U15 (peak 77)",
+          "target": {
+            "direction": "higher-is-better", "min": 45, "max": 77, "display": "45–77",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 45.2, up to their best single match, 77 by Haugesund U15 on 26 Apr 2026."
+          },
+          "measurement": { "metric": "counterpresses" },
+          "replaces": {
+            "rationale": "The report has no regains by half of the pitch, but it counts the reflex behind a high regain: pressing within five seconds of losing the ball.",
+            "marker": {
+              "key": "opp-half-recoveries",
+              "name": "Opp. Half Recoveries",
+              "eliteRange": "22 – 42 / match",
+              "bestAtIt": "Malmö FF (peak 42)",
+              "target": { "direction": "higher-is-better", "min": 22, "max": 42, "display": "22–42" },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report has no ball recoveries, and does not split any regain by half of the pitch."
+              }
+            }
           }
         },
         {
-          "key": "total-duels-won",
-          "name": "Total Duels Won",
-          "eliteRange": "44% – 53%",
-          "bestAtIt": "Racing Santander (peak 53%)",
-          "target": { "direction": "higher-is-better", "min": 44, "max": 53, "unit": "%", "display": "44–53%" },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report only gives tackles won out of tackles attempted, which are defensive ground duels. Aerial duels cannot be counted (Aer% is 0 both when a player had none and when they lost them all) and failed dribbles are not recorded, so a total cannot be calculated."
+          "key": "tackle-success",
+          "name": "Tackle Success %",
+          "eliteRange": "64% – 83%",
+          "bestAtIt": "Stabæk U14 (peak 83%)",
+          "target": {
+            "direction": "higher-is-better", "min": 64, "max": 83, "unit": "%", "display": "64–83%",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 63.5%, up to their best single match, 83% by Stabæk U14 on 23 Aug 2026."
+          },
+          "measurement": { "metric": "tackleSuccessPct" },
+          "replaces": {
+            "rationale": "The report cannot count every duel, but it has one in full: the defensive ground duel, tackles won out of attempted.",
+            "marker": {
+              "key": "total-duels-won",
+              "name": "Total Duels Won",
+              "eliteRange": "44% – 53%",
+              "bestAtIt": "Racing Santander (peak 53%)",
+              "target": { "direction": "higher-is-better", "min": 44, "max": 53, "unit": "%", "display": "44–53%" },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report only gives tackles won out of tackles attempted, which are defensive ground duels. Aerial duels cannot be counted (Aer% is 0 both when a player had none and when they lost them all) and failed dribbles are not recorded, so a total cannot be calculated."
+              }
+            }
           }
         },
         {
-          "key": "total-regains",
-          "name": "Total Regains",
-          "eliteRange": "70 – 90 / match",
-          "bestAtIt": "Racing Santander (peak 90)",
-          "target": { "direction": "higher-is-better", "min": 70, "max": 90, "display": "70–90" },
-          "measurement": {
-            "notMeasuredReason": "The StatsBomb match report only gives Pressure Regains: possession won back within five seconds of a pressure. That is part of a team's regains, not the total."
+          "key": "pressure-regains",
+          "name": "Pressure Regains",
+          "eliteRange": "61 – 99 / match",
+          "bestAtIt": "Haugesund U15 (peak 99)",
+          "target": {
+            "direction": "higher-is-better", "min": 61, "max": 99, "display": "61–99",
+            "provisional": true,
+            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 60.9, up to their best single match, 99 by Haugesund U15 on 26 Apr 2026."
+          },
+          "measurement": { "metric": "pressureRegains" },
+          "replaces": {
+            "rationale": "The report counts only the regains that follow a pressure, so they have a range of their own, not Total Regains' 70 – 90.",
+            "marker": {
+              "key": "total-regains",
+              "name": "Total Regains",
+              "eliteRange": "70 – 90 / match",
+              "bestAtIt": "Racing Santander (peak 90)",
+              "target": { "direction": "higher-is-better", "min": 70, "max": 90, "display": "70–90" },
+              "measurement": {
+                "notMeasuredReason": "The StatsBomb match report only gives Pressure Regains: possession won back within five seconds of a pressure. That is part of a team's regains, not the total."
+              }
+            }
           }
         },
         {

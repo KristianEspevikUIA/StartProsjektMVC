@@ -1,0 +1,43 @@
+@model IdentityBenchmarkViewModel
+@{
+    Layout = "_IdentityLayout";
+    ViewData["Title"] = Model.TeamKey.Length > 0 ? $"Development – {Model.TeamName}" : "Development";
+}
+
+@*
+    Development over time: every match for every measured marker, In Possession and Out of
+    Possession apart, headed like their tables in the Overview. The whole season whatever match
+    is picked; the picked one is ringed.
+*@
+
+<section class="sc-section" aria-labelledby="identity-development">
+    <h2 id="identity-development">Development over time</h2>
+
+    @if (Model.Trends.Count == 0)
+    {
+        <p class="sc-lead">Development needs at least two matches. @Model.TeamName has one.</p>
+    }
+    else
+    {
+        <p class="sc-lead">
+            Every match for @Model.TeamName, oldest first, for the markers the match reports
+            can answer. Each dot is coloured by its status@(Model.Match is null ? string.Empty : "; the selected match is ringed").
+        </p>
+
+        @foreach (var group in Model.Trends)
+        {
+            var headingId = $"identity-development-{group.Phase.Key}";
+            var theme = group.Phase.Key == "out-of-possession" ? "sc-id-trends-phase--dark" : "sc-id-trends-phase--light";
+
+            <section class="sc-id-trends-phase @theme" aria-labelledby="@headingId">
+                <h3 class="sc-id-trends-phase__title" id="@headingId">@group.Phase.Title</h3>
+                <div class="sc-id-trends">
+                    @foreach (var trend in group.Trends)
+                    {
+                        <partial name="_IdentityTrend" model="@(new TrendChartModel(trend, Model.TeamKey, Model.Match?.Id))" />
+                    }
+                </div>
+            </section>
+        }
+    }
+</section>

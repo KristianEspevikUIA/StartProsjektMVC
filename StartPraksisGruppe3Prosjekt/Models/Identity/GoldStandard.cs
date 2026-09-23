@@ -5,9 +5,10 @@ namespace StartPraksisGruppe3Prosjekt.Models.Identity;
 /// <summary>
 /// The IK Start Identity Gold Standard, as written in Data/Identity/gold-standard.json.
 ///
-/// Content, not state -- the same arrangement as the 5C question set. The wording of every
-/// marker, range and footnote is transcribed from the club's Gold Standard PDF, and no view
-/// holds a number or a label of its own: change the file, and every page follows.
+/// Content, not state -- the same arrangement as the 5C question set. The wording of the
+/// club's markers, ranges and footnotes is transcribed from the club's Gold Standard PDF; the
+/// substitutes standing in for the six a match report cannot answer are ours, and say so. No
+/// view holds a number or a label of its own: change the file, and every page follows.
 /// </summary>
 public sealed class GoldStandard
 {
@@ -44,6 +45,13 @@ public sealed class GoldStandard
     [JsonPropertyName("why")]
     public GoldStandardNote Why { get; init; } = new();
 
+    /// <summary>
+    /// What a substitute marker is, and where its provisional range comes from. Ours, not the
+    /// club's -- see <see cref="IdentityMarker.Replaces"/>.
+    /// </summary>
+    [JsonPropertyName("substitutes")]
+    public GoldStandardNote Substitutes { get; init; } = new();
+
     [JsonPropertyName("statusRules")]
     public StatusRules StatusRules { get; init; } = new();
 
@@ -51,8 +59,16 @@ public sealed class GoldStandard
     [JsonPropertyName("phases")]
     public IReadOnlyList<IdentityPhase> Phases { get; init; } = Array.Empty<IdentityPhase>();
 
+    /// <summary>The markers on the page, substitutes included, in the document's order.</summary>
     [JsonIgnore]
     public IEnumerable<IdentityMarker> AllMarkers => Phases.SelectMany(p => p.Markers);
+
+    /// <summary>
+    /// The club's own ten, in the document's order: each marker on the page, or the club marker
+    /// a substitute replaced in that place.
+    /// </summary>
+    [JsonIgnore]
+    public IEnumerable<IdentityMarker> ClubMarkers => AllMarkers.Select(m => m.Replaces?.Marker ?? m);
 }
 
 /// <summary>A file and a page. Every number on the Identity page carries one.</summary>
@@ -109,7 +125,10 @@ public sealed class IdentityPhase
     public IReadOnlyList<GoldStandardFootnote> Footnotes { get; init; } = Array.Empty<GoldStandardFootnote>();
 }
 
-/// <summary>One of the ten identity markers.</summary>
+/// <summary>
+/// One of the ten identity markers: the club's own, or a substitute standing in for one of the
+/// club's that no StatsBomb report can answer.
+/// </summary>
 public sealed class IdentityMarker
 {
     [JsonPropertyName("key")]
@@ -132,6 +151,29 @@ public sealed class IdentityMarker
 
     [JsonPropertyName("measurement")]
     public MarkerMeasurement Measurement { get; init; } = new();
+
+    /// <summary>The club's marker this one stands in for. Null for the club's own markers.</summary>
+    [JsonPropertyName("replaces")]
+    public MarkerReplacement? Replaces { get; init; }
+
+    [JsonIgnore]
+    public bool IsSubstitute => Replaces is not null;
+}
+
+/// <summary>
+/// A club marker that no StatsBomb report can answer, kept exactly as it was under the
+/// substitute that took its place -- so the club's document is still all there, and moving it
+/// back out restores it.
+/// </summary>
+public sealed class MarkerReplacement
+{
+    /// <summary>The club's marker, word for word, with its reason for not being measured.</summary>
+    [JsonPropertyName("marker")]
+    public IdentityMarker Marker { get; init; } = new();
+
+    /// <summary>Why the substitute is the closest measure the report has.</summary>
+    [JsonPropertyName("rationale")]
+    public string Rationale { get; init; } = string.Empty;
 }
 
 public enum TargetDirection
@@ -188,6 +230,17 @@ public sealed class MarkerTarget
 
     [JsonPropertyName("developingAtOrBelow")]
     public double? DevelopingAtOrBelow { get; init; }
+
+    /// <summary>
+    /// True when the range is not the club's but derived from the match reports, until the club
+    /// sets its own. Wherever the range is shown, the page says so.
+    /// </summary>
+    [JsonPropertyName("provisional")]
+    public bool Provisional { get; init; }
+
+    /// <summary>Where a provisional range comes from, in words. Required when it is provisional.</summary>
+    [JsonPropertyName("basis")]
+    public string Basis { get; init; } = string.Empty;
 }
 
 /// <summary>

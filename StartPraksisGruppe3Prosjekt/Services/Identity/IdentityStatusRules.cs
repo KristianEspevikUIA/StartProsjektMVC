@@ -7,14 +7,15 @@ namespace StartPraksisGruppe3Prosjekt.Services.Identity;
 /// Turns a value into one of the five statuses. Every threshold comes from gold-standard.json;
 /// nothing here is a number of its own.
 ///
-/// Higher is better (nine of the ten markers):
+/// Higher is better (every marker on the page today):
 ///   above max                                  Exceptional
 ///   min .. max, both included                  Elite Alignment
 ///   at least strongAlignmentAtFractionOfMin*min Strong Alignment
 ///   at least developingAtFractionOfMin*min     Developing
 ///   lower                                      Below Target
 ///
-/// Lower is better (PPDA), with absolute thresholds on the marker itself:
+/// Lower is better (the club's PPDA, which a substitute stands in for until it can be
+/// measured), with absolute thresholds on the marker itself:
 ///   at or below exceptionalAtOrBelow           Exceptional
 ///   below max                                  Elite Alignment
 ///   at or below strongAlignmentAtOrBelow       Strong Alignment
@@ -85,12 +86,13 @@ public static class IdentityStatusRules
 
     /// <summary>
     /// What each status means, in words, for the legend -- worked out from the same rules, so
-    /// the legend cannot describe thresholds the page is not using.
+    /// the legend cannot describe thresholds the page is not using. "Target range", not "elite
+    /// range": the legend covers the substitutes' provisional ranges too.
     /// </summary>
     public static string Describe(IdentityStatus status, StatusRules rules) => status switch
     {
-        IdentityStatus.Exceptional => "Beyond the elite range",
-        IdentityStatus.EliteAlignment => "Inside the elite range",
+        IdentityStatus.Exceptional => "Beyond the target range",
+        IdentityStatus.EliteAlignment => "Inside the target range",
         IdentityStatus.StrongAlignment =>
             $"Up to {Percent(1 - rules.StrongAlignmentAtFractionOfMin)} short of the range",
         IdentityStatus.Developing =>

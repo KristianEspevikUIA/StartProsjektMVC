@@ -11,5 +11,6 @@ committes, heller ikke med `git add -f`.
 python3 scripts/identity/extract_stats.py --team U14 --source "<mappe med rapportene>" --table
 ```
 
-Mangler en fil, viser Identity-siden at det ikke finnes data for laget. Se
-`docs/identity-benchmarking.md`.
+Mangler en fil, viser Identity-siden at det ikke finnes data for laget. En fil fra før
+erstatningsmarkørene (`schemaVersion` 1) stopper oppstarten med beskjed om å kjøre scriptet på
+nytt. Se `docs/identity-benchmarking.md`.
