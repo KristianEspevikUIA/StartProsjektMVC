@@ -222,6 +222,11 @@ public sealed class SuccessionCatalog : ISuccessionCatalog
         {
             problems.Add("'positionRankPenalty' needs exactly three numbers of 0 or more: [1st, 2nd, 3rd].");
         }
+        else if (settings.OutOfPositionPenalty < settings.PositionRankPenalty.Max())
+        {
+            // Anything less would make a position nobody named a better fit than a 3rd one.
+            problems.Add("'outOfPositionPenalty' has to be at least as big as the largest 'positionRankPenalty'.");
+        }
 
         if (settings.Ratings.Count == 0)
         {

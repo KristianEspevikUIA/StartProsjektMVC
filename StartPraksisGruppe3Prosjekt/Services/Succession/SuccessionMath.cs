@@ -369,16 +369,67 @@ public static class SuccessionMath
             return null;
         }
 
-        var penaltyIndex = Math.Clamp(preference.BestRank - 1, 0, settings.PositionRankPenalty.Count - 1);
-        var penalty = settings.PositionRankPenalty.Count == 0 ? 0 : settings.PositionRankPenalty[penaltyIndex];
+        return new SlotPick(candidate, preference.BestRank, PositionFit(candidate.Overall, preference.BestRank, settings));
+    }
 
-        return new SlotPick(candidate, preference.BestRank, candidate.Overall - penalty);
+    /// <summary>
+    /// A player's readiness in one position: their overall, marked down when it is their 2nd or
+    /// 3rd position (<see cref="SuccessionSettings.PositionRankPenalty"/>), and by
+    /// <see cref="SuccessionSettings.OutOfPositionPenalty"/> when no coach named it at all
+    /// (<paramref name="rank"/> null). What the pick ranks by, and what each shirt on the pitch
+    /// shows -- lineup.js does the same sum when a player is moved.
+    /// </summary>
+    public static double PositionFit(double overall, int? rank, SuccessionSettings settings)
+    {
+        if (rank is not { } named)
+        {
+            return overall - settings.OutOfPositionPenalty;
+        }
+
+        if (settings.PositionRankPenalty.Count == 0)
+        {
+            return overall;
+        }
+
+        var index = Math.Clamp(named - 1, 0, settings.PositionRankPenalty.Count - 1);
+
+        return overall - settings.PositionRankPenalty[index];
+    }
+
+    /// <summary>
+    /// Which part of the team a row on the pitch is, for the ratings over the pitch. The file
+    /// draws a formation from the attack down to the keeper, so: the first row is the attack,
+    /// the last the goalkeeper, the one before it the defence, and everything between is the
+    /// midfield. A formation of three rows or fewer has no midfield to speak of.
+    /// </summary>
+    public static TeamUnit UnitOf(int line, int lineCount)
+    {
+        if (line >= lineCount - 1)
+        {
+            return TeamUnit.Goalkeeper;
+        }
+
+        if (line == 0)
+        {
+            return TeamUnit.Attack;
+        }
+
+        return line == lineCount - 2 ? TeamUnit.Defence : TeamUnit.Midfield;
     }
 }
 
 // ---------------------------------------------------------------------------------------
 // Results
 // ---------------------------------------------------------------------------------------
+
+/// <summary>The parts of a team the pitch rates on their own, attack first as the file draws it.</summary>
+public enum TeamUnit
+{
+    Attack,
+    Midfield,
+    Defence,
+    Goalkeeper
+}
 
 /// <summary>The workbook's three lights, plus "nothing to light".</summary>
 public enum ReadinessLevel

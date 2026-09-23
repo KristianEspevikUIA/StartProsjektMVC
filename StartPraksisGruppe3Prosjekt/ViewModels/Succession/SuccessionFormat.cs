@@ -1,4 +1,5 @@
 using System.Globalization;
+using StartPraksisGruppe3Prosjekt.Models.Succession;
 using StartPraksisGruppe3Prosjekt.Services.Succession;
 
 namespace StartPraksisGruppe3Prosjekt.ViewModels.Succession;
@@ -54,14 +55,26 @@ public static class SuccessionFormat
         _ => "sc-mean sc-mean--none"
     };
 
-    /// <summary>The readiness bar on top of a card on the pitch.</summary>
-    public static string SlotClass(ReadinessLevel level) => level switch
+    /// <summary>
+    /// The readiness light for a number on the pitch -- a shirt's rating, the team's, a unit's --
+    /// as a class. lineup.js gives the same classes by the same thresholds when a player moves.
+    /// </summary>
+    public static string RatingTone(double? value, SuccessionSettings settings) =>
+        SuccessionMath.LevelOf(value, settings) switch
+        {
+            ReadinessLevel.Ready => "sc-light sc-light--ready",
+            ReadinessLevel.Developing => "sc-light sc-light--developing",
+            ReadinessLevel.NotYet => "sc-light sc-light--notyet",
+            _ => "sc-light sc-light--none"
+        };
+
+    /// <summary>A unit's bar over the pitch: one step of width per whole point, in its light.</summary>
+    public static string FillClass(double? value, SuccessionSettings settings)
     {
-        ReadinessLevel.Ready => "sc-slot--ready",
-        ReadinessLevel.Developing => "sc-slot--developing",
-        ReadinessLevel.NotYet => "sc-slot--notyet",
-        _ => "sc-slot--empty"
-    };
+        var step = value is { } v ? Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 0, 10) : 0;
+
+        return $"sc-unit__fill--{step} {RatingTone(value, settings)}";
+    }
 
     /// <summary>
     /// "1.4 off · about 18 weeks". How far from ready, and how long at the rate the player has

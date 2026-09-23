@@ -9,7 +9,9 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// THIS IS THE ONLY PLACE A PLAYER'S NAME IS STORED, and it is kept apart from
 /// <see cref="Player"/> on purpose. Everywhere else in the system -- the coach pages, the
 /// team lists, the succession board, the exports' references to other people -- a player is
-/// their code, and that stays true. Nothing outside the welcome reads this table, so a page
+/// their code, and that stays true. The one exception is the coaches' best eleven, which shows
+/// the first name on each shirt because the coaches asked for it (see SuccessionController's
+/// DisplayNamesAsync). Nothing reads this table except through IPlayerWelcomeService, so a page
 /// that should show a code cannot show a name by accident.
 ///
 /// A first name and not a full name: "Welcome, Alex" needs no more, and less is less to
@@ -17,7 +19,7 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// with its permission (see docs/player-welcome.md).
 ///
 /// Shown to the player themselves, and to an administrator on the page where it is entered.
-/// Not to coaches and not to guardians -- they have not been asked for. It goes with the
+/// The first name, not the photo, to coaches on the best eleven. Not to guardians. It goes with the
 /// player when the player is deleted (cascade), and is part of a data access request.
 /// </summary>
 public class PlayerPersonalDetails

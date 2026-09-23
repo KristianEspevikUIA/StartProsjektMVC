@@ -4008,142 +4008,6 @@ main .form-control:focus {
 }
 
 /*
-    The pitch. A formation is rows of players, attack at the top, drawn as flex rows -- no
-    coordinates, so nothing positional has to reach the markup and a phone can squeeze a row
-    without anything overlapping. The halfway line sits behind the cards.
-*/
-.sc-pitch {
-    background: #2f6b45;
-    border: 3px solid #255a39;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    margin: 0 auto;
-    max-width: 860px;
-    padding: 26px 14px;
-    position: relative;
-}
-
-.sc-pitch::before {
-    background: rgba(255, 255, 255, 0.35);
-    content: "";
-    height: 2px;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 50%;
-}
-
-.sc-pitch__line {
-    display: flex;
-    gap: 10px;
-    justify-content: space-around;
-    position: relative;
-}
-
-.sc-slot {
-    background: var(--sc-card);
-    border-top: 5px solid var(--sc-border);
-    color: var(--sc-foreground);
-    display: flex;
-    flex: 0 1 150px;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    padding: 8px 10px 10px;
-    text-align: center;
-    text-decoration: none;
-}
-
-/* Colour only: a :visited rule that also set the border would outrank the readiness bar below
-   on every card a coach has opened before -- and they open them all. */
-a.sc-slot:visited {
-    color: var(--sc-foreground);
-}
-
-a.sc-slot:hover,
-a.sc-slot:focus {
-    outline: 3px solid var(--sc-yellow);
-    outline-offset: 1px;
-}
-
-/* The bar repeats the light on the number below it. On its own it would not be enough: the
-   green bar sits on a green pitch, and the number in its band is what actually reads. */
-.sc-slot.sc-slot--ready { border-top-color: var(--sc-ok); }
-.sc-slot.sc-slot--developing { border-top-color: var(--sc-warn); }
-.sc-slot.sc-slot--notyet { border-top-color: var(--sc-alert); }
-
-.sc-slot__value .sc-mean {
-    min-width: 0;
-    text-align: center;
-}
-
-/* Nobody was named for the position. Glass rather than a card, so it reads as a hole in the
-   team -- which is exactly what it is. */
-.sc-slot--empty {
-    background: rgba(255, 255, 255, 0.1);
-    border: 2px dashed rgba(255, 255, 255, 0.75);
-    color: #ffffff;
-}
-
-.sc-slot__pos {
-    font-family: var(--sc-display);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    opacity: 0.8;
-}
-
-.sc-slot__code {
-    font-family: var(--sc-display);
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sc-slot__value {
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.sc-slot__meta {
-    color: var(--sc-muted-foreground);
-    font-size: 12px;
-    line-height: 1.3;
-}
-
-.sc-slot--empty .sc-slot__meta {
-    color: rgba(255, 255, 255, 0.85);
-}
-
-@media (max-width: 640px) {
-    .sc-pitch {
-        gap: 12px;
-        padding: 16px 6px;
-    }
-
-    .sc-pitch__line {
-        gap: 4px;
-    }
-
-    .sc-slot {
-        flex: 1 1 0;
-        padding: 6px 3px 8px;
-    }
-
-    .sc-slot__code {
-        font-size: 14px;
-    }
-
-    .sc-slot__meta {
-        display: none; /* The depth table under the pitch has all of it. */
-    }
-}
-
-/*
     Clicking into a team on the best eleven: one link per team, above the filters. The subnav's
     look, a size down, so it reads as the level under Squad board / Best eleven.
 */
@@ -4184,168 +4048,516 @@ a.sc-slot:focus {
     color: var(--sc-yellow);
 }
 
-.sc-btn--small {
-    font-size: 14px;
-    min-height: 38px;
-    padding: 6px 14px;
-}
-
-.sc-btn:disabled,
-.sc-btn:disabled:hover {
-    background: transparent;
-    border-color: var(--sc-border);
-    color: var(--sc-muted-foreground);
-    cursor: default;
-}
-
 /*
-    Moving players about (lineup.js): the pitch and the rest of the squad side by side, the
-    squad under the pitch on anything narrower than a laptop. Nothing here is drawn until the
-    script runs; without it the bench is a plain list.
+    The best eleven as a game board (lineup.js): the team rating along the top, the pitch, and
+    the substitutes to the right of it -- beside the eleven, not under it, as the coaches asked,
+    on anything from a tablet up. Only a phone is too narrow for both, and gets them stacked.
+
+    Dark, like a game's squad screen, so the green pitch and the club's yellow shirts are what
+    the eye goes to. Colours that only mean something here are here, not in :root.
 */
-.sc-lineup__bar {
+.sc-board {
+    --sc-board-bg: #0f1726;
+    --sc-board-panel: #172238;
+    --sc-board-line: #2a3754;
+    --sc-board-text: #f3f5fa;
+    --sc-board-muted: #a9b3c7;
+    --sc-light-ready: #4cc27a;
+    --sc-light-developing: #f2b632;
+    --sc-light-notyet: #ff7461;
+
+    background: var(--sc-board-bg);
+    color: var(--sc-board-text);
+    padding: 16px;
+}
+
+/* A number in its readiness light: the shirts, the substitutes, the team rating, the bars. */
+.sc-light--ready { --sc-light: var(--sc-light-ready); }
+.sc-light--developing { --sc-light: var(--sc-light-developing); }
+.sc-light--notyet { --sc-light: var(--sc-light-notyet); }
+.sc-light--none { --sc-light: var(--sc-board-muted); }
+
+.sc-board__head {
     align-items: center;
-    background: var(--sc-card);
-    border-left: 6px solid var(--sc-blue);
+    display: grid;
+    gap: 14px 28px;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 4px 4px 16px;
+}
+
+.sc-board__rating {
+    display: flex;
+    flex-direction: column;
+}
+
+.sc-board__label,
+.sc-unit__name {
+    color: var(--sc-board-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.sc-board__value {
+    color: var(--sc-light);
+    font-family: var(--sc-display);
+    font-size: 54px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.sc-board__delta {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+.sc-board__delta--up { color: var(--sc-light-ready); }
+.sc-board__delta--down { color: var(--sc-light-notyet); }
+
+.sc-board__units {
+    display: grid;
+    gap: 8px 22px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.sc-unit {
+    align-items: center;
+    display: grid;
+    gap: 4px 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.sc-unit__name {
+    grid-column: 1 / -1;
+}
+
+.sc-unit__bar {
+    background: var(--sc-board-line);
+    display: block;
+    height: 8px;
+    overflow: hidden;
+}
+
+/* Width in whole points, a class per step: a width set from the markup would need a style
+   attribute, and the CSP has no unsafe-inline. */
+.sc-unit__fill {
+    background: var(--sc-light);
+    display: block;
+    height: 100%;
+    transition: width 0.35s ease;
+    width: 0;
+}
+
+.sc-unit__fill--1 { width: 10%; }
+.sc-unit__fill--2 { width: 20%; }
+.sc-unit__fill--3 { width: 30%; }
+.sc-unit__fill--4 { width: 40%; }
+.sc-unit__fill--5 { width: 50%; }
+.sc-unit__fill--6 { width: 60%; }
+.sc-unit__fill--7 { width: 70%; }
+.sc-unit__fill--8 { width: 80%; }
+.sc-unit__fill--9 { width: 90%; }
+.sc-unit__fill--10 { width: 100%; }
+
+.sc-unit__value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    min-width: 2.2em;
+    text-align: right;
+}
+
+.sc-board__facts {
+    color: var(--sc-board-muted);
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 18px;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    padding: 10px 16px;
+    font-size: 13px;
+    gap: 4px 18px;
+    grid-column: 1 / -1;
 }
 
-.sc-lineup__bar--changed {
+.sc-board__facts strong {
+    color: var(--sc-board-text);
+}
+
+.sc-board__out,
+.sc-board__out strong {
+    color: var(--sc-light-notyet);
+}
+
+/* A number that has just changed. */
+@keyframes sc-flash {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.18); filter: brightness(1.5); }
+    100% { transform: scale(1); }
+}
+
+.sc-flash {
+    animation: sc-flash 0.5s ease;
+    display: inline-block;
+}
+
+.sc-board__bar {
+    align-items: center;
+    background: var(--sc-board-panel);
+    border-left: 4px solid var(--sc-board-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+}
+
+.sc-board__bar--changed {
     border-left-color: var(--sc-yellow);
 }
 
-.sc-lineup__status {
-    font-size: 14px;
+.sc-board__status {
+    font-size: 13px;
     margin: 0;
 }
 
-.sc-lineup__main {
+.sc-board__reset {
+    background: transparent;
+    border: 2px solid var(--sc-yellow);
+    color: var(--sc-yellow);
+    cursor: pointer;
+    font-family: var(--sc-display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 4px 12px;
+    text-transform: uppercase;
+}
+
+.sc-board__reset:hover,
+.sc-board__reset:focus-visible {
+    background: var(--sc-yellow);
+    color: var(--sc-ink);
+}
+
+.sc-board__reset:disabled {
+    border-color: var(--sc-board-line);
+    color: var(--sc-board-muted);
+    cursor: default;
+}
+
+.sc-board__reset:disabled:hover {
+    background: transparent;
+}
+
+.sc-board__main {
     align-items: start;
     display: grid;
-    gap: 20px;
+    gap: 14px;
     grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 1000px) {
-    .sc-lineup__main {
-        grid-template-columns: minmax(0, 1fr) 300px;
-    }
-
-    .sc-lineup__main .sc-pitch {
-        margin: 0;
-        max-width: none;
+@media (min-width: 700px) {
+    .sc-board__main {
+        grid-template-columns: minmax(0, 1fr) 240px;
     }
 }
 
-/* A card that can be picked up. Position relative for the fit badge in its corner. */
-.sc-slot[data-lineup-item] {
-    cursor: grab;
+@media (min-width: 1000px) {
+    .sc-board__main {
+        grid-template-columns: minmax(0, 1fr) 290px;
+    }
+}
+
+/*
+    The pitch: mown stripes, the lines, the boxes and the centre circle, all drawn in CSS. The
+    formation is rows of shirts, attack at the top, as flex rows -- no coordinates, so nothing
+    positional has to reach the markup.
+*/
+.sc-pitch {
+    background: repeating-linear-gradient(180deg, #2f7d47 0, #2f7d47 56px, #2a7240 56px, #2a7240 112px);
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.55);
+    min-height: 560px;
+    overflow: hidden;
+    padding: 22px 10px;
     position: relative;
+}
+
+.sc-pitch::before {
+    background: rgba(255, 255, 255, 0.55);
+    content: "";
+    height: 2px;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 50%;
+}
+
+.sc-pitch__mark {
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+    position: absolute;
+}
+
+.sc-pitch__mark--circle {
+    border-radius: 50%;
+    height: 110px;
+    left: calc(50% - 55px);
+    top: calc(50% - 55px);
+    width: 110px;
+}
+
+.sc-pitch__mark--box-top,
+.sc-pitch__mark--box-bottom {
+    height: 13%;
+    left: 27%;
+    width: 46%;
+}
+
+.sc-pitch__mark--box-top {
+    border-top: 0;
+    top: 3px;
+}
+
+.sc-pitch__mark--box-bottom {
+    border-bottom: 0;
+    bottom: 3px;
+}
+
+.sc-pitch__lines {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: space-between;
+    min-height: 516px;
+    position: relative;
+}
+
+.sc-pitch__line {
+    display: flex;
+    gap: 6px;
+    justify-content: space-around;
+}
+
+/* A player on the pitch: a shirt with the position on it, and the name under it. */
+.sc-token {
+    align-items: center;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--sc-board-text);
+    display: flex;
+    flex: 0 1 120px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 2px;
+    text-decoration: none;
     touch-action: manipulation;
     user-select: none;
 }
 
-.sc-slot[data-lineup-item]:focus {
+.sc-token[data-lineup-item] {
+    cursor: grab;
+}
+
+.sc-board--dragging .sc-token[data-lineup-item] {
+    cursor: grabbing;
+}
+
+.sc-token:visited {
+    color: var(--sc-board-text);
+}
+
+.sc-token:focus {
     outline: none;
 }
 
-.sc-slot[data-lineup-item]:focus-visible,
-.sc-slot[data-lineup-item]:hover {
+.sc-token:focus-visible,
+a.sc-token:hover {
     outline: 3px solid var(--sc-yellow);
     outline-offset: 1px;
 }
 
-.sc-lineup--dragging .sc-slot[data-lineup-item] {
-    cursor: grabbing;
+.sc-shirt {
+    display: block;
+    height: 50px;
+    position: relative;
+    transition: transform 0.15s ease, filter 0.15s ease;
+    width: 56px;
 }
 
-/* What is picked up: lifted, in the club's yellow. */
-.sc-slot.sc-slot--picked,
-.sc-slot.sc-slot--picked:hover {
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-    outline: 4px solid var(--sc-yellow);
-    outline-offset: 2px;
-    transform: translateY(-3px);
+.sc-token[data-lineup-item]:hover .sc-shirt {
+    transform: translateY(-2px);
 }
 
-/* Where the picked-up player has been named: solid white for a 1st position, dashed for a 2nd
-   and dotted for a 3rd, with the rank in a corner. The line style is what carries it, not the
-   colour, which would not show on a green pitch anyway. */
-.sc-slot--fit-1 { outline: 3px solid #ffffff; outline-offset: 1px; }
-.sc-slot--fit-2 { outline: 3px dashed #ffffff; outline-offset: 1px; }
-.sc-slot--fit-3 { outline: 3px dotted #ffffff; outline-offset: 1px; }
-
-.sc-slot[data-fit]::after {
+/* The shirt itself: IK Start yellow, cut to a shirt's outline. The outline is a clip-path, so
+   anything that has to stick out of it -- the rating, the warning -- is a sibling, not a child. */
+.sc-shirt__body {
+    align-items: center;
     background: var(--sc-yellow);
+    clip-path: polygon(28% 0, 40% 8%, 60% 8%, 72% 0, 100% 18%, 90% 44%, 79% 38%, 79% 100%, 21% 100%, 21% 38%, 10% 44%, 0 18%);
+    color: var(--sc-ink);
+    display: flex;
+    font-family: var(--sc-display);
+    font-size: 13px;
+    font-weight: 700;
+    height: 100%;
+    justify-content: center;
+    letter-spacing: 0.02em;
+    padding-top: 10px;
+    width: 100%;
+}
+
+.sc-shirt__rating {
+    background: var(--sc-light);
+    border-radius: 9px;
+    bottom: -4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    color: var(--sc-ink);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    padding: 1px 5px;
+    position: absolute;
+    right: -10px;
+}
+
+.sc-shirt__warn {
+    background: var(--sc-light-notyet);
+    border-radius: 50%;
+    color: var(--sc-ink);
+    font-size: 11px;
+    font-weight: 800;
+    height: 16px;
+    left: -6px;
+    line-height: 16px;
+    position: absolute;
+    text-align: center;
+    top: -4px;
+    width: 16px;
+}
+
+.sc-token__name {
+    background: rgba(8, 14, 24, 0.82);
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 700;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 2px 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The code under a first name two players share. */
+.sc-token__tag,
+.sc-sub__tag {
+    color: var(--sc-board-muted);
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.sc-token__name {
+    text-align: center;
+}
+
+.sc-token--out .sc-token__name {
+    background: rgba(120, 24, 16, 0.9);
+}
+
+/* Nobody there: a ghost of a shirt. */
+.sc-token--empty .sc-shirt__body {
+    background: rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+}
+
+.sc-token--empty .sc-token__name {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+}
+
+.sc-board--holding .sc-token--empty .sc-shirt__body {
+    background: rgba(255, 255, 255, 0.45);
+}
+
+/* Picked up: lifted, and lit in the club's yellow. The glow is on the shirt's wrapper, so it
+   follows the shirt's outline rather than a box. */
+.sc-token.sc-picked .sc-shirt {
+    filter: drop-shadow(0 0 3px var(--sc-yellow)) drop-shadow(0 0 7px var(--sc-yellow));
+    transform: translateY(-4px) scale(1.08);
+}
+
+/* Where the picked-up player has been named: lit white, with the rank on the shirt's corner. */
+.sc-token--fit .sc-shirt {
+    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+}
+
+.sc-shirt[data-fit]::after {
+    background: #ffffff;
+    border-radius: 3px;
     color: var(--sc-ink);
     content: attr(data-fit);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 0 4px;
     position: absolute;
-    right: -6px;
-    top: -10px;
-}
-
-/* A player moved somewhere no coach named for them. Allowed -- it is the coach's call -- but
-   it says so on the card. */
-.sc-slot--out {
-    background: var(--sc-alert-wash);
-}
-
-.sc-slot--out .sc-slot__meta {
-    color: var(--sc-alert);
-    font-weight: 700;
+    right: -14px;
+    top: -8px;
 }
 
 /* Where a drop would land. */
-.sc-slot.sc-lineup__target,
-.sc-bench__card.sc-lineup__target {
-    outline: 4px dashed var(--sc-yellow);
-    outline-offset: 2px;
+.sc-token.sc-drop-target .sc-shirt {
+    filter: drop-shadow(0 0 4px var(--sc-yellow)) drop-shadow(0 0 10px var(--sc-yellow));
+    transform: scale(1.14);
 }
 
-.sc-bench.sc-lineup__target {
-    outline: 4px dashed var(--sc-blue);
-    outline-offset: 4px;
+/* A player who has just come on. */
+@keyframes sc-arrive {
+    0% { transform: scale(0.6); opacity: 0.3; }
+    70% { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1); }
 }
 
-.sc-lineup--holding .sc-slot--empty {
-    border-color: #ffffff;
+.sc-token--arrived .sc-shirt {
+    animation: sc-arrive 0.35s ease;
 }
 
+/* The substitutes, to the right of the pitch. */
 .sc-bench {
-    background: var(--sc-card);
-    border: 1px solid var(--sc-border);
-    padding: 16px;
+    background: var(--sc-board-panel);
+    padding: 12px;
 }
 
-.sc-bench__heading {
+.sc-bench.sc-drop-target {
+    box-shadow: inset 0 0 0 3px var(--sc-yellow);
+}
+
+/* Two classes, so a heading rule elsewhere in the page cannot put dark ink on the dark panel. */
+.sc-board .sc-bench__heading {
     align-items: center;
+    color: var(--sc-board-text);
     display: flex;
-    font-size: 20px;
+    font-size: 18px;
     gap: 8px;
-    margin: 0 0 4px;
+    justify-content: space-between;
+    letter-spacing: 0.08em;
+    margin: 0 0 10px;
+    text-transform: uppercase;
 }
 
 .sc-bench__count {
-    background: var(--sc-muted);
+    background: var(--sc-board-line);
+    color: var(--sc-board-text);
     font-size: 13px;
-    font-weight: 700;
     padding: 1px 8px;
 }
 
-.sc-bench__hint,
 .sc-bench__empty {
-    color: var(--sc-muted-foreground);
+    color: var(--sc-board-muted);
     font-size: 13px;
-    margin: 0 0 10px;
+    margin: 0 0 8px;
 }
 
 .sc-bench__list {
@@ -4354,135 +4566,197 @@ a.sc-slot:focus {
     padding: 0;
 }
 
-/* Beside the pitch on a laptop, the squad stays in view while the page scrolls down to the
-   back line and the keeper, so a player can be dragged from one to the other. */
-@media (min-width: 1000px) {
+@media (min-width: 700px) {
     .sc-bench {
         position: sticky;
-        top: 16px;
+        top: 12px;
     }
 
     .sc-bench__list {
-        max-height: calc(100vh - 220px);
+        max-height: calc(100vh - 200px);
         overflow-y: auto;
     }
 }
 
-.sc-bench__row {
-    border-bottom: 1px solid var(--sc-border);
+.sc-bench__row + .sc-bench__row {
+    margin-top: 4px;
 }
 
-.sc-bench__list > .sc-bench__item {
-    border-bottom: 1px solid var(--sc-border);
-}
-
-.sc-bench__item {
+/* One substitute: best position, name, rating. */
+.sc-sub {
     align-items: center;
-    border-left: 4px solid transparent;
-    display: flex;
-    gap: 10px;
-    justify-content: space-between;
-    padding: 8px 8px 8px 6px;
-}
-
-.sc-bench__card {
+    background: var(--sc-board-bg);
+    border-left: 3px solid transparent;
+    color: var(--sc-board-text);
     cursor: grab;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    padding: 7px 8px;
+    text-decoration: none;
     touch-action: manipulation;
     user-select: none;
 }
 
-.sc-bench__card:hover {
-    background: var(--sc-muted);
+.sc-sub:visited {
+    color: var(--sc-board-text);
 }
 
-.sc-bench__card:focus {
+.sc-sub:hover {
+    background: #1d2a44;
+}
+
+.sc-sub:focus {
     outline: none;
 }
 
-.sc-bench__card:focus-visible {
-    outline: 3px solid var(--sc-blue);
-    outline-offset: -3px;
+.sc-sub:focus-visible {
+    outline: 2px solid var(--sc-yellow);
+    outline-offset: -2px;
 }
 
-/* Named for the position that is picked up: first in the list, and marked. */
-.sc-bench__card--fit {
-    border-left-color: var(--sc-ok);
+.sc-sub__pos {
+    background: var(--sc-yellow);
+    color: var(--sc-ink);
+    font-family: var(--sc-display);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 1px 0;
+    text-align: center;
 }
 
-.sc-bench__card--picked,
-.sc-bench__card--picked:hover {
-    background: #fff6c7;
+.sc-sub__name {
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sc-sub__rating {
+    background: var(--sc-light);
+    border-radius: 9px;
+    color: var(--sc-ink);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    padding: 1px 7px;
+}
+
+/* A position is picked up: the substitutes named for it lead, the rest step back. */
+.sc-sub--fit {
+    border-left-color: var(--sc-light-ready);
+}
+
+.sc-sub--nofit {
+    opacity: 0.6;
+}
+
+.sc-sub--nofit .sc-sub__pos {
+    background: var(--sc-board-line);
+    color: var(--sc-board-muted);
+}
+
+.sc-sub.sc-picked,
+.sc-sub.sc-picked:hover {
+    background: #3a3212;
     border-left-color: var(--sc-yellow);
     box-shadow: inset 0 0 0 2px var(--sc-yellow);
 }
 
-.sc-bench__who {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
+.sc-sub.sc-drop-target {
+    box-shadow: inset 0 0 0 2px var(--sc-yellow);
 }
 
-.sc-bench__code,
-.sc-bench__code:visited {
-    color: var(--sc-foreground);
-    font-family: var(--sc-display);
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-}
-
-.sc-bench__pos {
-    color: var(--sc-muted-foreground);
-    font-size: 12px;
-    line-height: 1.3;
-}
-
-/* What is picked up, and what can be done with it. Sits at the top of the bench, so on a
-   laptop it is next to the pitch the coach is looking at. */
+/* What is picked up, and what can be done with it. */
 .sc-bench__focus {
-    background: var(--sc-muted);
-    border-left: 6px solid var(--sc-yellow);
-    margin: 0 0 14px;
-    padding: 10px 12px;
+    background: var(--sc-board-bg);
+    border-left: 4px solid var(--sc-yellow);
+    margin: 0 0 10px;
+    padding: 8px 10px;
 }
 
-.sc-bench__focus-head {
-    font-size: 15px;
-    margin: 0 0 4px;
-}
-
-.sc-bench__focus-code {
+.sc-bench__focus-name {
+    align-items: center;
+    display: flex;
     font-family: var(--sc-display);
-    font-size: 18px;
-    letter-spacing: 0.03em;
+    font-size: 20px;
+    font-weight: 700;
+    gap: 8px;
+    margin: 0 0 2px;
 }
 
 .sc-bench__focus-line {
-    font-size: 13px;
+    color: var(--sc-board-muted);
+    font-size: 12px;
     margin: 0 0 4px;
 }
 
 .sc-bench__focus-line--hint {
-    color: var(--sc-muted-foreground);
+    color: var(--sc-board-text);
 }
 
 .sc-bench__focus-actions {
-    align-items: center;
     display: flex;
     flex-wrap: wrap;
-    font-size: 14px;
-    gap: 6px 16px;
-    margin-top: 8px;
+    gap: 6px;
+    margin-top: 6px;
 }
 
-.sc-bench__focus-open {
-    color: var(--sc-blue);
-    font-weight: 600;
+.sc-bench__action,
+.sc-bench__action:visited {
+    background: transparent;
+    border: 1px solid var(--sc-board-line);
+    color: var(--sc-board-text);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 9px;
+    text-decoration: none;
+}
+
+.sc-bench__action:hover,
+.sc-bench__action:focus-visible {
+    border-color: var(--sc-yellow);
+    color: var(--sc-yellow);
+}
+
+@media (max-width: 699px) {
+    .sc-board {
+        padding: 10px;
+    }
+
+    .sc-board__head {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sc-board__value {
+        font-size: 44px;
+    }
+
+    .sc-pitch {
+        min-height: 460px;
+        padding: 16px 4px;
+    }
+
+    .sc-pitch__lines {
+        min-height: 428px;
+    }
+
+    .sc-token__name {
+        font-size: 11px;
+        padding: 2px 5px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sc-slot.sc-slot--picked {
-        transform: none;
+    .sc-flash,
+    .sc-token--arrived .sc-shirt {
+        animation: none;
+    }
+
+    .sc-shirt,
+    .sc-unit__fill {
+        transition: none;
     }
 }
 

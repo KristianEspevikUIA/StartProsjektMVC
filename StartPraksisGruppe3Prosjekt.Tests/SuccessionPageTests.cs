@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Models.Succession;
+using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.Succession;
 using Xunit;
 
@@ -369,7 +370,7 @@ public sealed class SuccessionPageTests : IAsyncLifetime
 
         Assert.Contains("TS-TEST-01", html);
         Assert.Contains("10 positions have nobody named for it", html);
-        Assert.Contains("Nobody rated in this cycle has CF among their three positions", html);
+        Assert.Contains("Nobody rated in this cycle has LST among their three positions", html);
     }
 
     // -----------------------------------------------------------------------------------
@@ -422,8 +423,8 @@ public sealed class SuccessionPageTests : IAsyncLifetime
 
         var html = await Coach().GetStringAsync("/Succession/Formation");
 
-        Assert.Contains("The rest of the squad", html);
-        Assert.Contains($"<a class=\"sc-bench__code\" href=\"/Succession/Player/{_factory.OtherPlayerId}", html);
+        Assert.Contains("Substitutes", html);
+        Assert.Contains($"<a class=\"sc-sub\" href=\"/Succession/Player/{_factory.OtherPlayerId}", html);
         Assert.Contains("<script src=\"/js/lineup.js", html);
 
         var data = LineupData(html);
@@ -440,8 +441,10 @@ public sealed class SuccessionPageTests : IAsyncLifetime
         // Strongest first, both of them, with what the script needs to say where they fit.
         Assert.Equal(new[] { "TS-TEST-01", "TS-TEST-02" }, players.Select(p => p.GetProperty("code").GetString()));
         Assert.Equal(1, players[1].GetProperty("positions").GetProperty("GK").GetInt32());
-        Assert.Equal("6.0", players[1].GetProperty("number").GetString());
-        Assert.Equal("sc-mean sc-mean--mid", players[1].GetProperty("mean").GetString());
+        Assert.Equal(6.0, players[1].GetProperty("overall").GetDouble());
+        Assert.Equal("TS-TEST-02", players[1].GetProperty("name").GetString());
+        Assert.Equal(2.0, data.GetProperty("outOfPositionPenalty").GetDouble());
+        Assert.Equal("Goalkeeper", data.GetProperty("slots")[slots.IndexOf("GK")].GetProperty("unit").GetString());
         Assert.Equal($"/Succession/Player/{_factory.OtherPlayerId}?cycle=", players[1].GetProperty("url").GetString()![..^10]);
 
         // The bench shows a number for the substitute too, so opening the page logs them.
@@ -452,6 +455,46 @@ public sealed class SuccessionPageTests : IAsyncLifetime
             Assert.True(await db.PlayerAccessEvents.AnyAsync(a =>
                 a.PlayerId == _factory.OtherPlayerId && a.Context == "Succession/Formation"));
         });
+    }
+
+    [Fact]
+    public async Task The_best_eleven_shows_first_names_and_the_team_rating()
+    {
+        // "Less on the players: name, position." The first name the club entered for the
+        // welcome -- the one staff page that shows it -- and the code where there is none.
+        await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
+        await SeedAsync(StartCompassFactory.CoachUserId, 6, position: "GK", playerId: _factory.OtherPlayerId);
+        await FirstNameAsync(_factory.PlayerId, "Alex");
+
+        var html = await Coach().GetStringAsync("/Succession/Formation");
+
+        Assert.Contains("<span class=\"sc-token__name\">Alex</span>", html);
+        Assert.Contains("<span class=\"sc-sub__name\">TS-TEST-02</span>", html);
+        Assert.Equal("Alex", LineupData(html).GetProperty("players")[0].GetProperty("name").GetString());
+
+        // The keeper in their 1st position, alone on the pitch: the team rating is theirs.
+        Assert.Contains("data-lineup-stat=\"rating\">8.0</span>", html);
+        Assert.Contains("data-lineup-unit=\"Goalkeeper\"", html);
+
+        // Still only here: the board keeps to codes.
+        Assert.DoesNotContain("Alex", await Coach().GetStringAsync("/Succession"));
+    }
+
+    [Fact]
+    public async Task Two_players_with_the_same_first_name_are_told_apart_by_code()
+    {
+        await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
+        await SeedAsync(StartCompassFactory.CoachUserId, 6, position: "GK", playerId: _factory.OtherPlayerId);
+        await FirstNameAsync(_factory.PlayerId, "Alex");
+        await FirstNameAsync(_factory.OtherPlayerId, "alex");
+
+        var html = await Coach().GetStringAsync("/Succession/Formation");
+        var players = LineupData(html).GetProperty("players");
+
+        Assert.Equal("Alex", players[0].GetProperty("name").GetString());
+        Assert.Equal("TS-TEST-01", players[0].GetProperty("tag").GetString());
+        Assert.Equal("TS-TEST-02", players[1].GetProperty("tag").GetString());
+        Assert.Contains("<span class=\"sc-token__name\">Alex<span class=\"sc-token__tag\">TS-TEST-01</span></span>", html);
     }
 
     [Fact]
@@ -467,12 +510,14 @@ public sealed class SuccessionPageTests : IAsyncLifetime
                 new[]
                 {
                     new ViewModels.Succession.LineupPlayer(
-                        1, "</script><script>alert(1)</script>", null, 7, "7.0", "Developing", "sc-slot--developing",
-                        "sc-mean sc-mean--mid", new Dictionary<string, int>(), false, "/x")
+                        1, "TS-X", "</script><script>alert(1)</script>", "<b>", null, 7, "Developing",
+                        new Dictionary<string, int>(), false, "/x")
                 },
                 Array.Empty<int?>(),
                 Array.Empty<double>(),
-                8)
+                2,
+                8,
+                6)
         };
 
         Assert.DoesNotContain("<", model.EditorJson);
@@ -584,6 +629,11 @@ public sealed class SuccessionPageTests : IAsyncLifetime
 
         return System.Text.Json.JsonDocument.Parse(json).RootElement;
     }
+
+    private Task FirstNameAsync(int playerId, string firstName) =>
+        _factory.WithServicesAsync(services =>
+            services.GetRequiredService<IPlayerWelcomeService>().SaveAsync(
+                playerId, firstName, null, null, removePhoto: false, StartCompassFactory.AdminUserId));
 
     private Task SeedAsync(
         string raterUserId,

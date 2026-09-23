@@ -14,8 +14,11 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
 - **Admin** legger inn fornavn og bilde på `/Admin/Players` → «Name and photo». Siden viser hva
   spilleren kommer til å se, før det lagres. Samme liste har også lenker til innsyn (Export) og
   sletting for hver spiller, som tidligere bare kunne nås med ID-en i URL-en.
-- **Ingen andre** ser navnet eller bildet. Trenersidene, lagoversiktene og succession-tavla
-  bruker fortsatt spillerkoden, og det er en test som passer på at navnet ikke dukker opp der.
+- **Trenere og admin** ser fornavnet på én side: «Best eleven» (`/Succession/Formation`), der
+  hver spiller er en drakt med navnet under. Trenerne ba om det. Har to spillere på siden samme
+  fornavn, står koden under. Bildet vises ikke der.
+- **Ingen andre steder.** Trenersidene, lagoversiktene og succession-tavla bruker fortsatt
+  spillerkoden, og det er en test som passer på at navnet ikke dukker opp der.
 
 Velkomsten er ikke låst til U14, U15 og U17 i koden. Alle spillere med konto kan få den. Det er
 klubben som bestemmer hvem som får navn og bilde lagt inn.
@@ -35,7 +38,8 @@ Tabellen `PlayerPersonalDetails`, én rad per spiller:
 
 **Egen tabell, med vilje.** Dette er det eneste stedet systemet lagrer navnet til en spiller.
 Det ligger ikke på `Player`, så en side som skal vise en kode ikke kan vise et navn ved en feil.
-Ingenting utenom velkomsten og admin-skjemaet leser tabellen.
+Ingenting utenom velkomsten, admin-skjemaet og «Best eleven» leser tabellen, og alle går gjennom
+`IPlayerWelcomeService`. «Best eleven» henter bare fornavnene (`FirstNamesAsync`), aldri bildet.
 
 **Bildet ligger i databasen, ikke på klubbens nettsted.** Tre grunner:
 
@@ -66,7 +70,7 @@ Ingenting utenom velkomsten og admin-skjemaet leser tabellen.
 | --- | --- |
 | Spilleren selv | Ja, på forsiden. `/Player/Photo` har ingen ID, så den kan bare gi ditt eget bilde |
 | Admin | Ja, på `/Admin/Players` og skjemaet. Å åpne skjemaet logges i revisjonsloggen |
-| Trener | Nei |
+| Trener | Fornavnet, bare på «Best eleven». Ikke bildet. Siden logges i revisjonsloggen for hver spiller den viser |
 | Foresatt | Nei |
 | Ikke innlogget | Nei |
 

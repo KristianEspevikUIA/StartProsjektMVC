@@ -358,12 +358,24 @@
 
             <h3>Can I move players around?</h3>
             <p>
-                Yes. Drag a player onto another position to swap the two, drag someone in from
-                <strong>The rest of the squad</strong>, or drag a starter onto the list to take them off.
-                On a tablet or with the keyboard, tap (or press Enter on) a player and then where they
-                should go. While a player is picked up, the positions a coach named for them are outlined,
-                with 1st, 2nd or 3rd in the corner. A player can be put anywhere, but a card says
-                <em>Out of position</em> when no coach named them for it.
+                Yes, like in a football game. Drag a player from <strong>Substitutes</strong> onto a
+                player on the pitch to bring them on, drag a shirt onto another position to swap the two,
+                or drag a player onto the substitutes to take them off. On a tablet or with the keyboard,
+                tap (or press Enter on) a player and then where they should go. While a player is picked
+                up, the shirts in the positions a coach named for them light up, with 1st, 2nd or 3rd in
+                the corner. A player can be put anywhere, but gets a red <strong>!</strong> where no coach
+                named them.
+            </p>
+
+            <h3>What are the numbers on the shirts, and the team rating?</h3>
+            <p>
+                The number on a shirt is the player's readiness in that position: their overall in a 1st
+                position, @penalty.ElementAtOrDefault(1).ToString("0.0") less in a 2nd,
+                @penalty.ElementAtOrDefault(2).ToString("0.0") less in a 3rd, and
+                @succession.OutOfPositionPenalty.ToString("0.0") less where no coach named them.
+                The team rating is the average of the shirts on the pitch, with one bar each for the
+                attack, midfield, defence and goalkeeper. They change with every substitution, and show
+                how far above or below the best eleven your lineup is.
             </p>
             <p>
                 Nothing is saved, and nobody else's page changes. Your eleven is kept in the page's address,

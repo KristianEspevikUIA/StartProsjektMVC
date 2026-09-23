@@ -62,8 +62,9 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<PlayerSuccessionProfile> PlayerSuccessionProfiles => Set<PlayerSuccessionProfile>();
 
     /// <summary>
-    /// Fornavn og bilde til velkomsten når spilleren logger inn. Det eneste stedet et navn
-    /// lagres om en spiller. Se PlayerPersonalDetails.
+    /// Fornavn og bilde til velkomsten når spilleren logger inn; fornavnet vises også på
+    /// trenernes «Best eleven». Det eneste stedet et navn lagres om en spiller. Se
+    /// PlayerPersonalDetails.
     /// </summary>
     public DbSet<PlayerPersonalDetails> PlayerPersonalDetails => Set<PlayerPersonalDetails>();
 

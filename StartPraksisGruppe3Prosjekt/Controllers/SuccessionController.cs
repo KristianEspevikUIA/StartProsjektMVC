@@ -37,19 +37,22 @@ public class SuccessionController : Controller
     private readonly ISuccessionCatalog _catalog;
     private readonly ISuccessionPlanningService _planning;
     private readonly IPlayerAccessLog _accessLog;
+    private readonly IPlayerWelcomeService _welcome;
 
     public SuccessionController(
         AppDbContext db,
         IAuthorizationService authz,
         ISuccessionCatalog catalog,
         ISuccessionPlanningService planning,
-        IPlayerAccessLog accessLog)
+        IPlayerAccessLog accessLog,
+        IPlayerWelcomeService welcome)
     {
         _db = db;
         _authz = authz;
         _catalog = catalog;
         _planning = planning;
         _accessLog = accessLog;
+        _welcome = welcome;
     }
 
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
@@ -154,7 +157,7 @@ public class SuccessionController : Controller
     /// The best eleven in a formation, from the players the coaches have rated, and who is next
     /// in line behind each of them.
     /// </summary>
-    /// <param name="formation">"4-3-3". Left out, the first formation in the file.</param>
+    /// <param name="formation">"3-5-2" (or "1-3-5-2"). Left out, the first formation in the file.</param>
     /// <param name="ratedAs">Only assessments made against this level, e.g. "first-team".</param>
     public async Task<IActionResult> Formation(
         string? formation,
@@ -185,6 +188,8 @@ public class SuccessionController : Controller
             .Where(r => r.Consensus?.Overall is not null)
             .ToDictionary(r => r.Player.Id);
 
+        var names = await DisplayNamesAsync(rows.Values, cancellationToken);
+
         var candidates = rows.Values
             .Select(r => new ElevenCandidate(r.Player.Id, r.Player.Code, r.Consensus!.Overall!.Value, r.Consensus.Positions))
             .ToList();
@@ -199,8 +204,11 @@ public class SuccessionController : Controller
             {
                 PlayerId = row.Player.Id,
                 Code = row.Player.Code,
+                Name = names[row.Player.Id].Name,
+                NameTag = names[row.Player.Id].Tag,
                 TeamName = row.Player.Team?.Name,
                 Overall = pick.Candidate.Overall,
+                Fit = pick.Fit,
                 Rank = pick.Rank,
                 Level = row.Level,
                 Outlook = row.Outlook,
@@ -220,20 +228,23 @@ public class SuccessionController : Controller
             })
             .ToList();
 
-        // Back into the rows the file draws, in the same order the slots came out.
+        // Back into the rows the file draws, in the same order the slots came out, and which
+        // part of the team each slot is in.
         var lines = new List<IReadOnlyList<SlotView>>();
+        var units = new List<TeamUnit>();
         var index = 0;
         foreach (var line in chosen.Lines)
         {
             lines.Add(views.Skip(index).Take(line.Count).ToList());
+            units.AddRange(Enumerable.Repeat(SuccessionMath.UnitOf(lines.Count - 1, chosen.Lines.Count), line.Count));
             index += line.Count;
         }
 
         var starters = views.Where(v => v.Starter is not null).Select(v => v.Starter!).ToList();
         var starting = starters.Select(s => s.PlayerId).ToHashSet();
 
-        // Everybody there is to choose from, not only the eleven: the bench beside the pitch is
-        // where a coach moves players in from. Strongest first, as a squad list reads.
+        // Everybody there is to choose from, not only the eleven: the substitutes beside the
+        // pitch are where a coach brings players on from. Strongest first, as a squad list reads.
         var squad = rows.Values
             .OrderByDescending(r => r.Consensus!.Overall)
             .ThenBy(r => r.Player.Code, StringComparer.Ordinal)
@@ -241,6 +252,8 @@ public class SuccessionController : Controller
             {
                 PlayerId = r.Player.Id,
                 Code = r.Player.Code,
+                Name = names[r.Player.Id].Name,
+                NameTag = names[r.Player.Id].Tag,
                 TeamName = r.Player.Team?.Name,
                 Overall = r.Consensus!.Overall!.Value,
                 Level = r.Level,
@@ -250,13 +263,15 @@ public class SuccessionController : Controller
             })
             .ToList();
 
-        // The bench shows every one of them with a number, so every one of them is logged -- not
-        // only the eleven and the next in line.
+        // The substitutes show every one of them with a number, so every one of them is logged --
+        // not only the eleven and the next in line.
         await _accessLog.RecordManyAsync(
             User,
             squad.Select(p => p.PlayerId).ToList(),
             "Succession/Formation",
             cancellationToken);
+
+        var fits = views.Select(v => v.Starter?.Fit).ToList();
 
         return View(new SuccessionFormationViewModel
         {
@@ -266,21 +281,24 @@ public class SuccessionController : Controller
             Lines = lines,
             FilledCount = starters.Count,
             ReadyCount = starters.Count(s => s.Level == ReadinessLevel.Ready),
-            AverageReadiness = starters.Count == 0 ? null : starters.Average(s => s.Overall),
+            TeamRating = Average(fits),
+            Units = Enum.GetValues<TeamUnit>()
+                .Where(units.Contains)
+                .Select(unit => new UnitRating(unit, Average(fits.Where((_, slot) => units[slot] == unit))))
+                .ToList(),
             CandidateCount = candidates.Count,
             Squad = squad,
             Editor = new LineupEditorData(
-                views.Select((v, index) => new LineupSlot(index, v.Position, v.PositionName)).ToList(),
+                views.Select((v, slot) => new LineupSlot(slot, v.Position, v.PositionName, units[slot].ToString())).ToList(),
                 chosen.Lines.Select(line => line.Count).ToList(),
                 squad.Select(p => new LineupPlayer(
                         p.PlayerId,
                         p.Code,
+                        p.Name,
+                        p.NameTag,
                         p.TeamName,
                         p.Overall,
-                        SuccessionFormat.Number(p.Overall),
                         SuccessionFormat.LevelName(p.Level),
-                        SuccessionFormat.SlotClass(p.Level),
-                        SuccessionFormat.LevelClass(p.Level),
                         // The file's own spelling of each key, so the script can match a slot
                         // by plain equality.
                         p.Positions.ToDictionary(pos => _catalog.Position(pos.Key)?.Key ?? pos.Key, pos => pos.BestRank),
@@ -289,8 +307,16 @@ public class SuccessionController : Controller
                     .ToList(),
                 views.Select(v => v.Starter?.PlayerId).ToList(),
                 _catalog.Settings.PositionRankPenalty,
-                _catalog.Settings.ReadyAt)
+                _catalog.Settings.OutOfPositionPenalty,
+                _catalog.Settings.ReadyAt,
+                _catalog.Settings.DevelopingAt)
         });
+
+        static double? Average(IEnumerable<double?> values)
+        {
+            var present = values.Where(v => v is not null).Select(v => v!.Value).ToList();
+            return present.Count == 0 ? null : present.Average();
+        }
     }
 
     /// <summary>One player: each coach side by side, the history, the notes, the contract.</summary>
@@ -542,6 +568,34 @@ public class SuccessionController : Controller
         model.TeamName = player.Team?.Name;
         model.CycleLabel = cycle.Label;
         return model;
+    }
+
+    /// <summary>
+    /// What each player is called on the best eleven: the first name the club entered for the
+    /// welcome, or the code where there is none. The only staff page that shows a name -- the
+    /// coaches asked to see the team as a team, and a pitch of codes is not one.
+    ///
+    /// Two players with the same first name get their code as a tag under it, so a shirt can
+    /// never be mistaken for the other one.
+    /// </summary>
+    private async Task<Dictionary<int, ShirtName>> DisplayNamesAsync(
+        IEnumerable<BoardPlayer> rows,
+        CancellationToken cancellationToken)
+    {
+        var players = rows.Select(r => r.Player).ToList();
+        var firstNames = await _welcome.FirstNamesAsync(players.Select(p => p.Id).ToList(), cancellationToken);
+
+        var shared = firstNames.Values
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return players.ToDictionary(
+            p => p.Id,
+            p => firstNames.TryGetValue(p.Id, out var name)
+                ? new ShirtName(name, shared.Contains(name) ? p.Code : null)
+                : new ShirtName(p.Code, null));
     }
 
     /// <summary>

@@ -117,7 +117,7 @@ Alt systemet lagrer, uttømmende, fra datamodellen i `Models/` og brukerkontoene
 | Trenernes kategori, posisjoner, prognose og risiko | `SuccessionAssessments` | Samme |
 | Trenernes fritekst: prognoser, «what now», utviklingsfokus, styrker, notater | `SuccessionAssessments` | Frivillig, høyst 200/500/1000 tegn. Se under |
 | Kontraktstype, kontraktsslutt og treningsgruppe | `PlayerSuccessionProfiles` | Én rad per spiller, lagt inn av trener eller admin |
-| Fornavn | `PlayerPersonalDetails.FirstName` | Bare fornavn, til velkomsten når spilleren logger inn. Vises bare for spilleren selv og admin. Se under |
+| Fornavn | `PlayerPersonalDetails.FirstName` | Bare fornavn, til velkomsten når spilleren logger inn. Vises for spilleren selv og admin, og for trenerne på «Best eleven». Se under |
 | Bilde (klubbens offisielle spillerbilde) | `PlayerPersonalDetails.Photo` | Samme. Metadata (GPS, bildetekst) fjernes før lagring |
 
 **Om brukerkontoene** — spillere med konto, foresatte, trenere og administratorer
@@ -130,9 +130,10 @@ Alt systemet lagrer, uttømmende, fra datamodellen i `Models/` og brukerkontoene
 | Rolle | `AspNetUserRoles` | Player, Coach, Guardian eller Admin |
 | Hvilke lag en trener er knyttet til | `CoachTeams` | Begrenser ikke lenger noe (punkt 7) |
 
-**Spillerens fornavn og bilde lagres bare til velkomsten.** Når spilleren logger inn, står det
-«Welcome, Alex» med spillerens eget bilde. Ingen andre ser dem: grensesnittet bruker fortsatt
-spillerkoden overalt ellers, også for trenerne. Bildet er klubbens offisielle spillerbilde, som
+**Spillerens fornavn og bilde lagres til velkomsten.** Når spilleren logger inn, står det
+«Welcome, Alex» med spillerens eget bilde. Trenerne ser i tillegg fornavnet på én side, «Best
+eleven», der laget vises som på en fotballbane; det ba de om. Bildet ser de ikke. Ellers bruker
+grensesnittet spillerkoden overalt, også for trenerne. Bildet er klubbens offisielle spillerbilde, som
 allerede er publisert, og IK Start har gitt tillatelse til bruken. Dette er likevel en ny bruk av
 bildet, i et system som også har spillerens svar, og det må derfor stå i meldingen og i
 informasjonen til spillerne og foresatte. Se `docs/player-welcome.md`.

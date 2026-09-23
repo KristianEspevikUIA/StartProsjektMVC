@@ -24,12 +24,16 @@ Beskrivelsen de ga, og hvor i appen det ligger:
 | Kept separate, pulls it all together | Én vurdering per trener. Tavla viser snittet |
 | Compare coaches responses – only answers for the players | Spillersiden, «Coaches side by side». Bare trenere svarer |
 | Every 8 weeks | Faste åtteukers sykluser, se under |
-| What would the best 11 in a 4-3-3 look like? | Banen på «Best eleven», 4-3-3 som standard |
+| What would the best 11 in a 4-3-3 look like? | Banen på «Best eleven». 4-3-3 er ett av valgene; siden åpner på 3-5-2 (se neste rad) |
 | Who's in the building to be the best fit for the formation? | Tabellen «Who is next in line» under banen |
 | Where the player is «off» / how many weeks till fit | «Off and weeks to ready» på tavla, banen og spillersiden |
 | Click into a team, say G17, and see the players in a formation | Laglenkene «Choose from» på «Best eleven», og «Best eleven» på hvert lag under My teams |
-| Formation might be 1-3-5-2 | 3-5-2. `?formation=1-3-5-2` virker også, og siden skriver «1-3-5-2 with the goalkeeper» |
-| If we could move players around too. Think of Football Manager | Dra og slipp på banen, eller trykk på en spiller og så dit hen skal. Se «Flytte spillere» |
+| Formation might be 1-3-5-2 | 3-5-2, og siden åpner nå på den. `?formation=1-3-5-2` virker også, og siden skriver «1-3-5-2 with the goalkeeper» |
+| If we could move players around too. Think of Football Manager | Dra og slipp på banen, eller trykk på en spiller og så dit hen skal. Se «Banen som et spill» |
+| Less on the players: name, position (maybe shirt number) | Hver spiller er en drakt med posisjonen, fornavnet under og én rating. Draktnummer finnes ikke ennå, se under |
+| Substitutes to the right of the eleven, not under | Innbytterne står til høyre fra nettbrettbredde (700 px) og opp. Bare på mobil havner de under |
+| Stats/overall change with who is subbed in where | Team rating og en stolpe for angrep, midtbane, forsvar og keeper, regnet ut på nytt for hvert bytte |
+| The formation should be 3-5-2 | Siden åpner på 3-5-2 |
 
 ---
 
@@ -146,8 +150,8 @@ Det er et anslag ut fra farten så langt, ikke et løfte, og siden sier det.
 Ved likhet avgjør overall, så rangering og til slutt spillerkoden. Samme vurderinger gir derfor
 alltid samme lag.
 
-Formasjonene ligger i JSON-fila som rader, fra angrep til keeper. Vi har lagt inn 4-3-3 (standard),
-4-2-3-1 og 3-5-2. Til sammen bruker de alle 19 posisjonene. Filtrene «Choose from» (lag) og
+Formasjonene ligger i JSON-fila som rader, fra angrep til keeper. Vi har lagt inn 3-5-2 (standard,
+fordi trenerne ba om 1-3-5-2), 4-3-3 og 4-2-3-1. Den første i fila er den siden åpner på. Til sammen bruker de alle 19 posisjonene. Filtrene «Choose from» (lag) og
 «Rated as» (bare vurderinger mot et gitt nivå, f.eks. 1st team) gjelder både banen og tabellen.
 
 Noen trenere teller keeperen med: 1-3-5-2 er 3-5-2. `FindFormation` godtar begge (bare som
@@ -161,22 +165,46 @@ ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rate
 My teams (`/Coach`) har også en knapp «Best eleven». Menyen «Squad board / Best eleven» tar med
 laget og en eldre syklus, så man blir i samme lag når man bytter side.
 
-### Flytte spillere
+### Banen som et spill
 
-Ved siden av banen står resten av troppen, «The rest of the squad»: alle vurderte spillere som ikke
-er i ellever, sterkest først. `wwwroot/js/lineup.js` gjør det mulig å flytte dem, slik som i
-Football Manager:
+Banen er tegnet som i et fotballspill: mørk bakgrunn, gressbane med linjer, og hver spiller er en
+drakt i klubbens gule farge med posisjonen på. Under drakta står fornavnet, og i hjørnet én rating.
+Til høyre står innbytterne, «Substitutes»: alle vurderte spillere som ikke er i ellever, sterkest
+først, med beste posisjon, navn og rating. `wwwroot/js/lineup.js` gjør det mulig å bytte, slik som
+i Football Manager:
 
-- **Dra** et kort til en annen posisjon for å bytte de to, dra en spiller fra lista inn på banen,
-  eller dra en startspiller til lista for å ta hen av.
+- **Dra** en innbytter inn på en spiller for å bytte dem, dra en drakt til en annen posisjon for å
+  bytte de to, eller dra en spiller til innbytterne for å ta hen av.
 - **Trykk** på en spiller og så dit hen skal. Det er slik det virker på nettbrett, og med
   tastaturet (Enter eller mellomrom, Escape for å avbryte).
-- Mens en spiller er plukket opp, er posisjonene trenerne har ført opp for hen merket på banen:
-  heltrukket for 1., stiplet for 2., prikket for 3., og rangen i hjørnet. Plukker man opp en
-  posisjon, står spillerne som er ført opp for den, øverst i lista.
-- En spiller kan stå hvor som helst, men kortet sier «Out of position» når ingen trener har ført
-  hen opp for posisjonen.
-- Tallene øverst (Filled, Ready now, snittet) følger laget man har satt opp.
+- Mens en spiller er plukket opp, lyser draktene i posisjonene trenerne har ført opp for hen, med
+  1st/2nd/3rd i hjørnet. Plukker man opp en posisjon, står innbytterne som er ført opp for den,
+  øverst i lista, med hvor gode de er der.
+- En spiller kan stå hvor som helst. Står hen der ingen trener har ført hen opp, får drakta et
+  rødt «!» og navnet rød bakgrunn.
+
+**Ratingen er spillerens beredskap i posisjonen hen står i**, ikke overall alene:
+`SuccessionMath.PositionFit`. Det er overall for en 1. posisjon, minus `positionRankPenalty` for
+2. og 3. (0,5 og 1,0), og minus `outOfPositionPenalty` (2,0) for en posisjon ingen trener har ført
+opp. Det siste står i JSON-fila og må være minst like stort som trekket for 3. posisjon. Utvalget
+bruker aldri det trekket; det gjelder bare det treneren selv flytter.
+
+**Team rating** øverst er snittet av draktene på banen, med en stolpe for angrep, midtbane, forsvar
+og keeper. Hvilken rad som er hva, følger av at formasjonene i fila tegnes fra angrep til keeper:
+første rad er angrep, siste er keeper, nest siste er forsvar, resten er midtbane
+(`SuccessionMath.UnitOf`). Alt regnes ut på nytt for hvert bytte, og det som endrer seg, blinker.
+Ved siden av står hvor mye laget er over eller under beste ellever («−0.3 on the best eleven»),
+hvor mange som er klare (overall 8 eller mer), og hvor mange som står utenfor posisjon.
+
+**Navn.** Drakta viser spillerens fornavn, slik admin har lagt det inn til velkomsten
+(`PlayerPersonalDetails`, via `IPlayerWelcomeService.FirstNamesAsync`). Har ikke klubben lagt inn
+noe, står koden. Har to spillere på siden samme fornavn, står koden i liten skrift under. Dette er
+den eneste trenersiden som viser navn, og det ble bestemt da trenerne ba om det. Tavla,
+lagsidene og spillersidene bruker fortsatt koden. Bildet vises ikke. Se
+`docs/player-welcome.md`.
+
+**Draktnummer** finnes ikke i databasen. Det krever en ny kolonne og en migrasjon, og det er
+Kristian som lager migrasjoner. Når nummeret finnes, kan det stå på drakta i stedet for posisjonen.
 
 **Ingenting lagres.** Utvalget er trenernes vurderinger og skal være det samme for alle. Laget man
 setter opp, står i adressen (`?lineup=12.5.0.7…`, én spiller-id per posisjon i sidens rekkefølge, 0
@@ -186,8 +214,7 @@ line» viser alltid utvalget, ikke det man har flyttet.
 
 Å lagre egne oppstillinger i databasen krever en migrasjon, og den er ikke laget (se husreglene).
 
-Skriptet regner ikke ut noe selv utover passformen for en posisjon en spiller er flyttet til
-(overall minus trekket for 2. og 3. posisjon, samme regel som `PickEleven`). Alt annet det viser,
+Skriptet regner ikke ut noe selv utover `PositionFit` og snittene av den. Alt annet det viser,
 kommer ferdig fra serveren i en datablokk (`<script type="application/json" id="lineup-data">`,
 `SuccessionFormationViewModel.Editor`). Den kjøres aldri, så CSP-en trenger ingen unntak, og
 JSON-koderen gjør `<` og `>` om til `\u003C`/`\u003E`, så ingenting i den kan avslutte blokka.
@@ -201,7 +228,7 @@ Dette er en ny kategori opplysninger om spillerne, de fleste mindreårige: trene
 evner og modenhet, kontraktsforhold, og fritekst. Det følger de samme reglene som resten av
 systemet:
 
-- **Ingen navn.** Excel-arket trenerne leverte har fullt navn på alle spillerne. Det ligger ikke
+- **Ingen navn fra arket.** Excel-arket trenerne leverte har fullt navn på alle spillerne. Det ligger ikke
   i repoet og skal ikke dit. I appen er spilleren koden.
 - **Bare stab.** `[Authorize(Roles = Coach,Admin)]` på hele controlleren, og `CanViewPlayer` per
   spiller.
