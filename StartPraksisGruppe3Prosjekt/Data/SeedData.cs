@@ -150,18 +150,27 @@ public static class SeedData
     }
 
     /// <summary>
-    /// Team names and player positions are text that shows up on screen, so they are English
-    /// like the rest of the interface. Existing rows are renamed in place rather than
-    /// re-created: a new "Senior" team next to the old "A-laget" would leave every player on
-    /// the old one, and the coach looking at an empty squad.
+    /// The three teams the project is about: U14, U15 and U17 -- the club's academy age groups,
+    /// the same three the identity benchmarking has match data for.
+    ///
+    /// Existing rows are renamed in place rather than re-created: a new "U17" next to the old
+    /// "Senior" would leave every player on the old one, and the coach looking at an empty
+    /// squad. The demo teams were Senior, G19 and G16 until the club pointed out that they are
+    /// not the teams this is for; strongest first, they became U17, U15 and U14. "A-laget" is
+    /// older still, from before the interface was English.
     /// </summary>
     private static async Task<IReadOnlyDictionary<string, Team>> SeedTeamsAsync(AppDbContext db)
     {
-        await RenameTeamAsync(db, "A-laget", "Senior");
+        // One rename each, straight to the current name: the renames are saved together below,
+        // so a chain (A-laget to Senior to U17) would find nothing to rename at its second step.
+        await RenameTeamAsync(db, "A-laget", "U17");
+        await RenameTeamAsync(db, "Senior", "U17");
+        await RenameTeamAsync(db, "G19", "U15");
+        await RenameTeamAsync(db, "G16", "U14");
         await TranslatePositionsAsync(db);
         await db.SaveChangesAsync();
 
-        var names = new[] { "Senior", "G19", "G16" };
+        var names = new[] { "U14", "U15", "U17" };
 
         foreach (var name in names)
         {
@@ -648,9 +657,24 @@ public static class SeedData
                 if (byCode.TryGetValue(member.Name, out var player))
                 {
                     // Positions are seeded and never edited in the app, so this is the only
-                    // writer and it can line an older squad up with the formation. Nothing
-                    // else about an existing player is touched.
+                    // writer and it can line an older squad up with the formation.
                     player.Position = position;
+
+                    // And the birth date, since the squads became U14, U15 and U17: an
+                    // under-17 born in 1998 is not one. A player who is a minor now and was
+                    // not before gets the guardian every minor has -- without one the check
+                    // at the end of seeding stops the application.
+                    if (player.BirthDate != member.BirthDate)
+                    {
+                        player.BirthDate = member.BirthDate;
+
+                        if (player.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge
+                            && !await db.Guardianships.AnyAsync(g => g.PlayerId == player.Id))
+                        {
+                            await AddGuardianAsync(db, userManager, player, member, password);
+                        }
+                    }
+
                     continue;
                 }
 
@@ -673,27 +697,7 @@ public static class SeedData
                 byCode[member.Name] = player;
                 created++;
 
-                // A guardian where the club needs one: an explicitly named account, or one
-                // derived from the name for anybody still under the age limit. Adults on the
-                // senior side get none, which is the point of the rule.
-                var guardianEmail = member.GuardianEmail
-                    ?? (player.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge
-                        ? GuardianEmail(member.Name)
-                        : null);
-
-                string? guardianUserId = null;
-
-                if (guardianEmail is not null)
-                {
-                    guardianUserId = await EnsureUserAsync(
-                        userManager, guardianEmail, password, Roles.Guardian);
-
-                    db.Guardianships.Add(new Guardianship
-                    {
-                        PlayerId = player.Id,
-                        GuardianUserId = guardianUserId
-                    });
-                }
+                var guardianUserId = await AddGuardianAsync(db, userManager, player, member, password);
 
                 if (member.Consent is { } level)
                 {
@@ -723,6 +727,39 @@ public static class SeedData
     }
 
     /// <summary>
+    /// A guardian where the club needs one: an explicitly named account, or one derived from
+    /// the name for anybody under the age limit -- which, in U14, U15 and U17, is everybody.
+    /// Null when the player needs none. Added, not saved.
+    /// </summary>
+    private static async Task<string?> AddGuardianAsync(
+        AppDbContext db,
+        UserManager<IdentityUser> userManager,
+        Player player,
+        SquadMember member,
+        string password)
+    {
+        var guardianEmail = member.GuardianEmail
+            ?? (player.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge
+                ? GuardianEmail(member.Name)
+                : null);
+
+        if (guardianEmail is null)
+        {
+            return null;
+        }
+
+        var guardianUserId = await EnsureUserAsync(userManager, guardianEmail, password, Roles.Guardian);
+
+        db.Guardianships.Add(new Guardianship
+        {
+            PlayerId = player.Id,
+            GuardianUserId = guardianUserId
+        });
+
+        return guardianUserId;
+    }
+
+    /// <summary>
     /// Startelleveren i en 4-3-3, i draktrekkefølge. Hver tropp fylles til nøyaktig denne,
     /// slik at en lagside viser et helt lag -- og slik at det er noe å filtrere på når man
     /// søker på posisjon.
@@ -745,82 +782,86 @@ public static class SeedData
     /// <summary>
     /// Troppene. Elleve spillere per lag, i samme rekkefølge som <see cref="Formation"/>.
     ///
+    /// Lagene er U14, U15 og U17, de tre prosjektet gjelder.
+    ///
     /// Navnene er tilfeldige og oppdiktet, med ett unntak: prosjektgruppa -- Brage
     /// Kristoffersen, Kristian Espevik, Victor Ziad og Taavi-Topias Henell -- spiller på
-    /// seniorlaget. Ingen fornavn går igjen i klubben, så en drakt på beste elleve aldri
+    /// U17. Ingen fornavn går igjen i klubben, så en drakt på beste elleve aldri
     /// trenger mer enn fornavnet. De to som deler etternavn, er søsknene nedenfor.
     ///
     /// Særtilfellene er de samme som da spillerne het koder: en spiller uten samtykkehendelse
     /// i det hele tatt, en med tilbaketrukket samtykke, to søsken på samme foresatte, og et par
     /// uten egen konto. De er de eneste radene her som betyr noe utover å fylle en tropp.
     ///
-    /// Fødselsdatoene er valgt slik at hvert lag har både myndige og mindreårige. Seniorlaget
-    /// har fire spillere under aldersgrensen -- unge som er tatt opp fra akademiet -- og det
-    /// er også det som gir laget nok foresatte til at et lagsnitt for den rollen kan vises.
+    /// Fødselsdatoene følger årsklassene slik NFF regner dem, etter året spilleren fyller:
+    /// U17 er født 2009 og 2010, U15 2011 og U14 2012, med et par som er et år yngre og spiller
+    /// opp. Alle er dermed mindreårige, og alle har en foresatt -- som i virkeligheten for disse
+    /// lagene. Koden en spiller het før navnene (TS-98-07) sier ingenting om alderen lenger; den
+    /// er bare frøet til demodataene.
     /// </summary>
     private static readonly IReadOnlyList<(string TeamName, IReadOnlyList<SquadMember> Squad)> Squads =
         new (string, IReadOnlyList<SquadMember>)[]
         {
-            ("Senior", new SquadMember[]
+            ("U17", new SquadMember[]
             {
-                new("Kristian Espevik", "TS-98-07", new DateOnly(1998, 3, 11), ConsentLevel.Full),
-                new("Victor Ziad", "TS-02-05", new DateOnly(2002, 5, 14), ConsentLevel.Full),
-                new("Magnus Haugland", "TS-01-22", new DateOnly(2001, 11, 2), ConsentLevel.Aggregated),
-                new("Henrik Tveit", "TS-99-18", new DateOnly(1999, 7, 23), ConsentLevel.Full),
-                new("Elias Vatne", "TS-08-30", new DateOnly(2008, 3, 15), ConsentLevel.Full),
-                new("Taavi-Topias Henell", "TS-00-13", new DateOnly(2000, 9, 17), ConsentLevel.Full),
-                new("Jonas Aasland", "TS-03-06", new DateOnly(2003, 4, 30), ConsentLevel.Aggregated),
-                new("Noah Berntsen", "TS-08-24", new DateOnly(2008, 5, 2), ConsentLevel.Full),
-                new("Brage Kristoffersen", "TS-05-09", new DateOnly(2005, 6, 19), ConsentLevel.Full),
-                new("Filip Salvesen", "TS-08-16", new DateOnly(2008, 9, 30), ConsentLevel.Full, GuardianEmail: "foresatt1@example.test"),
-                new("Lucas Birkeland", "TS-09-21", new DateOnly(2009, 1, 27), ConsentLevel.Full)
+                new("Kristian Espevik", "TS-98-07", new DateOnly(2009, 3, 11), ConsentLevel.Full),
+                new("Victor Ziad", "TS-02-05", new DateOnly(2009, 5, 14), ConsentLevel.Full),
+                new("Magnus Haugland", "TS-01-22", new DateOnly(2009, 11, 2), ConsentLevel.Aggregated),
+                new("Henrik Tveit", "TS-99-18", new DateOnly(2009, 7, 23), ConsentLevel.Full),
+                new("Elias Vatne", "TS-08-30", new DateOnly(2010, 3, 15), ConsentLevel.Full),
+                new("Taavi-Topias Henell", "TS-00-13", new DateOnly(2009, 9, 17), ConsentLevel.Full),
+                new("Jonas Aasland", "TS-03-06", new DateOnly(2010, 4, 30), ConsentLevel.Aggregated),
+                new("Noah Berntsen", "TS-08-24", new DateOnly(2010, 5, 2), ConsentLevel.Full),
+                new("Brage Kristoffersen", "TS-05-09", new DateOnly(2009, 6, 19), ConsentLevel.Full),
+                new("Filip Salvesen", "TS-08-16", new DateOnly(2010, 9, 30), ConsentLevel.Full, GuardianEmail: "foresatt1@example.test"),
+                new("Lucas Birkeland", "TS-09-21", new DateOnly(2010, 1, 27), ConsentLevel.Full)
             }),
 
-            ("G19", new SquadMember[]
+            ("U15", new SquadMember[]
             {
-                new("Sander Fjeld", "TS-07-21", new DateOnly(2007, 8, 9), ConsentLevel.Full),
-                new("Mathias Lunde", "TS-07-14", new DateOnly(2007, 12, 1), ConsentLevel.Full, GuardianEmail: "foresatt2@example.test"),
+                new("Sander Fjeld", "TS-07-21", new DateOnly(2011, 8, 9), ConsentLevel.Full),
+                new("Mathias Lunde", "TS-07-14", new DateOnly(2011, 12, 1), ConsentLevel.Full, GuardianEmail: "foresatt2@example.test"),
 
                 // Ingen egen konto, og samtykke None. Foresatt og trener har svart om hen;
                 // spilleren selv kan ikke, og det skal se annerledes ut enn "har ikke svart".
-                new("Tobias Moe", "TS-08-05", new DateOnly(2008, 2, 17), ConsentLevel.None, HasAccount: false,
+                new("Tobias Moe", "TS-08-05", new DateOnly(2011, 2, 17), ConsentLevel.None, HasAccount: false,
                     GuardianEmail: "foresatt3@example.test"),
 
-                new("Jakob Strand", "TS-08-27", new DateOnly(2008, 4, 25), ConsentLevel.Full),
-                new("William Eide", "TS-07-09", new DateOnly(2007, 10, 30), ConsentLevel.Aggregated),
-                new("Oskar Nygård", "TS-08-19", new DateOnly(2008, 7, 14), ConsentLevel.Full),
-                new("Markus Dahl", "TS-07-03", new DateOnly(2007, 4, 5), ConsentLevel.Aggregated),
-                new("Daniel Sørensen", "TS-08-02", new DateOnly(2008, 1, 19), ConsentLevel.Full),
-                new("Martin Aune", "TS-07-26", new DateOnly(2007, 6, 22), ConsentLevel.Full),
+                new("Jakob Strand", "TS-08-27", new DateOnly(2011, 4, 25), ConsentLevel.Full),
+                new("William Eide", "TS-07-09", new DateOnly(2011, 10, 30), ConsentLevel.Aggregated),
+                new("Oskar Nygård", "TS-08-19", new DateOnly(2011, 7, 14), ConsentLevel.Full),
+                new("Markus Dahl", "TS-07-03", new DateOnly(2011, 4, 5), ConsentLevel.Aggregated),
+                new("Daniel Sørensen", "TS-08-02", new DateOnly(2012, 1, 19), ConsentLevel.Full),
+                new("Martin Aune", "TS-07-26", new DateOnly(2011, 6, 22), ConsentLevel.Full),
 
                 // Samtykket ble senere trukket ned fra Full til Aggregated. Se SeedWithdrawnConsentAsync.
-                new("Viljar Holm", "TS-08-11", new DateOnly(2008, 8, 22), ConsentLevel.Aggregated, GuardianEmail: "foresatt4@example.test"),
+                new("Viljar Holm", "TS-08-11", new DateOnly(2011, 8, 22), ConsentLevel.Aggregated, GuardianEmail: "foresatt4@example.test"),
 
-                new("Adrian Lie", "TS-08-14", new DateOnly(2008, 3, 8), ConsentLevel.Full)
+                new("Adrian Lie", "TS-08-14", new DateOnly(2012, 3, 8), ConsentLevel.Full)
             }),
 
-            ("G16", new SquadMember[]
+            ("U14", new SquadMember[]
             {
-                // Lillebroren til Tobias Moe på G19, med samme foresatte -- søsken i to lag
+                // Lillebroren til Tobias Moe på U15, med samme foresatte -- søsken i to lag
                 // skal fungere.
-                new("Emil Moe", "TS-10-02", new DateOnly(2010, 1, 14), ConsentLevel.Full, GuardianEmail: "foresatt3@example.test"),
+                new("Emil Moe", "TS-10-02", new DateOnly(2012, 1, 14), ConsentLevel.Full, GuardianEmail: "foresatt3@example.test"),
 
-                new("Isak Rønning", "TS-10-19", new DateOnly(2010, 4, 3), ConsentLevel.Full),
-                new("Sebastian Olsen", "TS-10-25", new DateOnly(2010, 8, 11), ConsentLevel.Aggregated),
-                new("Johannes Berg", "TS-11-07", new DateOnly(2011, 2, 26), ConsentLevel.Full),
-                new("Aksel Vik", "TS-10-31", new DateOnly(2010, 11, 5), ConsentLevel.Full),
-                new("Håkon Lien", "TS-11-16", new DateOnly(2011, 5, 19), ConsentLevel.Full),
-                new("Theo Myhre", "TS-10-08", new DateOnly(2010, 5, 27), ConsentLevel.Aggregated, GuardianEmail: "foresatt5@example.test"),
-                new("Leon Hagen", "TS-11-21", new DateOnly(2011, 7, 8), ConsentLevel.Full),
-                new("Ludvig Bakke", "TS-11-04", new DateOnly(2011, 3, 9), ConsentLevel.None, GuardianEmail: "foresatt6@example.test"),
+                new("Isak Rønning", "TS-10-19", new DateOnly(2012, 4, 3), ConsentLevel.Full),
+                new("Sebastian Olsen", "TS-10-25", new DateOnly(2012, 8, 11), ConsentLevel.Aggregated),
+                new("Johannes Berg", "TS-11-07", new DateOnly(2012, 2, 26), ConsentLevel.Full),
+                new("Aksel Vik", "TS-10-31", new DateOnly(2012, 11, 5), ConsentLevel.Full),
+                new("Håkon Lien", "TS-11-16", new DateOnly(2012, 5, 19), ConsentLevel.Full),
+                new("Theo Myhre", "TS-10-08", new DateOnly(2012, 5, 27), ConsentLevel.Aggregated, GuardianEmail: "foresatt5@example.test"),
+                new("Leon Hagen", "TS-11-21", new DateOnly(2013, 7, 8), ConsentLevel.Full),
+                new("Ludvig Bakke", "TS-11-04", new DateOnly(2012, 3, 9), ConsentLevel.None, GuardianEmail: "foresatt6@example.test"),
 
                 // Ingen ConsentEvent i det hele tatt -- gjeldende nivå blir None. Det er en
                 // egen tilstand fra "noen har aktivt satt None", og begge skal virke. Uten
                 // konto, så det finnes heller ingen svar fra spilleren selv.
-                new("Kasper Solberg", "TS-11-12", new DateOnly(2011, 10, 21), null, HasAccount: false,
+                new("Kasper Solberg", "TS-11-12", new DateOnly(2013, 10, 21), null, HasAccount: false,
                     GuardianEmail: "foresatt7@example.test"),
 
-                new("Mikkel Tangen", "TS-10-14", new DateOnly(2010, 9, 30), ConsentLevel.Full)
+                new("Mikkel Tangen", "TS-10-14", new DateOnly(2012, 9, 30), ConsentLevel.Full)
             })
         };
 

@@ -327,7 +327,7 @@ administratorer er svaret alltid ja.
 | Administrator | Alt | Alt | Nei | Ja, bortsett fra via foresattsiden (A4) |
 
 **Trenerrollen er ikke knyttet til lag.** `CoachTeams` finnes, men begrenser ingenting: en
-G16-trener ser og kan skrive om seniorspillere. Klubben har bedt om det, men det må kunne
+U14-trener ser og kan skrive om U17-spillere. Klubben har bedt om det, men det må kunne
 forsvares som nødvendig for formålet (art. 5 nr. 1 bokstav c og art. 25). **`[KLUBBEN]`**
 bekrefter.
 

@@ -22,7 +22,7 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///   * En syklus som pågår. Den nåværende er bare delvis vurdert, så tavla viser både spillere
 ///     fra denne syklusen og spillere som faller tilbake på forrige.
 ///   * Hull på banen. Posisjonene følger de seedede posisjonene, så det finnes spillere til
-///     alle elleve i 4-3-3 -- men ikke dobbelt opp overalt.
+///     alle elleve i 3-5-2 og 4-3-3 -- men ikke dobbelt opp overalt.
 ///
 /// Idempotent per (spiller, trener, syklus), og tilfeldigheten er sådd fra SeedData.SeedKey og
 /// syklusdato: samme base gir det samme bildet i morgen.
@@ -157,18 +157,20 @@ internal static class SeedSuccession
             var random = new Random(SeedData.StableSeed($"{SeedData.SeedKey(player)}|profile"));
             var team = player.Team?.Name;
 
+            // U14, U15 and U17: a youth contract is for the oldest, and not all of them.
             var contract = team switch
             {
-                "Senior" => random.NextDouble() < 0.9 ? "pro" : "youth",
-                "G19" => random.NextDouble() switch { < 0.35 => "pro", < 0.9 => "youth", _ => "non" },
-                _ => random.NextDouble() < 0.4 ? "youth" : "non"
+                "U17" => random.NextDouble() < 0.6 ? "youth" : "non",
+                "U15" => random.NextDouble() < 0.15 ? "youth" : "non",
+                _ => "non"
             };
 
+            // The MESO group is usually the player's own age group, sometimes the one above.
             var group = team switch
             {
-                "Senior" => "first-team",
-                "G19" => random.NextDouble() < 0.2 ? "first-team" : "u19",
-                _ => random.NextDouble() < 0.15 ? "u19" : "u17"
+                "U17" => random.NextDouble() < 0.2 ? "u19" : "u17",
+                "U15" => random.NextDouble() < 0.2 ? "u17" : "u15",
+                _ => random.NextDouble() < 0.15 ? "u15" : "u14"
             };
 
             db.PlayerSuccessionProfiles.Add(new PlayerSuccessionProfile
@@ -205,8 +207,8 @@ internal static class SeedSuccession
 
         var level = team switch
         {
-            "Senior" => 6.0 + random.NextDouble() * 2.4,
-            "G19" => 4.8 + random.NextDouble() * 2.6,
+            "U17" => 6.0 + random.NextDouble() * 2.4,
+            "U15" => 4.8 + random.NextDouble() * 2.6,
             _ => 3.8 + random.NextDouble() * 2.8
         };
 
@@ -233,11 +235,12 @@ internal static class SeedSuccession
             _ => new[] { "C6" }
         };
 
+        // Judged against their own age group, or the one above for the ones who are close.
         var ratedAs = team switch
         {
-            "Senior" => "first-team",
-            "G19" => level > 6.4 ? "first-team" : "u19",
-            _ => level > 5.8 ? "u19" : "u17"
+            "U17" => level > 7.2 ? "u19" : "u17",
+            "U15" => level > 6.4 ? "u17" : "u15",
+            _ => level > 5.8 ? "u15" : "u14"
         };
 
         return new PlayerProfile(level, growth, offsets, positions, ratedAs);
@@ -335,21 +338,21 @@ internal static class SeedSuccession
                 : null,
             Projection0To6Months = Pick(random, 0.7, team switch
             {
-                "Senior" => new[] { "1st team starter", "1st team squad", "Rotation, cup games" },
-                "G19" => new[] { "U19s starter", "Train with the 1st team", "Loan 3.Div" },
-                _ => new[] { "U17s starter", "U19s squad", "U17s rotation" }
+                "U17" => new[] { "U17s starter", "Train with the U19s", "U17s rotation" },
+                "U15" => new[] { "U15s starter", "Train with the U17s", "U15s rotation" },
+                _ => new[] { "U14s starter", "Train with the U15s", "U14s rotation" }
             }),
             Projection6To18Months = Pick(random, 0.6, team switch
             {
-                "Senior" => new[] { "1st team starter", "Leader in the group", "Sale window" },
-                "G19" => new[] { "1st team squad", "Loan 1.Div", "U19s captain" },
-                _ => new[] { "U19s starter", "Train with the 1st team", "U19s squad" }
+                "U17" => new[] { "U19s squad", "Train with the 1st team", "U17s captain" },
+                "U15" => new[] { "U17s squad", "U17s starter", "U15s captain" },
+                _ => new[] { "U15s starter", "U15s squad", "U14s captain" }
             }),
             Projection18To36Months = Pick(random, 0.45, team switch
             {
-                "Senior" => new[] { "1st team starter", "Export" },
-                "G19" => new[] { "1st team starter", "1st team squad" },
-                _ => new[] { "1st team squad", "Loan 1.Div", "U21s" }
+                "U17" => new[] { "U19s starter", "1st team squad", "Youth contract" },
+                "U15" => new[] { "U17s starter", "U19s squad" },
+                _ => new[] { "U17s squad", "U15s starter" }
             }),
             PathwayBlocked = Maybe(random, 0.25, 0.8),
             WhatNow = Pick(random, 0.5, new[]

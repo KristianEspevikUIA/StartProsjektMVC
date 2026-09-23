@@ -139,7 +139,7 @@ public sealed record CategoryTrend(
 /// leaving a hole nobody can account for.
 /// </summary>
 /// <param name="TeamId">The team.</param>
-/// <param name="TeamName">Team name, e.g. "G16".</param>
+/// <param name="TeamName">Team name, e.g. "U15".</param>
 /// <param name="Periods">The periods, oldest first. Every category lines up with this list.</param>
 /// <param name="Categories">One line per C.</param>
 /// <param name="PlayersPerPeriod">

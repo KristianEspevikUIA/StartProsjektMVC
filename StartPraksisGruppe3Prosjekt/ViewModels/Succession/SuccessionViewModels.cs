@@ -31,7 +31,7 @@ public sealed class SuccessionFilterViewModel
 
 /// <summary>
 /// The Squad board / Best eleven links in the hero. They carry the team and an earlier cycle
-/// across, so a coach who has clicked into G16 on one page is still looking at G16 on the other.
+/// across, so a coach who has clicked into U15 on one page is still looking at U15 on the other.
 /// </summary>
 /// <param name="Active">"board" or "eleven".</param>
 public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey)
