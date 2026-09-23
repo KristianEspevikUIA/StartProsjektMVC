@@ -27,6 +27,9 @@ Beskrivelsen de ga, og hvor i appen det ligger:
 | What would the best 11 in a 4-3-3 look like? | Banen på «Best eleven», 4-3-3 som standard |
 | Who's in the building to be the best fit for the formation? | Tabellen «Who is next in line» under banen |
 | Where the player is «off» / how many weeks till fit | «Off and weeks to ready» på tavla, banen og spillersiden |
+| Click into a team, say G17, and see the players in a formation | Laglenkene «Choose from» på «Best eleven», og «Best eleven» på hvert lag under My teams |
+| Formation might be 1-3-5-2 | 3-5-2. `?formation=1-3-5-2` virker også, og siden skriver «1-3-5-2 with the goalkeeper» |
+| If we could move players around too. Think of Football Manager | Dra og slipp på banen, eller trykk på en spiller og så dit hen skal. Se «Flytte spillere» |
 
 ---
 
@@ -147,6 +150,49 @@ Formasjonene ligger i JSON-fila som rader, fra angrep til keeper. Vi har lagt in
 4-2-3-1 og 3-5-2. Til sammen bruker de alle 19 posisjonene. Filtrene «Choose from» (lag) og
 «Rated as» (bare vurderinger mot et gitt nivå, f.eks. 1st team) gjelder både banen og tabellen.
 
+Noen trenere teller keeperen med: 1-3-5-2 er 3-5-2. `FindFormation` godtar begge (bare som
+reserve, så en formasjon som selv heter «1-…» i fila finnes på egen nøkkel først), og siden viser
+begge skrivemåtene når navnet er tall (`FormationDefinition.GoalkeeperNotation`).
+
+### Et lag i en formasjon
+
+«Choose from» er en rad med lenker, én per lag, over filtrene: ett klikk på G19 gir G19s beste
+ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rated as». Hvert lag under
+My teams (`/Coach`) har også en knapp «Best eleven». Menyen «Squad board / Best eleven» tar med
+laget og en eldre syklus, så man blir i samme lag når man bytter side.
+
+### Flytte spillere
+
+Ved siden av banen står resten av troppen, «The rest of the squad»: alle vurderte spillere som ikke
+er i ellever, sterkest først. `wwwroot/js/lineup.js` gjør det mulig å flytte dem, slik som i
+Football Manager:
+
+- **Dra** et kort til en annen posisjon for å bytte de to, dra en spiller fra lista inn på banen,
+  eller dra en startspiller til lista for å ta hen av.
+- **Trykk** på en spiller og så dit hen skal. Det er slik det virker på nettbrett, og med
+  tastaturet (Enter eller mellomrom, Escape for å avbryte).
+- Mens en spiller er plukket opp, er posisjonene trenerne har ført opp for hen merket på banen:
+  heltrukket for 1., stiplet for 2., prikket for 3., og rangen i hjørnet. Plukker man opp en
+  posisjon, står spillerne som er ført opp for den, øverst i lista.
+- En spiller kan stå hvor som helst, men kortet sier «Out of position» når ingen trener har ført
+  hen opp for posisjonen.
+- Tallene øverst (Filled, Ready now, snittet) følger laget man har satt opp.
+
+**Ingenting lagres.** Utvalget er trenernes vurderinger og skal være det samme for alle. Laget man
+setter opp, står i adressen (`?lineup=12.5.0.7…`, én spiller-id per posisjon i sidens rekkefølge, 0
+for tom), så lenken åpner det igjen og kan sendes til en annen trener. En id som ikke er på siden,
+gjør at hele verdien ignoreres. «Back to the best eleven» fjerner den. Tabellen «Who is next in
+line» viser alltid utvalget, ikke det man har flyttet.
+
+Å lagre egne oppstillinger i databasen krever en migrasjon, og den er ikke laget (se husreglene).
+
+Skriptet regner ikke ut noe selv utover passformen for en posisjon en spiller er flyttet til
+(overall minus trekket for 2. og 3. posisjon, samme regel som `PickEleven`). Alt annet det viser,
+kommer ferdig fra serveren i en datablokk (`<script type="application/json" id="lineup-data">`,
+`SuccessionFormationViewModel.Editor`). Den kjøres aldri, så CSP-en trenger ingen unntak, og
+JSON-koderen gjør `<` og `>` om til `\u003C`/`\u003E`, så ingenting i den kan avslutte blokka.
+Uten JavaScript er siden banen og lista slik serveren tegner dem.
+
 ---
 
 ## Personvern
@@ -162,7 +208,8 @@ systemet:
 - **Revisjonslogg.** Spillersiden og skjemaet skriver én rad hver (`Succession/Player`,
   `Succession/Rate`). Tavla og banen skriver én rad per spiller som vises med tall
   (`Succession/Overview`, `Succession/Formation`), med én lagring for hele siden
-  (`IPlayerAccessLog.RecordManyAsync`).
+  (`IPlayerAccessLog.RecordManyAsync`). På banen er det alle vurderte spillere, også de på
+  benken, fordi lista viser tall for dem.
 - **Innsyn og sletting.** `/Admin/Export/{id}` tar med `SuccessionAssessments` med vurderinger og
   fritekst, og `SuccessionProfile`. Trenerne står som «Coach 1», «Coach 2». Sletting av spilleren
   tar alt med seg (cascade), og slettesiden viser hvor mange vurderinger som forsvinner.
@@ -213,6 +260,7 @@ systemet:
 | Fila, lest og validert ved oppstart | `Services/Succession/SuccessionCatalog.cs` |
 | Controller | `Controllers/SuccessionController.cs` |
 | Views | `Views/Succession/` |
+| Flytte spillere på banen | `wwwroot/js/lineup.js`, stilene «Moving players about» i `startcompass.css` |
 | Migrasjon | `Data/Migrations/*_AddSuccessionPlanning.cs` |
 | Demodata | `Data/SeedSuccession.cs` |
 | Tester | `SuccessionMathTests`, `SuccessionCatalogTests`, `SuccessionPageTests`, pluss GDPR i `AdminGdprTests` |

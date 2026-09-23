@@ -98,6 +98,14 @@
                                asp-route-roundId="@Model.RoundId">
                                 Open 5C overview
                             </a>
+                            @* The team in a formation, from the succession ratings. Same roles as
+                               this page, so the link is never one a coach cannot follow. *@
+                            <a class="sc-btn sc-btn--secondary"
+                               asp-controller="Succession"
+                               asp-action="Formation"
+                               asp-route-team="@team.TeamId">
+                                Best eleven
+                            </a>
                         </div>
                     </article>
                 }

@@ -230,11 +230,31 @@ public class SuccessionController : Controller
         }
 
         var starters = views.Where(v => v.Starter is not null).Select(v => v.Starter!).ToList();
+        var starting = starters.Select(s => s.PlayerId).ToHashSet();
 
+        // Everybody there is to choose from, not only the eleven: the bench beside the pitch is
+        // where a coach moves players in from. Strongest first, as a squad list reads.
+        var squad = rows.Values
+            .OrderByDescending(r => r.Consensus!.Overall)
+            .ThenBy(r => r.Player.Code, StringComparer.Ordinal)
+            .Select(r => new SquadPlayer
+            {
+                PlayerId = r.Player.Id,
+                Code = r.Player.Code,
+                TeamName = r.Player.Team?.Name,
+                Overall = r.Consensus!.Overall!.Value,
+                Level = r.Level,
+                Positions = r.Consensus.Positions,
+                FromEarlierCycle = r.IsFromEarlierCycle,
+                Starts = starting.Contains(r.Player.Id)
+            })
+            .ToList();
+
+        // The bench shows every one of them with a number, so every one of them is logged -- not
+        // only the eleven and the next in line.
         await _accessLog.RecordManyAsync(
             User,
-            views.SelectMany(v => v.NextInLine.Prepend(v.Starter)).Where(p => p is not null)
-                .Select(p => p!.PlayerId).Distinct().ToList(),
+            squad.Select(p => p.PlayerId).ToList(),
             "Succession/Formation",
             cancellationToken);
 
@@ -247,7 +267,29 @@ public class SuccessionController : Controller
             FilledCount = starters.Count,
             ReadyCount = starters.Count(s => s.Level == ReadinessLevel.Ready),
             AverageReadiness = starters.Count == 0 ? null : starters.Average(s => s.Overall),
-            CandidateCount = candidates.Count
+            CandidateCount = candidates.Count,
+            Squad = squad,
+            Editor = new LineupEditorData(
+                views.Select((v, index) => new LineupSlot(index, v.Position, v.PositionName)).ToList(),
+                chosen.Lines.Select(line => line.Count).ToList(),
+                squad.Select(p => new LineupPlayer(
+                        p.PlayerId,
+                        p.Code,
+                        p.TeamName,
+                        p.Overall,
+                        SuccessionFormat.Number(p.Overall),
+                        SuccessionFormat.LevelName(p.Level),
+                        SuccessionFormat.SlotClass(p.Level),
+                        SuccessionFormat.LevelClass(p.Level),
+                        // The file's own spelling of each key, so the script can match a slot
+                        // by plain equality.
+                        p.Positions.ToDictionary(pos => _catalog.Position(pos.Key)?.Key ?? pos.Key, pos => pos.BestRank),
+                        p.FromEarlierCycle,
+                        Url.Action(nameof(Player), new { id = p.PlayerId, cycle = filter.Cycle.Key }) ?? string.Empty))
+                    .ToList(),
+                views.Select(v => v.Starter?.PlayerId).ToList(),
+                _catalog.Settings.PositionRankPenalty,
+                _catalog.Settings.ReadyAt)
         });
     }
 

@@ -54,6 +54,15 @@ public static class SuccessionFormat
         _ => "sc-mean sc-mean--none"
     };
 
+    /// <summary>The readiness bar on top of a card on the pitch.</summary>
+    public static string SlotClass(ReadinessLevel level) => level switch
+    {
+        ReadinessLevel.Ready => "sc-slot--ready",
+        ReadinessLevel.Developing => "sc-slot--developing",
+        ReadinessLevel.NotYet => "sc-slot--notyet",
+        _ => "sc-slot--empty"
+    };
+
     /// <summary>
     /// "1.4 off · about 18 weeks". How far from ready, and how long at the rate the player has
     /// been moving -- or why there is no number.

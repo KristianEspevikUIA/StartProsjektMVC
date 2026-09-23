@@ -372,6 +372,113 @@ public sealed class SuccessionPageTests : IAsyncLifetime
         Assert.Contains("Nobody rated in this cycle has CF among their three positions", html);
     }
 
+    // -----------------------------------------------------------------------------------
+    // A team in a formation, and moving players about
+    // -----------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task A_team_opens_in_a_formation_written_with_the_goalkeeper()
+    {
+        // "Click into a team -- say G17 -- and see the players in a 1-3-5-2."
+        await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
+
+        var html = await Coach().GetStringAsync($"/Succession/Formation?team={_factory.TeamId}&formation=1-3-5-2");
+
+        Assert.Contains("<h1>3-5-2</h1>", html);
+        Assert.Contains("1-3-5-2 with the goalkeeper", html);
+        Assert.Contains("TS-TEST-01", html);
+
+        // The team's own link is the current one, and keeps the formation.
+        Assert.Contains($"aria-current=\"page\" href=\"/Succession/Formation?formation=3-5-2&amp;team={_factory.TeamId}\"", html);
+    }
+
+    [Fact]
+    public async Task Every_team_is_a_link_into_the_best_eleven()
+    {
+        var html = await Coach().GetStringAsync("/Succession/Formation?formation=3-5-2");
+
+        Assert.Contains($"href=\"/Succession/Formation?formation=3-5-2&amp;team={_factory.TeamId}\">Test team</a>", html);
+
+        // And from the coach's own list of teams.
+        Assert.Contains($"href=\"/Succession/Formation?team={_factory.TeamId}\"", await Coach().GetStringAsync("/Coach"));
+    }
+
+    [Fact]
+    public async Task Moving_between_the_board_and_the_eleven_keeps_the_team()
+    {
+        var board = await Coach().GetStringAsync($"/Succession?team={_factory.TeamId}");
+        var eleven = await Coach().GetStringAsync($"/Succession/Formation?team={_factory.TeamId}");
+
+        Assert.Contains($"href=\"/Succession/Formation?team={_factory.TeamId}\">Best eleven</a>", board);
+        Assert.Contains($"href=\"/Succession?team={_factory.TeamId}\">Squad board</a>", eleven);
+    }
+
+    [Fact]
+    public async Task The_rest_of_the_squad_is_on_the_bench_and_in_the_data_the_pitch_is_moved_with()
+    {
+        // Two goalkeepers: one starts, the other is the bench a coach can bring on.
+        await SeedAsync(StartCompassFactory.CoachUserId, 8, position: "GK");
+        await SeedAsync(StartCompassFactory.CoachUserId, 6, position: "GK", playerId: _factory.OtherPlayerId);
+
+        var html = await Coach().GetStringAsync("/Succession/Formation");
+
+        Assert.Contains("The rest of the squad", html);
+        Assert.Contains($"<a class=\"sc-bench__code\" href=\"/Succession/Player/{_factory.OtherPlayerId}", html);
+        Assert.Contains("<script src=\"/js/lineup.js", html);
+
+        var data = LineupData(html);
+        var slots = data.GetProperty("slots").EnumerateArray().Select(s => s.GetProperty("position").GetString()).ToList();
+        var pick = data.GetProperty("pick").EnumerateArray()
+            .Select(p => p.ValueKind == System.Text.Json.JsonValueKind.Null ? (int?)null : p.GetInt32())
+            .ToList();
+        var players = data.GetProperty("players").EnumerateArray().ToList();
+
+        Assert.Equal(11, slots.Count);
+        Assert.Equal(_factory.PlayerId, pick[slots.IndexOf("GK")]);
+        Assert.Equal(1, pick.Count(p => p is not null));
+
+        // Strongest first, both of them, with what the script needs to say where they fit.
+        Assert.Equal(new[] { "TS-TEST-01", "TS-TEST-02" }, players.Select(p => p.GetProperty("code").GetString()));
+        Assert.Equal(1, players[1].GetProperty("positions").GetProperty("GK").GetInt32());
+        Assert.Equal("6.0", players[1].GetProperty("number").GetString());
+        Assert.Equal("sc-mean sc-mean--mid", players[1].GetProperty("mean").GetString());
+        Assert.Equal($"/Succession/Player/{_factory.OtherPlayerId}?cycle=", players[1].GetProperty("url").GetString()![..^10]);
+
+        // The bench shows a number for the substitute too, so opening the page logs them.
+        await _factory.WithServicesAsync(async services =>
+        {
+            var db = services.GetRequiredService<AppDbContext>();
+
+            Assert.True(await db.PlayerAccessEvents.AnyAsync(a =>
+                a.PlayerId == _factory.OtherPlayerId && a.Context == "Succession/Formation"));
+        });
+    }
+
+    [Fact]
+    public void The_data_block_cannot_be_closed_by_what_is_in_it()
+    {
+        var model = new ViewModels.Succession.SuccessionFormationViewModel
+        {
+            Filter = null!,
+            Formation = new FormationDefinition(),
+            Editor = new ViewModels.Succession.LineupEditorData(
+                Array.Empty<ViewModels.Succession.LineupSlot>(),
+                Array.Empty<int>(),
+                new[]
+                {
+                    new ViewModels.Succession.LineupPlayer(
+                        1, "</script><script>alert(1)</script>", null, 7, "7.0", "Developing", "sc-slot--developing",
+                        "sc-mean sc-mean--mid", new Dictionary<string, int>(), false, "/x")
+                },
+                Array.Empty<int?>(),
+                Array.Empty<double>(),
+                8)
+        };
+
+        Assert.DoesNotContain("<", model.EditorJson);
+        Assert.DoesNotContain(">", model.EditorJson);
+    }
+
     [Fact]
     public async Task A_player_not_rated_this_cycle_shows_the_last_cycle_marked_as_such()
     {
@@ -465,13 +572,27 @@ public sealed class SuccessionPageTests : IAsyncLifetime
     }
 
     /// <summary>An assessment through the real service, every rating at one value.</summary>
+    private static System.Text.Json.JsonElement LineupData(string html)
+    {
+        const string open = "<script type=\"application/json\" id=\"lineup-data\">";
+
+        var start = html.IndexOf(open, StringComparison.Ordinal);
+        Assert.True(start >= 0, "The page has no lineup data block.");
+        start += open.Length;
+
+        var json = html[start..html.IndexOf("</script>", start, StringComparison.Ordinal)];
+
+        return System.Text.Json.JsonDocument.Parse(json).RootElement;
+    }
+
     private Task SeedAsync(
         string raterUserId,
         int value,
         int cyclesAgo = 0,
         string position = "RB",
         string? second = null,
-        string? third = null) =>
+        string? third = null,
+        int? playerId = null) =>
         _factory.WithServicesAsync(async services =>
         {
             var planning = services.GetRequiredService<ISuccessionPlanningService>();
@@ -488,7 +609,7 @@ public sealed class SuccessionPageTests : IAsyncLifetime
             assessment.SecondPosition = second;
             assessment.ThirdPosition = third;
 
-            await planning.SaveAsync(_factory.PlayerId, raterUserId, cycle, assessment);
+            await planning.SaveAsync(playerId ?? _factory.PlayerId, raterUserId, cycle, assessment);
         });
 
     private Task AssertNothingSavedAsync() =>
