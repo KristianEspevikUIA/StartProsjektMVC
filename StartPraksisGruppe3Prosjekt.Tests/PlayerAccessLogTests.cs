@@ -186,6 +186,38 @@ public class PlayerAccessLogTests
         Assert.Equal(new[] { "coach-2", "coach-1" }, entries.Select(e => e.ViewedByUserId));
     }
 
+    [Fact]
+    public async Task Many_lookups_at_once_are_one_row_each_and_skip_the_viewer_themselves()
+    {
+        using var database = new TestDatabase();
+        var one = await database.AddPlayerAsync(code: "TS-08-01");
+        var two = await database.AddPlayerAsync(code: "TS-08-02");
+        var self = await database.AddPlayerAsync(code: "TS-08-03", userId: "player-3");
+
+        await using (var context = database.NewContext())
+        {
+            var log = Log(database, context);
+
+            // A coach on the succession board: one row per player shown, and a player id given
+            // twice is still one lookup.
+            await log.RecordManyAsync(Submissions.User("coach-1", Roles.Coach), new[] { one.Id, two.Id, one.Id }, "Succession/Overview");
+
+            // A player on a page that lists them is not somebody else looking at them.
+            await log.RecordManyAsync(Submissions.User("player-3", Roles.Player), new[] { self.Id }, "Succession/Overview");
+        }
+
+        await using var assert = database.NewContext();
+        var entries = await assert.PlayerAccessEvents.OrderBy(e => e.PlayerId).ToListAsync();
+
+        Assert.Equal(new[] { one.Id, two.Id }, entries.Select(e => e.PlayerId));
+        Assert.All(entries, e =>
+        {
+            Assert.Equal("coach-1", e.ViewedByUserId);
+            Assert.Equal(Roles.Coach, e.ViewedByRole);
+            Assert.Equal("Succession/Overview", e.Context);
+        });
+    }
+
     private static PlayerAccessEvent Event(int playerId, string userId, DateTimeOffset at) => new()
     {
         PlayerId = playerId,

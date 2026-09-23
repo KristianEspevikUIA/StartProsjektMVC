@@ -1,0 +1,155 @@
+{
+  // Succession planning: every list, threshold and formation behind /Succession.
+  //
+  // Transcribed from the coaches' workbook "IK Start Succession Planning". The lists are
+  // the sheet "Text - Do Not Touch"; the ratings and the columns are the sheet
+  // "Template - Do Not Touch (1-10)"; the thresholds are that sheet's conditional
+  // formatting. No view contains a position, a category or a number from this file, so the
+  // coaching staff can change any of it without touching the code. The file is checked at
+  // startup, and a mistake in it stops the application with a message naming the problem.
+  //
+  // Keys are what is stored. Names are what is shown, and can be reworded at any time.
+  // Changing or removing a KEY orphans every assessment that used it -- add a new one
+  // instead, and bump the version.
+  "version": "2026-09-a",
+
+  // A rating cycle is eight weeks, counted from the first Monday of 2026. Every coach rates
+  // every player they know once per cycle; rating again inside the same cycle is a
+  // correction, not a second opinion.
+  "cycle": {
+    "lengthWeeks": 8,
+    "firstCycleStartsOn": "2026-01-05"
+  },
+
+  // The workbook's colour scale runs 1 (red) - 6 (yellow) - 10 (green), and its icon set
+  // puts the lights at 6 and 8. Those two are the thresholds below.
+  "scale": { "min": 1, "max": 10 },
+  "readyAt": 8,
+  "developingAt": 6,
+
+  // Two coaches this far apart on one rating is flagged as a disagreement worth talking
+  // about. On a 1-10 scale, three points is the difference between "not yet" and "ready".
+  "disagreementAt": 3,
+
+  // "Weeks until ready" is extrapolated from the trend across cycles. Beyond this it is
+  // not an estimate any more, and the page says so instead of printing a number.
+  "horizonWeeks": 156,
+
+  // How much a player's readiness is marked down when a slot is not their first position,
+  // for choosing the best eleven: index 0 is their 1st position, 1 their 2nd, 2 their 3rd.
+  "positionRankPenalty": [ 0, 0.5, 1.0 ],
+
+  // The six 1-10 ratings. Overall readiness is the plain average of these -- the
+  // workbook's =SUM(N:S)/6.
+  "ratings": [
+    { "key": "physical", "name": "Physical" },
+    { "key": "technical", "name": "Technical" },
+    { "key": "tactical", "name": "Tactical" },
+    { "key": "mental", "name": "Mental" },
+    { "key": "professionalism", "name": "Professionalism" },
+    { "key": "availability", "name": "Availability" }
+  ],
+
+  // The nineteen positions in the workbook's list, in its order.
+  "positions": [
+    { "key": "RB", "name": "Right-back" },
+    { "key": "RCB", "name": "Right centre-back" },
+    { "key": "CB", "name": "Centre-back" },
+    { "key": "LCB", "name": "Left centre-back" },
+    { "key": "LB", "name": "Left-back" },
+    { "key": "RWB", "name": "Right wing-back" },
+    { "key": "LWB", "name": "Left wing-back" },
+    { "key": "R6", "name": "Right 6" },
+    { "key": "C6", "name": "Central 6" },
+    { "key": "L6", "name": "Left 6" },
+    { "key": "R8", "name": "Right 8" },
+    { "key": "L8", "name": "Left 8" },
+    { "key": "RW", "name": "Right winger" },
+    { "key": "ACM", "name": "Attacking midfielder (10)" },
+    { "key": "LW", "name": "Left winger" },
+    { "key": "RST", "name": "Right striker" },
+    { "key": "CF", "name": "Centre-forward" },
+    { "key": "LST", "name": "Left striker" },
+    { "key": "GK", "name": "Goalkeeper" }
+  ],
+
+  // Formations for "the best eleven". Each line is drawn as a row on the pitch, from the
+  // attack down to the goalkeeper, and each row is written left to right as the team
+  // attacks. The first formation is the one the page opens on.
+  "formations": [
+    {
+      "key": "4-3-3",
+      "name": "4-3-3",
+      "lines": [
+        [ "LW", "CF", "RW" ],
+        [ "L8", "R8" ],
+        [ "C6" ],
+        [ "LB", "LCB", "RCB", "RB" ],
+        [ "GK" ]
+      ]
+    },
+    {
+      "key": "4-2-3-1",
+      "name": "4-2-3-1",
+      "lines": [
+        [ "CF" ],
+        [ "LW", "ACM", "RW" ],
+        [ "L6", "R6" ],
+        [ "LB", "LCB", "RCB", "RB" ],
+        [ "GK" ]
+      ]
+    },
+    {
+      "key": "3-5-2",
+      "name": "3-5-2",
+      "lines": [
+        [ "LST", "RST" ],
+        [ "L8", "R8" ],
+        [ "LWB", "C6", "RWB" ],
+        [ "LCB", "CB", "RCB" ],
+        [ "GK" ]
+      ]
+    }
+  ],
+
+  // Tones are names from a fixed set -- blue, green, amber, red, grey -- because the CSP has
+  // no unsafe-inline and a colour cannot arrive as a hex value. They follow the workbook:
+  // Potential green, Performance yellow, Squad red, both at once blue.
+  "abilityCategories": [
+    { "key": "performance-potential", "name": "Performance & Potential", "tone": "blue" },
+    { "key": "potential", "name": "Potential", "tone": "green" },
+    { "key": "performance", "name": "Performance", "tone": "amber" },
+    { "key": "squad", "name": "Squad", "tone": "red" }
+  ],
+
+  "contractTypes": [
+    { "key": "pro", "name": "Pro", "tone": "green" },
+    { "key": "youth", "name": "Youth", "tone": "amber" },
+    { "key": "non", "name": "Non-contract", "tone": "red" }
+  ],
+
+  // The workbook's team list. Used for "Rated as" (the level a player is judged against)
+  // and for the MESO training group.
+  "levels": [
+    { "key": "first-team", "name": "1st team" },
+    { "key": "u21", "name": "U21s" },
+    { "key": "u19", "name": "U19s" },
+    { "key": "u17", "name": "U17s" },
+    { "key": "u15", "name": "U15s" },
+    { "key": "u14", "name": "U14s" },
+    { "key": "u13", "name": "U13s" },
+    { "key": "loan-es", "name": "Loan ES" },
+    { "key": "loan-1div", "name": "Loan 1.Div" },
+    { "key": "loan-2div", "name": "Loan 2.Div" },
+    { "key": "loan-3div", "name": "Loan 3.Div" },
+    { "key": "loan-4div", "name": "Loan 4.Div" }
+  ],
+
+  // Least to most severe. Where the coaches differ, the page shows the most severe one
+  // any of them named, and how many named it.
+  "risks": [
+    { "key": "green", "name": "Green", "tone": "green" },
+    { "key": "amber", "name": "Amber", "tone": "amber" },
+    { "key": "red", "name": "Red", "tone": "red" }
+  ]
+}

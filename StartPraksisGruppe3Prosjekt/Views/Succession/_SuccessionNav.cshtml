@@ -1,0 +1,13 @@
+@model string
+@*
+    The two halves of succession planning, as a pair of links in the hero: the board (every
+    player, the workbook pulled together) and the best eleven. Model is "board" or "eleven".
+*@
+<nav class="sc-subnav" aria-label="Succession planning">
+    <a class="sc-subnav__link @(Model == "board" ? "sc-subnav__link--active" : "")"
+       aria-current="@(Model == "board" ? "page" : null)"
+       asp-controller="Succession" asp-action="Index">Squad board</a>
+    <a class="sc-subnav__link @(Model == "eleven" ? "sc-subnav__link--active" : "")"
+       aria-current="@(Model == "eleven" ? "page" : null)"
+       asp-controller="Succession" asp-action="Formation">Best eleven</a>
+</nav>

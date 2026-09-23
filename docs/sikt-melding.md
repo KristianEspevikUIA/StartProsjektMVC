@@ -113,6 +113,10 @@ Alt systemet lagrer, uttømmende, fra datamodellen i `Models/` og brukerkontoene
 | Når trenerens svar ble frigitt eller trukket tilbake | `FeedbackReleases` | Append-only |
 | Kobling til foresatt | `Guardianships` | |
 | At spilleren er slettet | `PlayerDeletionEvents` | Bare spiller-ID, hvem og når. Blir stående etter slettingen, med vilje |
+| Trenernes vurdering av spilleren, 1–10 på seks områder, hver åttende uke | `SuccessionAssessments`, `SuccessionRatings` | Succession planning. Per trener, per syklus. Vises bare for trenere og administratorer, aldri for spilleren. Se under |
+| Trenernes kategori, posisjoner, prognose og risiko | `SuccessionAssessments` | Samme |
+| Trenernes fritekst: prognoser, «what now», utviklingsfokus, styrker, notater | `SuccessionAssessments` | Frivillig, høyst 200/500/1000 tegn. Se under |
+| Kontraktstype, kontraktsslutt og treningsgruppe | `PlayerSuccessionProfiles` | Én rad per spiller, lagt inn av trener eller admin |
 
 **Om brukerkontoene** — spillere med konto, foresatte, trenere og administratorer
 
@@ -128,6 +132,26 @@ Alt systemet lagrer, uttømmende, fra datamodellen i `Models/` og brukerkontoene
 Opplysningene kommer fra klubben (kode, fødselsdato, lag, posisjon, konto) og fra skjemaet
 (svar og refleksjon). Siden der klubben registrerer spillere og kontoer er ikke bygget ennå
 (`AdminController.Users`).
+
+### Succession planning
+
+Nytt siden forrige utkast. Trenerne vurderer spillerne hver åttende uke, på de samme kolonnene
+som klubbens eget Excel-ark («IK Start Succession Planning»). Hver trener fører sin egen
+vurdering, og systemet viser dem side om side og regner ut et snitt.
+
+Dette skiller seg fra resten av systemet på to måter, og begge bør med i meldingen:
+
+- **Det er ikke spillerens egne svar.** Det er stabens vurdering av spilleren: evne, modenhet,
+  hvilken posisjon hen passer i, og om hen er klar for neste nivå. Spilleren svarer ikke på
+  noe her og ser det ikke i appen. Innsyn får spilleren gjennom `/Admin/Export/{id}`, der
+  vurderingene er med, og trenerne står med rolle og løpenummer.
+- **Kontraktsopplysninger** (kontraktstype og når den går ut) er nye. De registreres ikke noe
+  annet sted i systemet.
+
+Fritekstfeltene har samme risiko som refleksjonen (under): en setning er bare så pseudonym som
+den som skrev den. Skjemaet ber trenerne holde seg til fotball, uten helseopplysninger og uten
+navn på andre. Klubbens eget ark har fullt navn på spillerne. Arket er ikke lagt inn, og en
+import er ikke bygget. Se `docs/succession-planning.md`.
 
 **Spørsmålene er fortsatt plassholdere** (versjon `placeholder-2026-09-09` i
 `Data/Questions/five-c-questions.json`). Det endelige settet — påstander og refleksjon — legges

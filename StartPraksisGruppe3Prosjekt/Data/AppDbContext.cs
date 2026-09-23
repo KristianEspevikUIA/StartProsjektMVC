@@ -50,6 +50,17 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     /// </summary>
     public DbSet<FiveCReflectionAnswer> FiveCReflectionAnswers => Set<FiveCReflectionAnswer>();
 
+    /// <summary>
+    /// Succession planning: one coach's view of one player in one eight-week cycle. Coaches and
+    /// administrators only. See SuccessionAssessment.
+    /// </summary>
+    public DbSet<SuccessionAssessment> SuccessionAssessments => Set<SuccessionAssessment>();
+
+    public DbSet<SuccessionRating> SuccessionRatings => Set<SuccessionRating>();
+
+    /// <summary>Contract and training group, once per player. See PlayerSuccessionProfile.</summary>
+    public DbSet<PlayerSuccessionProfile> PlayerSuccessionProfiles => Set<PlayerSuccessionProfile>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -186,6 +197,45 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .WithMany(s => s.Reflection)
              .HasForeignKey(a => a.SubmissionId)
              .OnDelete(DeleteBehavior.Cascade); // sletting av spiller når hit gjennom innsendingen
+        });
+
+        builder.Entity<SuccessionAssessment>(e =>
+        {
+            // One per coach, per player, per cycle. Rating again inside a cycle is a correction,
+            // not a second opinion -- the same rule as the 5C submissions, held here so it
+            // holds whoever writes. The cycle is the leading column after the player because
+            // "this player, this cycle" is what every page asks.
+            e.HasIndex(a => new { a.PlayerId, a.CycleStartsOn, a.RaterUserId }).IsUnique();
+
+            // The board reads one cycle for a whole squad.
+            e.HasIndex(a => a.CycleStartsOn);
+
+            e.HasOne(a => a.Player)
+             .WithMany()
+             .HasForeignKey(a => a.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller tar vurderingene med (GDPR)
+        });
+
+        builder.Entity<SuccessionRating>(e =>
+        {
+            e.HasIndex(r => new { r.AssessmentId, r.RatingKey }).IsUnique();
+
+            e.HasOne(r => r.Assessment)
+             .WithMany(a => a.Ratings)
+             .HasForeignKey(r => r.AssessmentId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<PlayerSuccessionProfile>(e =>
+        {
+            // One per player. A second row would be two contract end dates and no way to say
+            // which one is true.
+            e.HasIndex(p => p.PlayerId).IsUnique();
+
+            e.HasOne(p => p.Player)
+             .WithMany()
+             .HasForeignKey(p => p.PlayerId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<PlayerDeletionEvent>(e =>

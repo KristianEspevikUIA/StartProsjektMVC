@@ -44,6 +44,12 @@ public class AdminDeletePlayerViewModel
 
     public int FeedbackReleaseCount { get; set; }
 
+    /// <summary>Trenernes succession-vurderinger av spilleren, én per trener per syklus.</summary>
+    public int SuccessionAssessmentCount { get; set; }
+
+    /// <summary>Kontrakt og treningsgruppe fra succession planning.</summary>
+    public bool HasSuccessionProfile { get; set; }
+
     /// <summary>
     /// What the admin types to confirm. Has to match <see cref="PlayerCode"/>.
     ///

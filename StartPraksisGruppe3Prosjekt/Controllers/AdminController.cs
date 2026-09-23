@@ -157,7 +157,8 @@ public class AdminController : Controller
     /// Innsyn: alt systemet har registrert om én spiller, som en nedlastbar JSON-fil.
     ///
     /// Samler Player, Guardianships, Responses med Answers, FiveCSubmissions med sine svar
-    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen og frigivelsene. Avviket er ikke med —
+    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen og frigivelsene, og
+    /// trenernes succession-vurderinger med kontraktsopplysningene. Avviket er ikke med —
     /// det er ikke lagret, det regnes ut hver gang (se ScoringService).
     ///
     /// Oppslaget logges før dokumentet bygges. Et innsyn er nettopp den typen oppslag
@@ -282,6 +283,57 @@ public class AdminController : Controller
             })
             .ToListAsync(cancellationToken);
 
+        // Trenernes vurderinger i succession planning. Vises aldri for spilleren i appen --
+        // de er stabens arbeidsvurderinger -- men de er opplysninger om spilleren, og et innsyn
+        // som hoppet over dem ville vært et innsyn med et hull i. Fritekstene er med av samme
+        // grunn som refleksjonen.
+        var successionAssessments = await _db.SuccessionAssessments
+            .AsNoTracking()
+            .Where(a => a.PlayerId == id)
+            .OrderBy(a => a.Id)
+            .Select(a => new
+            {
+                a.Id,
+                a.RaterUserId,
+                a.CycleStartsOn,
+                a.CatalogVersion,
+                a.UpdatedAt,
+                a.RatedAs,
+                a.AbilityCategory,
+                a.FirstPosition,
+                a.SecondPosition,
+                a.ThirdPosition,
+                a.PersonalReadiness,
+                a.Projection0To6Months,
+                a.Projection6To18Months,
+                a.Projection18To36Months,
+                a.PathwayBlocked,
+                a.WhatNow,
+                a.SuccessionRisk,
+                a.ExternalNeeded,
+                a.KeyDevelopmentFocus,
+                a.SuperStrengths,
+                a.Notes,
+                Ratings = a.Ratings
+                    .OrderBy(r => r.Id)
+                    .Select(r => new { r.RatingKey, r.Value })
+                    .ToList()
+            })
+            .ToListAsync(cancellationToken);
+
+        var successionProfile = await _db.PlayerSuccessionProfiles
+            .AsNoTracking()
+            .Where(p => p.PlayerId == id)
+            .Select(p => new
+            {
+                p.ContractType,
+                p.ContractEndsOn,
+                p.TrainingGroup,
+                p.UpdatedByUserId,
+                p.UpdatedAt
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         var people = new Pseudonyms(player.UserId);
 
         // Rekkefølgen HER, ikke rekkefølgen i dokumentet, bestemmer løpenumrene. Kildene som
@@ -292,7 +344,9 @@ public class AdminController : Controller
         foreach (var r in responses) people.For(r.RespondentUserId, r.Respondent.ToString());
         foreach (var s in submissions) people.For(s.RespondentUserId, RoleOfSubmission(s.RespondentRole));
         foreach (var f in feedbackReleases) people.For(f.CoachUserId, Roles.Coach);
+        foreach (var a in successionAssessments) people.For(a.RaterUserId, Roles.Coach);
         foreach (var a in accessEvents) people.For(a.ViewedByUserId, a.ViewedByRole);
+        if (successionProfile is not null) people.For(successionProfile.UpdatedByUserId, Pseudonyms.UnknownRole);
         foreach (var c in consentEvents) people.For(c.ChangedByUserId, Pseudonyms.UnknownRole);
 
         var export = new
@@ -365,7 +419,44 @@ public class AdminController : Controller
                     f.IsReleased,
                     f.OccurredAt
                 })
-                .ToList()
+                .ToList(),
+            SuccessionAssessments = successionAssessments
+                .Select(a => new
+                {
+                    a.Id,
+                    RatedBy = people.For(a.RaterUserId, Roles.Coach),
+                    a.CycleStartsOn,
+                    a.CatalogVersion,
+                    a.UpdatedAt,
+                    a.RatedAs,
+                    a.AbilityCategory,
+                    a.FirstPosition,
+                    a.SecondPosition,
+                    a.ThirdPosition,
+                    a.Ratings,
+                    a.PersonalReadiness,
+                    a.Projection0To6Months,
+                    a.Projection6To18Months,
+                    a.Projection18To36Months,
+                    a.PathwayBlocked,
+                    a.WhatNow,
+                    a.SuccessionRisk,
+                    a.ExternalNeeded,
+                    a.KeyDevelopmentFocus,
+                    a.SuperStrengths,
+                    a.Notes
+                })
+                .ToList(),
+            SuccessionProfile = successionProfile is null
+                ? null
+                : new
+                {
+                    successionProfile.ContractType,
+                    successionProfile.ContractEndsOn,
+                    successionProfile.TrainingGroup,
+                    UpdatedBy = people.For(successionProfile.UpdatedByUserId, Pseudonyms.UnknownRole),
+                    successionProfile.UpdatedAt
+                }
         };
 
         var json = JsonSerializer.SerializeToUtf8Bytes(export, new JsonSerializerOptions
@@ -397,8 +488,9 @@ public class AdminController : Controller
     /// Sletting av en spiller og alt som hører til.
     ///
     /// Cascade i databasen tar svar, 5C-innsendinger, samtykkelogg, foresattkoblinger,
-    /// revisjonslogg og frigivelser. Identity-brukeren håndteres for seg, i samme
-    /// transaksjon, fordi den ligger utenfor spillerens fremmednøkler.
+    /// revisjonslogg, frigivelser og succession-vurderingene med kontraktsopplysningene.
+    /// Identity-brukeren håndteres for seg, i samme transaksjon, fordi den ligger utenfor
+    /// spillerens fremmednøkler.
     ///
     /// Sporet av selve slettingen skrives til <see cref="PlayerDeletionEvent"/> og ikke til
     /// revisjonsloggen — se modellen for hvorfor.
@@ -512,7 +604,11 @@ public class AdminController : Controller
             AccessEventCount = await _db.PlayerAccessEvents
                 .CountAsync(a => a.PlayerId == id, cancellationToken),
             FeedbackReleaseCount = await _db.FeedbackReleases
-                .CountAsync(f => f.PlayerId == id, cancellationToken)
+                .CountAsync(f => f.PlayerId == id, cancellationToken),
+            SuccessionAssessmentCount = await _db.SuccessionAssessments
+                .CountAsync(a => a.PlayerId == id, cancellationToken),
+            HasSuccessionProfile = await _db.PlayerSuccessionProfiles
+                .AnyAsync(p => p.PlayerId == id, cancellationToken)
         };
     }
 
