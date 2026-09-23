@@ -4262,98 +4262,80 @@ main .form-control:focus {
     }
 }
 
+/* On a laptop the pitch stops growing at 700px -- it is as tall as it is wide -- and the
+   substitutes take the rest of the row. */
 @media (min-width: 1000px) {
     .sc-board__main {
-        grid-template-columns: minmax(0, 1fr) 290px;
+        grid-template-columns: minmax(0, 700px) minmax(260px, 1fr);
     }
 }
 
 /*
-    The pitch: mown stripes, the lines, the boxes and the centre circle, all drawn in CSS. The
-    formation is rows of shirts, attack at the top, as flex rows -- no coordinates, so nothing
-    positional has to reach the markup.
+    The pitch: wwwroot/img/pitch.svg, a drawing to scale of our half and the first third of
+    theirs, attacking upwards. The box keeps the drawing's shape (74 x 75 metres, run-off
+    included), so a place on the pitch is a percentage of it at any size.
+
+    Each player stands on the spot for their POSITION, not their row: .sc-spot--LWB is where a
+    left wing-back stands, in every formation that has one. The spots come from the drawing's
+    metres -- left = (metres from the left touchline + 3) / 74, top = metres from the top / 75 --
+    and were set against the coaches' own sketch of the 3-5-2. Classes rather than coordinates in
+    the markup, because the CSP has no unsafe-inline. SuccessionPageTests checks that every
+    position in succession-planning.json has one.
 */
 .sc-pitch {
-    background: repeating-linear-gradient(180deg, #2f7d47 0, #2f7d47 56px, #2a7240 56px, #2a7240 112px);
-    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.55);
-    min-height: 560px;
-    overflow: hidden;
-    padding: 22px 10px;
+    aspect-ratio: 74 / 75;
+    background: #2a8440 url("../img/pitch.svg") center / 100% 100% no-repeat;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     position: relative;
+    width: 100%;
 }
 
-.sc-pitch::before {
-    background: rgba(255, 255, 255, 0.55);
-    content: "";
-    height: 2px;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 50%;
-}
-
-.sc-pitch__mark {
-    border: 2px solid rgba(255, 255, 255, 0.55);
-    pointer-events: none;
-    position: absolute;
-}
-
-.sc-pitch__mark--circle {
-    border-radius: 50%;
-    height: 110px;
-    left: calc(50% - 55px);
-    top: calc(50% - 55px);
-    width: 110px;
-}
-
-.sc-pitch__mark--box-top,
-.sc-pitch__mark--box-bottom {
-    height: 13%;
-    left: 27%;
-    width: 46%;
-}
-
-.sc-pitch__mark--box-top {
-    border-top: 0;
-    top: 3px;
-}
-
-.sc-pitch__mark--box-bottom {
-    border-bottom: 0;
-    bottom: 3px;
-}
-
-.sc-pitch__lines {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    justify-content: space-between;
-    min-height: 516px;
-    position: relative;
-}
-
+/* The rows are how the formation is written, not how it is drawn: the spots place the players. */
+.sc-pitch__lines,
 .sc-pitch__line {
-    display: flex;
-    gap: 6px;
-    justify-content: space-around;
+    display: contents;
 }
 
-/* A player on the pitch: a shirt with the position on it, and the name under it. */
+/* A player on the pitch: a round marker with the position on it, the name under it. The
+   marker's centre is on the spot. */
 .sc-token {
+    --sc-dot: 46px;
+
     align-items: center;
-    background: transparent;
-    border-radius: 6px;
     color: var(--sc-board-text);
     display: flex;
-    flex: 0 1 120px;
     flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    padding: 4px 2px;
+    gap: 5px;
+    left: 50%;
+    position: absolute;
     text-decoration: none;
+    top: 50%;
     touch-action: manipulation;
+    transform: translate(-50%, calc(var(--sc-dot) / -2));
     user-select: none;
+    width: 120px;
 }
+
+/* The spots. After .sc-token, whose centre-of-the-pitch default they replace. */
+.sc-spot--LST { left: 33.1%; top: 9.3%; }
+.sc-spot--CF  { left: 50%;   top: 8.7%; }
+.sc-spot--RST { left: 66.9%; top: 9.3%; }
+.sc-spot--LW  { left: 16.2%; top: 17.3%; }
+.sc-spot--RW  { left: 83.8%; top: 17.3%; }
+.sc-spot--ACM { left: 50%;   top: 30%; }
+.sc-spot--LWB { left: 13.5%; top: 32%; }
+.sc-spot--RWB { left: 86.5%; top: 32%; }
+.sc-spot--L8  { left: 33.8%; top: 41.3%; }
+.sc-spot--R8  { left: 66.2%; top: 41.3%; }
+.sc-spot--L6  { left: 37.8%; top: 49.3%; }
+.sc-spot--C6  { left: 50%;   top: 49.3%; }
+.sc-spot--R6  { left: 62.2%; top: 49.3%; }
+.sc-spot--LB  { left: 14.9%; top: 58.7%; }
+.sc-spot--LCB { left: 35.1%; top: 61.3%; }
+.sc-spot--CB  { left: 50%;   top: 62.7%; }
+.sc-spot--RCB { left: 64.9%; top: 61.3%; }
+.sc-spot--RB  { left: 85.1%; top: 58.7%; }
+.sc-spot--GK  { left: 50%;   top: 88%; }
 
 .sc-token[data-lineup-item] {
     cursor: grab;
@@ -4371,69 +4353,65 @@ main .form-control:focus {
     outline: none;
 }
 
-.sc-token:focus-visible,
-a.sc-token:hover {
-    outline: 3px solid var(--sc-yellow);
-    outline-offset: 1px;
+.sc-token:focus-visible .sc-marker,
+a.sc-token:hover .sc-marker {
+    box-shadow: 0 0 0 3px var(--sc-yellow), 0 3px 8px rgba(0, 0, 0, 0.5);
 }
 
-.sc-shirt {
-    display: block;
-    height: 50px;
+.sc-marker {
+    align-items: center;
+    background: radial-gradient(circle at 34% 28%, #ffe766 0, var(--sc-yellow) 55%, #caa400 100%);
+    border: 2px solid rgba(10, 14, 22, 0.75);
+    border-radius: 50%;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+    color: var(--sc-ink);
+    display: flex;
+    flex: 0 0 auto;
+    font-family: var(--sc-display);
+    font-size: 14px;
+    font-weight: 700;
+    height: var(--sc-dot);
+    justify-content: center;
+    letter-spacing: 0.02em;
     position: relative;
-    transition: transform 0.15s ease, filter 0.15s ease;
-    width: 56px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    width: var(--sc-dot);
 }
 
-.sc-token[data-lineup-item]:hover .sc-shirt {
+.sc-token[data-lineup-item]:hover .sc-marker {
     transform: translateY(-2px);
 }
 
-/* The shirt itself: IK Start yellow, cut to a shirt's outline. The outline is a clip-path, so
-   anything that has to stick out of it -- the rating, the warning -- is a sibling, not a child. */
-.sc-shirt__body {
-    align-items: center;
-    background: var(--sc-yellow);
-    clip-path: polygon(28% 0, 40% 8%, 60% 8%, 72% 0, 100% 18%, 90% 44%, 79% 38%, 79% 100%, 21% 100%, 21% 38%, 10% 44%, 0 18%);
-    color: var(--sc-ink);
-    display: flex;
-    font-family: var(--sc-display);
-    font-size: 13px;
-    font-weight: 700;
-    height: 100%;
-    justify-content: center;
-    letter-spacing: 0.02em;
-    padding-top: 10px;
-    width: 100%;
-}
-
-.sc-shirt__rating {
+.sc-marker__rating {
     background: var(--sc-light);
     border-radius: 9px;
-    bottom: -4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    bottom: -6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
     color: var(--sc-ink);
+    font-family: var(--sc-sans);
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     font-weight: 700;
     padding: 1px 5px;
     position: absolute;
-    right: -10px;
+    right: -14px;
 }
 
-.sc-shirt__warn {
+.sc-marker__warn {
     background: var(--sc-light-notyet);
     border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
     color: var(--sc-ink);
+    font-family: var(--sc-sans);
     font-size: 11px;
     font-weight: 800;
-    height: 16px;
-    left: -6px;
-    line-height: 16px;
+    height: 17px;
+    left: -7px;
+    line-height: 17px;
     position: absolute;
     text-align: center;
-    top: -4px;
-    width: 16px;
+    top: -5px;
+    width: 17px;
 }
 
 .sc-token__name {
@@ -4441,9 +4419,11 @@ a.sc-token:hover {
     border-radius: 3px;
     font-size: 13px;
     font-weight: 700;
+    line-height: 1.25;
     max-width: 100%;
     overflow: hidden;
     padding: 2px 8px;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -4458,69 +4438,68 @@ a.sc-token:hover {
     letter-spacing: 0.02em;
 }
 
-.sc-token__name {
-    text-align: center;
-}
-
 .sc-token--out .sc-token__name {
-    background: rgba(120, 24, 16, 0.9);
+    background: rgba(140, 28, 18, 0.92);
 }
 
-/* Nobody there: a ghost of a shirt. */
-.sc-token--empty .sc-shirt__body {
-    background: rgba(255, 255, 255, 0.28);
+/* Nobody there: an open ring. */
+.sc-token--empty .sc-marker {
+    background: rgba(255, 255, 255, 0.16);
+    border: 2px dashed rgba(255, 255, 255, 0.9);
+    box-shadow: none;
     color: #ffffff;
 }
 
 .sc-token--empty .sc-token__name {
-    background: transparent;
-    color: rgba(255, 255, 255, 0.85);
+    background: rgba(8, 14, 24, 0.45);
+    color: rgba(255, 255, 255, 0.9);
     font-weight: 600;
 }
 
-.sc-board--holding .sc-token--empty .sc-shirt__body {
-    background: rgba(255, 255, 255, 0.45);
+.sc-board--holding .sc-token--empty .sc-marker {
+    background: rgba(255, 255, 255, 0.3);
 }
 
-/* Picked up: lifted, and lit in the club's yellow. The glow is on the shirt's wrapper, so it
-   follows the shirt's outline rather than a box. */
-.sc-token.sc-picked .sc-shirt {
-    filter: drop-shadow(0 0 3px var(--sc-yellow)) drop-shadow(0 0 7px var(--sc-yellow));
-    transform: translateY(-4px) scale(1.08);
+/* Picked up: lifted, and ringed in the club's yellow. */
+.sc-token.sc-picked .sc-marker {
+    box-shadow: 0 0 0 3px var(--sc-yellow), 0 0 16px 4px rgba(245, 206, 0, 0.65);
+    transform: translateY(-3px) scale(1.1);
 }
 
-/* Where the picked-up player has been named: lit white, with the rank on the shirt's corner. */
-.sc-token--fit .sc-shirt {
-    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+/* Where the picked-up player has been named: ringed white, with the rank on the corner. */
+.sc-token--fit .sc-marker {
+    box-shadow: 0 0 0 3px #ffffff, 0 0 14px 3px rgba(255, 255, 255, 0.6);
 }
 
-.sc-shirt[data-fit]::after {
+.sc-marker[data-fit]::after {
     background: #ffffff;
     border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
     color: var(--sc-ink);
     content: attr(data-fit);
+    font-family: var(--sc-sans);
     font-size: 10px;
     font-weight: 800;
     padding: 0 4px;
     position: absolute;
-    right: -14px;
+    right: -16px;
     top: -8px;
 }
 
 /* Where a drop would land. */
-.sc-token.sc-drop-target .sc-shirt {
-    filter: drop-shadow(0 0 4px var(--sc-yellow)) drop-shadow(0 0 10px var(--sc-yellow));
-    transform: scale(1.14);
+.sc-token.sc-drop-target .sc-marker {
+    box-shadow: 0 0 0 4px var(--sc-yellow), 0 0 20px 6px rgba(245, 206, 0, 0.7);
+    transform: scale(1.15);
 }
 
 /* A player who has just come on. */
 @keyframes sc-arrive {
-    0% { transform: scale(0.6); opacity: 0.3; }
+    0% { transform: scale(0.5); opacity: 0.2; }
     70% { transform: scale(1.12); opacity: 1; }
     100% { transform: scale(1); }
 }
 
-.sc-token--arrived .sc-shirt {
+.sc-token--arrived .sc-marker {
     animation: sc-arrive 0.35s ease;
 }
 
@@ -4733,28 +4712,51 @@ a.sc-token:hover {
         font-size: 44px;
     }
 
-    .sc-pitch {
-        min-height: 460px;
-        padding: 16px 4px;
+    /* Three centre-backs are about 50px apart on a phone, so the labels have to fit that. */
+    .sc-token {
+        --sc-dot: 32px;
+
+        gap: 3px;
+        width: 62px;
     }
 
-    .sc-pitch__lines {
-        min-height: 428px;
+    .sc-marker {
+        font-size: 11px;
+        letter-spacing: 0;
+    }
+
+    .sc-marker__rating {
+        font-size: 9px;
+        padding: 0 4px;
+        right: -12px;
     }
 
     .sc-token__name {
-        font-size: 11px;
-        padding: 2px 5px;
+        font-size: 10px;
+        padding: 1px 4px;
+    }
+
+    .sc-token__tag {
+        font-size: 8px;
+    }
+}
+
+/* Between a phone and a laptop the pitch is narrower than the markers were drawn for. */
+@media (min-width: 700px) and (max-width: 999px) {
+    .sc-token {
+        --sc-dot: 40px;
+
+        width: 100px;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .sc-flash,
-    .sc-token--arrived .sc-shirt {
+    .sc-token--arrived .sc-marker {
         animation: none;
     }
 
-    .sc-shirt,
+    .sc-marker,
     .sc-unit__fill {
         transition: none;
     }

@@ -27,8 +27,11 @@
     the bench, the substitutes to the right of the eleven, not under it, and the ratings change
     with who is brought on where."
 
-    So the pitch is a game board: a shirt per position with the player's first name and their
-    readiness IN THAT POSITION, the substitutes to the right, and the team rating over it. lineup.js
+    So the pitch is a game board: a marker per position with the player's first name and their
+    readiness IN THAT POSITION, the substitutes to the right, and the team rating over it. Then:
+    "the 3-5-2 and the background look ugly -- something like this", with the coaches' sketch of
+    a real pitch and a 3-5-2 with a 10 ahead of two 8s. So the pitch is a drawing to scale, and
+    each player stands where their position stands on it. lineup.js
     lets a coach drag players about or tap one and then another. What is rendered here is the page
     without JavaScript -- the pick, and the substitutes as a list. The script redraws both from the
     data block at the bottom and keeps a moved eleven in the address bar. Nothing is saved, so the
@@ -126,7 +129,7 @@
         <h2>The pitch</h2>
         <p class="sc-footnote sc-footnote--top">
             Drag a substitute onto a player to bring them on, or drag players between positions. The number
-            on each shirt is the player's readiness in that position: green @settings.ReadyAt.ToString("0")+,
+            by each player is their readiness in that position: green @settings.ReadyAt.ToString("0")+,
             amber @settings.DevelopingAt.ToString("0")–@settings.ReadyAt.ToString("0"), red below.
         </p>
 
@@ -172,12 +175,10 @@
             </div>
 
             <div class="sc-board__main">
+                @* The drawing is the background (img/pitch.svg); each player stands on the spot
+                   for their position (.sc-spot--LWB and so on in startcompass.css). *@
                 <div class="sc-pitch" data-lineup-pitch>
-                    <span class="sc-pitch__mark sc-pitch__mark--box-top" aria-hidden="true"></span>
-                    <span class="sc-pitch__mark sc-pitch__mark--circle" aria-hidden="true"></span>
-                    <span class="sc-pitch__mark sc-pitch__mark--box-bottom" aria-hidden="true"></span>
-
-                    @* Links without the script: each shirt opens the player. The table under the
+                    @* Links without the script: each marker opens the player. The table under the
                        board is the same eleven as rows, which a screen reader is better off reading. *@
                     <div class="sc-pitch__lines" data-lineup-lines>
                         @foreach (var line in Model.Lines)
@@ -187,12 +188,12 @@
                                 {
                                     if (slot.Starter is { } starter)
                                     {
-                                        <a class="sc-token"
+                                        <a class="sc-token sc-spot--@slot.Position"
                                            asp-action="Player" asp-route-id="@starter.PlayerId" asp-route-cycle="@filter.Cycle.Key"
                                            aria-label="@slot.PositionName: @starter.Name@(starter.NameTag is null ? "" : $" ({starter.NameTag})"), @SuccessionFormat.Number(starter.Fit) in this position">
-                                            <span class="sc-shirt">
-                                                <span class="sc-shirt__body">@slot.Position</span>
-                                                <span class="sc-shirt__rating @SuccessionFormat.RatingTone(starter.Fit, settings)">@SuccessionFormat.Number(starter.Fit)</span>
+                                            <span class="sc-marker">
+                                                @slot.Position
+                                                <span class="sc-marker__rating @SuccessionFormat.RatingTone(starter.Fit, settings)">@SuccessionFormat.Number(starter.Fit)</span>
                                             </span>
                                             <span class="sc-token__name">@starter.Name@if (starter.NameTag is { } tag)
                                             {<span class="sc-token__tag">@tag</span>}</span>
@@ -200,8 +201,8 @@
                                     }
                                     else
                                     {
-                                        <div class="sc-token sc-token--empty" aria-label="@slot.PositionName: nobody named">
-                                            <span class="sc-shirt"><span class="sc-shirt__body">@slot.Position</span></span>
+                                        <div class="sc-token sc-token--empty sc-spot--@slot.Position" aria-label="@slot.PositionName: nobody named">
+                                            <span class="sc-marker">@slot.Position</span>
                                             <span class="sc-token__name">Nobody</span>
                                         </div>
                                     }
