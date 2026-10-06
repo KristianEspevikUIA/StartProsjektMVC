@@ -8,7 +8,7 @@ Den fulle beskrivelsen av funksjonen er [`docs/succession-planning.md`](successi
 Dette notatet sier hva som er bygget, hvorfor det ble slik, hva som gjenstår og hva som er lett å
 tråkke feil i.
 
-**Status per 23.09.2026:** bygget, testet og flettet inn i `main` (PR #32 og #34). Grenen
+**Status per 23.09.2026:** bygget og flettet inn i `main` (PR #32 og #34). Grenen
 `Kristian` er lik `main` for appen og dokumentasjonen.
 
 ---
@@ -81,7 +81,6 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
 | Formatering og CSS-klasser | `ViewModels/Succession/SuccessionFormat.cs`, seksjonen «succession planning» nederst i `wwwroot/css/startcompass.css` |
 | Migrasjon | `Data/Migrations/20260923075345_AddSuccessionPlanning.cs` |
 | Demodata | `Data/SeedSuccession.cs` (bare Development) |
-| Tester | `SuccessionMathTests` (33), `SuccessionCatalogTests` (21), `SuccessionPageTests` (29), pluss GDPR i `AdminGdprTests` |
 | Hjelp for trenere | `Views/Help/Index.cshtml`, `#succession` og `#succession-eleven`, vises bare for trener og admin |
 
 ---
@@ -104,7 +103,7 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
   Over 156 uker gir ikke noe tall.
 - **Beste ellever:** fit = overall − 0 / 0,5 / 1,0 for 1./2./3. posisjon. Det sterkeste paret
   plasseres først, og ingen spiller brukes to ganger. En posisjon uten kandidater står tom.
-  Ved likhet avgjør overall, så rangering og til slutt spillerkoden.
+  Ved likhet avgjør overall, så rangering og til slutt navnet.
 - **Grå rad:** ingen har vurdert spilleren i denne syklusen. Tavla viser da forrige syklus og
   sier hvilken.
 - **Kontrakt og treningsgruppe** er fakta og ikke meninger. De legges inn én gang per spiller
@@ -115,7 +114,7 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
 ## Personvern og husregler som gjelder her
 
 - **Ingen ekte navn i repoet.** Arket trenerne leverte har fullt navn på spillerne, de fleste
-  mindreårige. Det ble aldri lagt inn. Appen bruker spillerkoder (`TS-08-16`). Repoet er offentlig.
+  mindreårige. Det ble aldri lagt inn. Appen har oppdiktede demospillere. Repoet er offentlig.
 - **Revisjonslogg:** spillersiden og skjemaet logger én rad hver. Tavla og banen logger én rad
   per spiller som vises med tall, i én lagring (`IPlayerAccessLog.RecordManyAsync`).
 - **GDPR:** `/Admin/Export/{id}` tar med vurderingene med fritekst og kontraktsopplysningene, med
@@ -141,12 +140,12 @@ halvveis vurdert.
    uten etterfølger.
 3. **Prognosene** (0–6, 6–18, 18–36 mnd) er fritekst. Skriver de alltid et nivå? Da kan feltene
    bli lister, og appen kan tegne en tidslinje.
-4. **Import av eksisterende ark:** arket har navn, ikke koder. En import krever en kobling fra
-   navn til kode, og den finnes ikke i appen.
+4. **Import av eksisterende ark:** arket har ekte navn, appen har oppdiktede demospillere. En
+   import krever at ekte spillere er lagt inn i appen først, og det venter på Sikt-meldingen.
 
 ## Mulige neste steg
 
-- Import fra Excel, når koblingen fra navn til kode er avklart.
+- Import fra Excel, når ekte spillere kan legges inn.
 - Tersklene (8, 3 poeng, trekket for 2. og 3. posisjon) ligger i JSON-fila. Endre dem der hvis
   trenerne vil, uten kodeendring.
 - Spillerbildene fra velkomsten (se under) vises i dag bare for spilleren selv. Hvis trenerne vil
@@ -158,17 +157,13 @@ halvveis vurdert.
 
 Bygget i samme økt, og i `main`. Når en spiller logger inn, står det «Welcome, Alex» med
 spillerens eget bilde. Admin legger inn fornavn og bilde på `/Admin/Players`. Tabellen
-`PlayerPersonalDetails` er det eneste stedet et spillernavn lagres, og bare spilleren selv og
-admin ser det. En test passer på at navnet ikke dukker opp på trenersidene eller
-succession-tavla. Se [`docs/player-welcome.md`](player-welcome.md).
+`PlayerPersonalDetails` holder fornavnet og bildet; bildet ser bare spilleren selv og admin. Se
+[`docs/player-welcome.md`](player-welcome.md).
 
 ---
 
-## Praktisk: kjøre og teste i en ny økt
+## Praktisk: kjøre appen i en ny økt
 
-- **Tester:** `dotnet test` kjører på SQLite i minnet og trenger ingen database eller hemmelighet.
-  395 tester, alle grønne da velkomsten ble pushet (`5fad377`). Commitene som kom etter, gjelder
-  Identity Benchmarking.
 - **.NET i skycontaineren:** SDK-en er ikke installert på forhånd, og `dot.net`-skriptet blokkeres
   av proxyen. `apt-get install -y dotnet-sdk-8.0` virker. `dotnet-ef` installeres med
   `dotnet tool install --global dotnet-ef --version 8.0.11`.

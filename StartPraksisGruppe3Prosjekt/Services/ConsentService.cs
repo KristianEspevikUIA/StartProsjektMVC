@@ -60,8 +60,7 @@ public class ConsentService : IConsentService
             return new Dictionary<int, ConsentLevel>();
         }
 
-        // Grupperingen gjøres i minnet: SQLite har ingen DISTINCT ON, og en runde med
-        // spillere er noen titalls rader.
+        // Grupperingen gjøres i minnet: en runde med spillere er noen titalls rader.
         var events = await _db.ConsentEvents
             .AsNoTracking()
             .Where(c => ids.Contains(c.PlayerId))

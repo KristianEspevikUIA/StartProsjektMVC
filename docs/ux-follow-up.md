@@ -144,8 +144,6 @@ These are not preferences; breaking them breaks something.
 - **Null is not 3.** An unanswered statement stays out of every mean rather than being pulled
   to the middle of the scale.
 - **Comments explain why, not what.** The codebase is written this way throughout; match it.
-- **Run the tests.** `dotnet test` — 197 passing as of this file. `StartCompassFactory` gives
-  page-level tests a real rendered form, which is where most of this is best asserted.
 
 ---
 

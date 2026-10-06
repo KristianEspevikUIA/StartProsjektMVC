@@ -163,8 +163,8 @@ med alderen, så U14 blir målt hardt på Total Passes, og U17 på Counterpresse
 Regains. Snittene per årskull i tabellen over er et utgangspunkt hvis klubben vil sette egne.
 
 **Når klubben setter egne:** bytt `min`, `max`, `display`, `eliteRange` og `bestAtIt`, og
-fjern `provisional` og `basis`. `IdentityCatalogTests` sjekker at trykt område og tall stemmer
-overens.
+fjern `provisional` og `basis`. Trykt område og tall må stemme overens; ingenting sjekker det
+for deg.
 
 ---
 
@@ -212,8 +212,6 @@ Rapportene og JSON-filene navngir spillere, de fleste mindreårige, og repoet er
   presstabellene leses spiller for spiller for å kontrollere dem, men bare Starts summer lagres.
 - `gold-standard.json` nevner motstanderlag (for eksempel «Stabæk U14 (peak 140)»), men ingen
   spillere.
-- Testene bruker et oppdiktet lag (`StartPraksisGruppe3Prosjekt.Tests/Identity/Fixtures`), og
-  `StartCompassFactory` peker Identity-siden dit. Ekte navn havner derfor aldri i testoutput.
 - **Må avklares:** `docs/sikt-melding.md` sier at navn ikke lagres om spillere. Denne siden
   leser navn fra filer, ikke fra databasen, men meldingen bør oppdateres før siden brukes med
   ekte data i drift.
@@ -253,4 +251,3 @@ og Pressures 191, ikke klubbens Total Duels Won, Total Regains og PPDA.
 | Controller | `Controllers/IdentityController.cs` |
 | Visninger | `Views/Identity/` |
 | Stil | `wwwroot/css/startcompass.css`, seksjonen «identity benchmarking» |
-| Tester | `IdentityCatalogTests`, `IdentityStatusRulesTests`, `IdentityBenchmarkBuilderTests`, `IdentityPageTests` |

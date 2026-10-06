@@ -5,12 +5,9 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// <summary>
 /// One submitted 5C form, stored in the database.
 ///
-/// These tables exist because the app now talks to the Supabase Postgres database directly
-/// through EF Core. The earlier arrangement -- posting over PostgREST to a database this
-/// process is already connected to, with a second credential and no shared transaction --
-/// was a workaround for the app running on local SQLite, and that is no longer the case.
-/// The PostgREST store is still there for a genuinely separate Supabase project; see
-/// docs/five-c.md.
+/// The app talks to the Supabase Postgres database directly through EF Core, so the answers
+/// live in the same database and the same transaction as everything else. The PostgREST
+/// store is only for a genuinely separate Supabase project; see docs/five-c.md.
 ///
 /// Two rules the schema enforces rather than trusting callers to remember:
 ///

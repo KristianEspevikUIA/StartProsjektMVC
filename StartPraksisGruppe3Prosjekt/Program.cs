@@ -19,10 +19,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // ---------------------------------------------------------------------------
-// Database. SQLite i utvikling; filen ligger i prosjektmappa og er git-ignorert.
+// Database: Postgres i Supabase. Strengen står i appsettings.json uten passord; passordet
+// ligger i user-secrets. Mangler det, stopper appen med en forklaring lenger ned.
 // ---------------------------------------------------------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=speilet.db";
+    ?? string.Empty;
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -30,7 +31,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // ---------------------------------------------------------------------------
-// Identity emed de fire rollene: Player, Coach, Guardian, Admin.
+// Identity med de fire rollene: Player, Coach, Guardian, Admin.
 // ---------------------------------------------------------------------------
 builder.Services
     .AddDefaultIdentity<IdentityUser>(options =>
@@ -406,18 +407,9 @@ using (var scope = app.Services.CreateScope())
     if (store is InMemorySurveySubmissionStore && !app.Environment.IsDevelopment())
     {
         app.Logger.LogWarning(
-            "Supabase is not configured ({Section}:Url / :ApiKey). Submitted 5C answers " +
-            "are kept in memory only and are lost when the application stops.",
-            SupabaseOptions.SectionName);
+            "FiveC:Store is \"InMemory\" outside development. Submitted 5C answers are kept " +
+            "in memory only and are lost when the application stops.");
     }
 }
 
 app.Run();
-
-/// <summary>
-/// Gjør den genererte Program-klassen synlig for testprosjektet.
-///
-/// Med top-level statements er den internal, og WebApplicationFactory&lt;Program&gt; kommer
-/// ikke til den. Dette er hele grunnen til at linjen står her — den endrer ingen oppførsel.
-/// </summary>
-public partial class Program { }

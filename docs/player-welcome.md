@@ -15,10 +15,9 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
   spilleren kommer til å se, før det lagres. Samme liste har også lenker til innsyn (Export) og
   sletting for hver spiller, som tidligere bare kunne nås med ID-en i URL-en.
 - **Trenere og admin** ser fornavnet på én side: «Best eleven» (`/Succession/Formation`), der
-  hver spiller er en markør på banen med navnet under. Trenerne ba om det. Har to spillere på siden samme
-  fornavn, står koden under. Bildet vises ikke der.
-- **Ingen andre steder.** Trenersidene, lagoversiktene og succession-tavla bruker fortsatt
-  spillerkoden, og det er en test som passer på at navnet ikke dukker opp der.
+  hver spiller er en markør på banen med navnet under. Trenerne ba om det. Har to spillere på
+  siden samme fornavn, står hele navnet under. Bildet vises ikke der.
+- **Andre sider** viser spillerens fulle navn (`Player.Code`), ikke fornavnet herfra.
 
 Velkomsten er ikke låst til U14, U15 og U17 i koden. Alle spillere med konto kan få den. Det er
 klubben som bestemmer hvem som får navn og bilde lagt inn.
@@ -36,8 +35,8 @@ Tabellen `PlayerPersonalDetails`, én rad per spiller:
 | `PhotoSource` | Hvor bildet kom fra, f.eks. «ikstart.no, spillerbilder 2026» |
 | `UpdatedByUserId`, `UpdatedAt`, `PhotoUpdatedAt` | Hvem som la det inn, og når |
 
-**Egen tabell, med vilje.** Dette er det eneste stedet systemet lagrer navnet til en spiller.
-Det ligger ikke på `Player`, så en side som skal vise en kode ikke kan vise et navn ved en feil.
+**Egen tabell, med vilje.** Fornavnet og bildet ligger ikke på `Player`, så en side som bare
+skal vise det fulle navnet ikke kan vise bildet ved en feil.
 Ingenting utenom velkomsten, admin-skjemaet og «Best eleven» leser tabellen, og alle går gjennom
 `IPlayerWelcomeService`. «Best eleven» henter bare fornavnene (`FirstNamesAsync`), aldri bildet.
 
@@ -52,7 +51,7 @@ Ingenting utenom velkomsten, admin-skjemaet og «Best eleven» leser tabellen, o
 
 ## Bildekontroll
 
-`Services/PlayerPhotoRules.cs`, med tester i `PlayerPhotoRulesTests`.
+`Services/PlayerPhotoRules.cs`.
 
 - **Formatet leses av filens egne bytes**, ikke av filnavnet eller det nettleseren oppgir. Bare
   JPEG, PNG og WebP godtas. SVG (som kan inneholde skript), GIF og alt annet avvises.
@@ -103,4 +102,3 @@ Forhåndsvisningen for admin sendes med `no-store`.
 | Spillerens eget bilde | `PlayerController.Photo` (`/Player/Photo`) |
 | Admin | `AdminController.Players`, `PlayerDetails`, `PlayerPhoto`, `Views/Admin/Players.cshtml`, `PlayerDetails.cshtml` |
 | Migrasjon | `Data/Migrations/*_AddPlayerPersonalDetails.cs` |
-| Tester | `PlayerWelcomeTests`, `PlayerPhotoRulesTests` |
