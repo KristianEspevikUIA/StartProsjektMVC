@@ -49,6 +49,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* An internal tool. robots.txt asks crawlers not to fetch anything; this tells one that
+       fetches a page anyway, from a link somewhere, not to list it. *@
+    <meta name="robots" content="noindex" />
     <title>@ViewData["Title"] – StartCompass</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />

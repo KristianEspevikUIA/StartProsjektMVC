@@ -1,0 +1,3 @@
+# An internal tool behind a sign-in. Nothing here is meant to be found through a search.
+User-agent: *
+Disallow: /
