@@ -206,6 +206,7 @@ public class SuccessionController : Controller
                 Code = row.Player.Code,
                 Name = names[row.Player.Id].Name,
                 NameTag = names[row.Player.Id].Tag,
+                PhotoUrl = names[row.Player.Id].Photo,
                 TeamName = row.Player.Team?.Name,
                 Overall = pick.Candidate.Overall,
                 Fit = pick.Fit,
@@ -254,6 +255,7 @@ public class SuccessionController : Controller
                 Code = r.Player.Code,
                 Name = names[r.Player.Id].Name,
                 NameTag = names[r.Player.Id].Tag,
+                PhotoUrl = names[r.Player.Id].Photo,
                 TeamName = r.Player.Team?.Name,
                 Overall = r.Consensus!.Overall!.Value,
                 Level = r.Level,
@@ -296,6 +298,7 @@ public class SuccessionController : Controller
                         p.Code,
                         p.Name,
                         p.NameTag,
+                        p.PhotoUrl,
                         p.TeamName,
                         p.Overall,
                         SuccessionFormat.LevelName(p.Level),
@@ -317,6 +320,33 @@ public class SuccessionController : Controller
             var present = values.Where(v => v is not null).Select(v => v!.Value).ToList();
             return present.Count == 0 ? null : present.Average();
         }
+    }
+
+    /// <summary>
+    /// A player's photo, for the best eleven. The club's squad photo, entered for the welcome --
+    /// see docs/player-welcome.md.
+    ///
+    /// Only for a player CanViewPlayer lets this user see, like every other page here. Not logged
+    /// on its own: the best eleven logs every player it shows, and the photo is on that page.
+    /// The version in the URL changes with the photo, so "private" caching never shows an old one.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Photo(int id, CancellationToken cancellationToken)
+    {
+        var (found, refusal) = await FindViewablePlayerAsync(id, cancellationToken);
+        if (found is null)
+        {
+            return refusal!;
+        }
+
+        if (await _welcome.GetPhotoAsync(found.Id, cancellationToken) is not { } photo)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "private, max-age=3600";
+
+        return File(photo.Bytes, photo.ContentType);
     }
 
     /// <summary>One player: each coach side by side, the history, the notes, the contract.</summary>
@@ -572,7 +602,8 @@ public class SuccessionController : Controller
 
     /// <summary>
     /// What each player is called on the best eleven: the first name the club entered for the
-    /// welcome, or the full name where there is none. A shirt has room for one name.
+    /// welcome, or the full name where there is none. A shirt has room for one name. And the
+    /// club's photo of them, where there is one.
     ///
     /// Two players with the same first name get their full name as a tag under it, so a shirt
     /// can never be mistaken for the other one.
@@ -582,7 +613,12 @@ public class SuccessionController : Controller
         CancellationToken cancellationToken)
     {
         var players = rows.Select(r => r.Player).ToList();
-        var firstNames = await _welcome.FirstNamesAsync(players.Select(p => p.Id).ToList(), cancellationToken);
+        var ids = players.Select(p => p.Id).ToList();
+        var firstNames = await _welcome.FirstNamesAsync(ids, cancellationToken);
+        var photos = await _welcome.PhotoVersionsAsync(ids, cancellationToken);
+
+        string? PhotoOf(int id) =>
+            photos.TryGetValue(id, out var version) ? Url.Action(nameof(Photo), new { id, v = version }) : null;
 
         var shared = firstNames.Values
             .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -593,8 +629,8 @@ public class SuccessionController : Controller
         return players.ToDictionary(
             p => p.Id,
             p => firstNames.TryGetValue(p.Id, out var name)
-                ? new ShirtName(name, shared.Contains(name) ? p.Code : null)
-                : new ShirtName(p.Code, null));
+                ? new ShirtName(name, shared.Contains(name) ? p.Code : null, PhotoOf(p.Id))
+                : new ShirtName(p.Code, null, PhotoOf(p.Id)));
     }
 
     /// <summary>

@@ -33,10 +33,11 @@ public class FiveCSubmission
 
     /// <summary>
     /// The player's name, e.g. "Brage Kristoffersen" -- a copy of <see cref="Models.Player.Code"/>.
-    /// Denormalised so a row is readable without joining back to the players table.
+    /// Denormalised so a row is readable without joining back to the players table. As long as
+    /// the name it copies.
     /// </summary>
     [Required]
-    [StringLength(20)]
+    [StringLength(50)]
     [Display(Name = "Player")]
     public string PlayerCode { get; set; } = string.Empty;
 

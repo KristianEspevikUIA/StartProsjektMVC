@@ -11,10 +11,13 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// <summary>
 /// Eier: Brage.
 ///
-/// ALLE DATA HER ER OPPDIKTET. Ekte spillerdata skal ikke inn i dette repoet før
-/// prosjektet er meldt til Sikt. Spillernavnene er tilfeldige, bortsett fra prosjektgruppas
-/// egne fire (se <see cref="Squads"/>). Ingen telefonnumre eller e-postadresser til
-/// virkelige personer — bruk example-domener.
+/// ALLE DATA HER ER OPPDIKTET, og ekte spillerdata skal ikke inn i dette repoet: det er
+/// offentlig. Spillernavnene er tilfeldige, bortsett fra prosjektgruppas egne fire (se
+/// <see cref="Squads"/>). Ingen telefonnumre eller e-postadresser til virkelige personer —
+/// bruk example-domener.
+///
+/// De ekte troppene fra ikstart.no ligger utenfor repoet, i den git-ignorerte Data/Squads/, og
+/// erstatter de oppdiktede når de er hentet. Se <see cref="SeedSquads"/>.
 ///
 /// Seedingen er idempotent: hvert steg hopper over seg selv hvis dataene finnes.
 /// Brukerkontoer opprettes bare i Development.
@@ -70,16 +73,31 @@ public static class SeedData
         var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
         var password = configuration["Seed:DevPassword"] ?? DefaultDevPassword;
 
+        // De ekte troppene, når de er hentet. Null uten fila -- se SeedSquads.
+        var squads = SeedSquads.Load(environment);
+
         // Before the squads are seeded: a player still under the old code would otherwise
         // not be found by name, and would get a second row next to it.
         await RenameCodedPlayersAsync(db, userManager, logger);
 
-        await SeedUsersAndPlayersAsync(db, userManager, teams, password, logger);
+        // De oppdiktede troppene bare i en base som ikke har andre spillere. Med de ekte troppene
+        // i fila erstattes de; uten fila, men med ekte spillere i den delte basen -- lagt inn
+        // av en annen på prosjektet -- ville de ellers kommet tilbake ved siden av dem.
+        var seedFictionalSquads = squads is null && !await HasOtherPlayersAsync(db);
+
+        await SeedUsersAndPlayersAsync(db, userManager, teams, password, seedFictionalSquads, logger);
 
         // Runs every start, and deliberately outside SeedUsersAndPlayersAsync: that method
         // used to return early once players existed, and the two coach accounts it needs to
         // fold together were seeded long before this step existed.
         await ConsolidateCoachAsync(db, userManager, logger);
+
+        if (squads is not null)
+        {
+            await SeedSquads.SeedAsync(db, userManager, environment, teams, squads, password, logger);
+        }
+
+        await AssertGuardianRuleAsync(db, logger);
 
         // The demo history. Development only, and separate from SeedRoundsAsync above --
         // that step keeps exactly one placeholder period in every environment, and these
@@ -615,6 +633,7 @@ public static class SeedData
         UserManager<IdentityUser> userManager,
         IReadOnlyDictionary<string, Team> teams,
         string password,
+        bool seedFictionalSquads,
         ILogger logger)
     {
         var adminId = await EnsureUserAsync(userManager, "admin@ikstart.example", password, Roles.Admin);
@@ -632,6 +651,12 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+
+        if (!seedFictionalSquads)
+        {
+            logger.LogInformation("Hopper over de oppdiktede troppene: basen har de ekte.");
+            return;
+        }
 
         // Tracked, and read once: the loop both looks players up and edits the ones it finds.
         var byCode = (await db.Players.ToListAsync())
@@ -723,7 +748,18 @@ public static class SeedData
         }
 
         await SeedWithdrawnConsentAsync(db);
-        await AssertGuardianRuleAsync(db, logger);
+    }
+
+    /// <summary>
+    /// Om basen har spillere som ikke er fra de oppdiktede troppene -- de ekte fra
+    /// <see cref="SeedSquads"/>, eller en admin har lagt inn. Spillere som fortsatt heter koden
+    /// sin (TS-08-16), er oppdiktede og teller ikke.
+    /// </summary>
+    private static async Task<bool> HasOtherPlayersAsync(AppDbContext db)
+    {
+        var fictional = FictionalNames.Concat(FormerCodeByName.Values).ToList();
+
+        return await db.Players.AnyAsync(p => !fictional.Contains(p.Code));
     }
 
     /// <summary>
@@ -873,6 +909,22 @@ public static class SeedData
         .SelectMany(team => team.Squad)
         .ToDictionary(member => member.Name, member => member.FormerCode, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Navnene i de oppdiktede troppene. <see cref="SeedSquads"/> sletter dem når de ekte er lest inn.</summary>
+    internal static readonly IReadOnlySet<string> FictionalNames = Squads
+        .SelectMany(team => team.Squad)
+        .Select(member => member.Name)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Kontoene de oppdiktede troppene har fått: spillerens egen, foresatt utledet av navnet, og
+    /// de nummererte foresatt1..7.
+    /// </summary>
+    internal static IEnumerable<string> FictionalAccountEmails() => Squads
+        .SelectMany(team => team.Squad)
+        .SelectMany(member => new[] { PlayerEmail(member.Name), GuardianEmail(member.Name), member.GuardianEmail })
+        .OfType<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Det demodataene til en spiller trekkes fra: koden spilleren het før navnene, eller
     /// navnet for en spiller som aldri hadde kode. Slik gir samme spiller de samme svarene og
@@ -889,14 +941,14 @@ public static class SeedData
     /// Spillerkontoen som hører til et navn: "Brage Kristoffersen" blir
     /// spiller.brage.kristoffersen@ikstart.example.
     /// </summary>
-    private static string PlayerEmail(string name) => $"spiller.{EmailPart(name)}@ikstart.example";
+    internal static string PlayerEmail(string name) => $"spiller.{EmailPart(name)}@ikstart.example";
 
     /// <summary>
     /// Foresattkontoen som hører til et navn, for spillere uten en av de nummererte
     /// foresatt-kontoene. foresatt1..7@example.test er navngitt i README og i troppen over,
     /// og beholdes som de er.
     /// </summary>
-    private static string GuardianEmail(string name) => $"foresatt.{EmailPart(name)}@example.test";
+    internal static string GuardianEmail(string name) => $"foresatt.{EmailPart(name)}@example.test";
 
     /// <summary>
     /// Et navn som delen foran @ i en adresse: små bokstaver, punktum mellom navnene, og æ, ø
@@ -1019,7 +1071,7 @@ public static class SeedData
                 string.Join(", ", missing));
         }
 
-        logger.LogInformation("Seeding fullført: {PlayerCount} oppdiktede spillere.", players.Count);
+        logger.LogInformation("Seeding fullført: {PlayerCount} spillere.", players.Count);
     }
 
     // ---------------------------------------------------------------------------------

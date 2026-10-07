@@ -1,6 +1,7 @@
 @using Microsoft.AspNetCore.Identity
 @inject SignInManager<IdentityUser> SignInManager
 @inject UserManager<IdentityUser> UserManager
+@inject StartPraksisGruppe3Prosjekt.Services.IPlayerWelcomeService Welcome
 
 @*
     The account menu.
@@ -13,18 +14,30 @@
     On a phone the menu is already folded away behind the toggler, so the button would be a
     second fold inside the first. Below the navbar breakpoint the stylesheet hides it and
     shows the three items as ordinary menu rows -- see .sc-account.
+
+    A player the club has entered a photo for sees the photo on the button instead of the
+    letter -- the same photo as the welcome, from /Player/Photo, which only ever gives your own.
 *@
 <ul class="navbar-nav">
 @if (SignInManager.IsSignedIn(User))
 {
     var userName = UserManager.GetUserName(User) ?? "";
     var initial = userName.Length > 0 ? char.ToUpperInvariant(userName[0]).ToString() : "?";
+    var welcome = await Welcome.GetForUserAsync(UserManager.GetUserId(User) ?? "");
 
     <li class="nav-item dropdown sc-account">
         <button class="sc-account__toggle" type="button" id="sc-account-toggle"
                 data-bs-toggle="dropdown" aria-expanded="false"
                 aria-label="Account: @userName" title="@userName">
-            <span class="sc-account__avatar" aria-hidden="true">@initial</span>
+            @if (welcome?.HasPhoto == true)
+            {
+                <img class="sc-account__avatar sc-account__avatar--photo" alt=""
+                     src="@Url.Action("Photo", "Player", new { area = "", v = welcome.PhotoVersion })" />
+            }
+            else
+            {
+                <span class="sc-account__avatar" aria-hidden="true">@initial</span>
+            }
         </button>
 
         <ul class="dropdown-menu dropdown-menu-end sc-account__menu" aria-labelledby="sc-account-toggle">

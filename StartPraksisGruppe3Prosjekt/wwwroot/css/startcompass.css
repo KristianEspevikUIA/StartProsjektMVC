@@ -271,6 +271,18 @@ body {
     color: #ffffff;
 }
 
+/* The player's own photo in place of the letter, anchored near the top like the welcome. */
+.sc-account__avatar--photo {
+    border: 2px solid var(--sc-ink);
+    object-fit: cover;
+    object-position: 50% 15%;
+}
+
+.sc-account__toggle:hover .sc-account__avatar--photo,
+.sc-account__toggle[aria-expanded="true"] .sc-account__avatar--photo {
+    border-color: var(--sc-blue);
+}
+
 .sc-account__toggle:focus-visible {
     outline: 3px solid var(--sc-ink);
     outline-offset: 1px;
@@ -4382,6 +4394,38 @@ a.sc-token:hover .sc-marker {
     transform: translateY(-2px);
 }
 
+/* A player the club has a photo of: the photo fills the marker, a little larger so the face
+   reads, and the position sits on a tab across the top. Squad photos are taller than wide, so
+   the photo is anchored near the top, where the face is -- as on the welcome. */
+.sc-token--photo {
+    --sc-dot: 54px;
+}
+
+.sc-marker__photo {
+    border-radius: 50%;
+    height: 100%;
+    inset: 0;
+    object-fit: cover;
+    object-position: 50% 15%;
+    pointer-events: none;
+    position: absolute;
+    width: 100%;
+}
+
+.sc-marker__pos {
+    background: var(--sc-yellow);
+    border: 1px solid rgba(10, 14, 22, 0.75);
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    font-size: 10px;
+    left: 50%;
+    line-height: 1.3;
+    padding: 0 4px;
+    position: absolute;
+    top: -9px;
+    transform: translateX(-50%);
+}
+
 .sc-marker__rating {
     background: var(--sc-light);
     border-radius: 9px;
@@ -4570,7 +4614,7 @@ a.sc-token:hover .sc-marker {
     cursor: grab;
     display: grid;
     gap: 8px;
-    grid-template-columns: 38px minmax(0, 1fr) auto;
+    grid-template-columns: 38px 28px minmax(0, 1fr) auto;
     padding: 7px 8px;
     text-decoration: none;
     touch-action: manipulation;
@@ -4602,6 +4646,19 @@ a.sc-token:hover .sc-marker {
     font-weight: 700;
     padding: 1px 0;
     text-align: center;
+}
+
+/* The photo, or an empty circle where there is none, so the names stay in one column. */
+.sc-sub__photo {
+    background: var(--sc-board-panel);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50%;
+    display: block;
+    height: 28px;
+    object-fit: cover;
+    object-position: 50% 15%;
+    pointer-events: none;
+    width: 28px;
 }
 
 .sc-sub__name {

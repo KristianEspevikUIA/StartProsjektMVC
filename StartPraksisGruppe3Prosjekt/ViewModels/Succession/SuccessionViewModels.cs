@@ -142,9 +142,10 @@ public sealed class SuccessionFormationViewModel
 
 /// <summary>
 /// What a shirt says: the first name, or the full name where there is none. <see cref="Tag"/> is
-/// the full name, for a first name two players on the page share.
+/// the full name, for a first name two players on the page share. <see cref="Photo"/> is the URL
+/// of the club's photo of the player, where there is one.
 /// </summary>
-public sealed record ShirtName(string Name, string? Tag)
+public sealed record ShirtName(string Name, string? Tag, string? Photo = null)
 {
     public string Full => Tag is null ? Name : $"{Name} ({Tag})";
 }
@@ -164,6 +165,9 @@ public sealed class SquadPlayer
 
     /// <summary>The code too, when another player on the page has the same first name.</summary>
     public string? NameTag { get; init; }
+
+    /// <summary>The URL of the player's photo, or null when the club has entered none.</summary>
+    public string? PhotoUrl { get; init; }
 
     public string? TeamName { get; init; }
 
@@ -206,12 +210,14 @@ public sealed record LineupSlot(int Index, string Position, string Name, string 
 
 /// <param name="Name">What the shirt says: the first name, or the code.</param>
 /// <param name="Tag">The code as well, for a first name another player on the page shares.</param>
+/// <param name="Photo">The URL of the player's photo, or null.</param>
 /// <param name="Positions">Position key to the best rank any coach gave it.</param>
 public sealed record LineupPlayer(
     int Id,
     string Code,
     string Name,
     string? Tag,
+    string? Photo,
     string? Team,
     double Overall,
     string Level,
@@ -244,6 +250,9 @@ public sealed class SlotPlayer
 
     /// <summary>The code too, when another player on the page has the same first name.</summary>
     public string? NameTag { get; init; }
+
+    /// <summary>The URL of the player's photo, or null when the club has entered none.</summary>
+    public string? PhotoUrl { get; init; }
 
     public string? TeamName { get; init; }
 

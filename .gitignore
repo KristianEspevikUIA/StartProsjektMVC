@@ -499,3 +499,9 @@ appsettings.Local.json
 # Se docs/identity-benchmarking.md.
 StartPraksisGruppe3Prosjekt/Data/Identity/Matches/*
 !StartPraksisGruppe3Prosjekt/Data/Identity/Matches/README.md
+
+# Spillertroppene fra ikstart.no: navn, fødselsdato og bilde av spillerne på U14, U15 og U17,
+# alle mindreårige. Repoet er offentlig, så bare README-en følger med. Fila lages av
+# scripts/squads/fetch_squads.py. Se docs/player-welcome.md.
+StartPraksisGruppe3Prosjekt/Data/Squads/*
+!StartPraksisGruppe3Prosjekt/Data/Squads/README.md
