@@ -23,6 +23,7 @@ Innhold:
 - [Kjøre migrasjonene](#kjøre-migrasjonene)
 - [Flytte de ekte spillerne og slå av Supabase](#flytte-de-ekte-spillerne-og-slå-av-supabase)
 - [Bruke hoveddatabasen](#bruke-hoveddatabasen)
+- [Drift: hvem gjør hva](#drift-hvem-gjør-hva)
 - [Oppslag: innstillinger, kommandoer og tabeller](#oppslag-innstillinger-kommandoer-og-tabeller)
 - [Må oppdateres i Sikt-meldingen](#må-oppdateres-i-sikt-meldingen)
 
@@ -475,11 +476,43 @@ fra klubben, og en spiller under 19 får ikke konto før en foresatt er registre
 **Ny migrasjon.** Lag skriptet fra samme commit som appversjonen som skal ut, og kjør det før
 den nye versjonen startes. Se [«Kjøre migrasjonene»](#kjøre-migrasjonene).
 
-**Backup.** Daglig, med en kopi et annet sted enn databaseserveren, og en gjenoppretting som
-faktisk er prøvd. En backup ingen har gjenopprettet fra, er et håp og ikke en backup. Ta med
-nøkkelmappa (`DataProtection__KeysPath`). En spiller som slettes i appen, ligger i backupene
-til de er rotert ut. Det skal stå i informasjonen til de registrerte, og rotasjonstiden må
-bestemmes.
+### Backup
+
+Daglig, beholdt i 30 dager, med en kopi et annet sted enn databaseserveren, og en
+gjenoppretting som faktisk er prøvd. To skript gjør det, og begge kjøres på databaseserveren
+av systembrukeren `postgres`. Da trengs det ikke noe passord noe sted.
+
+**`scripts/database/backup.sh`** tar en `pg_dump` av hele databasen, sjekker at fila lar seg
+lese, kopierer den til en annen mappe hvis `BACKUP_COPY_DIR` er satt, og sletter backuper
+eldre enn `KEEP_DAYS` (30). En backup som feiler, etterlater ingen fil og sletter ingen gamle.
+Som en linje i `/etc/cron.d/startcompass-backup`:
+
+```
+15 2 * * * postgres BACKUP_DIR=/var/backups/startcompass BACKUP_COPY_DIR=/mnt/annet-sted/startcompass /opt/startcompass/scripts/database/backup.sh >> /var/log/startcompass-backup.log 2>&1
+```
+
+**`scripts/database/restore-check.sh`** leser den nyeste backupen inn i en egen prøvedatabase,
+sammenligner antall rader per tabell med hoveddatabasen, og sletter prøvedatabasen igjen. En
+backup ingen har gjenopprettet fra, er et håp og ikke en backup. Kjør den etter første backup,
+og siden en gang i måneden:
+
+```bash
+sudo -u postgres BACKUP_DIR=/var/backups/startcompass /opt/startcompass/scripts/database/restore-check.sh
+```
+
+Det som hører med:
+
+- **Fila inneholder alt:** navn, fødselsdato og bilde av spillerne, svar, vurderinger og
+  kontoer. Mappa skal ligge på en kryptert disk og bare kunne leses av `postgres`. Kopien et
+  annet sted skal være kryptert, og regnes som en del av systemet: den som oppbevarer den, er
+  databehandler.
+- **En spiller som slettes i appen, ligger i backupene i 30 dager.** Det skal stå i
+  informasjonen til de registrerte. Gjenopprettes en backup, må slettinger som er gjort etter
+  den, gjøres på nytt: `player_deletion_events` i den nyeste databasen sier hvilke.
+- **Nøkkelmappa** (`DataProtection__KeysPath`) ligger på appserveren og tas med i
+  filbackupen der. Mistes den, må alle logge inn på nytt, og ikke noe annet går tapt.
+- Skriptene er prøvd mot PostgreSQL 17 i en container. Cron-linja og stiene over er et
+  eksempel og må tilpasses serveren.
 
 ### Flytte til en annen server
 
@@ -525,6 +558,49 @@ Bruk `pg_dump` og `pg_restore` fra samme hovedversjon som serveren.
 
 .NET 8 går ut av støtte 10. november 2026 (README, «Stack»). Oppgraderingen til .NET 10 er en
 egen PR, og bør være gjort før hoveddatabasen tas i bruk med ekte data.
+
+---
+
+## Drift: hvem gjør hva
+
+Fire ting må være bestemt før hoveddatabasen tas i bruk. Under står det prosjektgruppa
+foreslår. **Det er forslag.** Klubben eier serveren og opplysningene, og må bekrefte dem og
+sette navn på personene.
+
+| Spørsmål | Forslag |
+| --- | --- |
+| **Hvem drifter serveren** | IK Start eier den. Én navngitt driftsansvarlig i klubben, eller hos leverandøren klubben bruker, har ansvaret for operativsystemet, oppdateringer, brannmur, sertifikat og backup. Prosjektgruppa setter den opp første gang, sammen med driftsansvarlig |
+| **Hvem er databaseeier** (`startcompass_owner`) | To personer, ikke én og ikke flere: driftsansvarlig i klubben, og én fra prosjektgruppa så lenge prosjektet varer. Passordet ligger i klubbens passordhvelv, aldri på appserveren. Når prosjektet er over, byttes passordet, og klubben har rollen alene |
+| **Hvem er administrator i appen** | To personer i klubben, for eksempel akademilederen og én til, så ingen er alene om det. Den første lages med `create-admin`, den andre på `/Admin/Users`. Studentene har ikke administratorkonto i drift etter oppsettet |
+| **Databehandleravtale** | Trengs med alle som behandler opplysningene på klubbens vegne. Se under |
+| **Hvor lenge backup beholdes** | 30 dager, daglig, med én kryptert kopi et annet sted. Gjenoppretting prøves hver måned. Det er standarden i `backup.sh` |
+
+### Databehandleravtale
+
+IK Start er behandlingsansvarlig for opplysningene om spillerne. Alle andre som har dem i
+hendene, gjør det på klubbens vegne og trenger en avtale (personvernforordningen artikkel 28):
+
+- **Den som drifter serveren,** hvis det ikke er klubben selv. Det gjelder også en
+  skyleverandør, og den som oppbevarer backupkopien.
+- **Prosjektgruppa og UiA,** så lenge studentene har tilgang til en database med ekte data,
+  enten som databaseeier eller ved oppsett og flytting.
+
+En server klubben selv eier og drifter, krever ingen avtale for selve driften.
+
+Det avtalen må si noe om: hva opplysningene brukes til og hvor lenge; hvilke opplysninger det
+gjelder (navn, fødselsdato, bilde, svar, vurderinger, e-postadresser) og om hvem (mindreårige
+spillere, foresatte, trenere); at databehandleren bare handler etter klubbens instruks og har
+taushetsplikt; sikkerhetstiltakene (kryptering, tilgangsstyring, backup); at underleverandører
+krever klubbens godkjenning; hjelp med innsyn og sletting; at alt slettes eller leveres
+tilbake når avtalen er over; og at opplysningene lagres i EU/EØS. Datatilsynet har en veileder
+og en mal.
+
+### Det som fortsatt er klubbens
+
+- Å sette navn på driftsansvarlig, de to databaseeierne og de to administratorene.
+- Serveren selv, eller valget av leverandør, og avtalen med den.
+- Avtalen med prosjektgruppa og UiA.
+- Informasjonen til spillere og foresatte, med lagringstiden for backup.
 
 ---
 

@@ -8,8 +8,9 @@ skiller seg. Trenerne har i tillegg Identity Benchmarking og succession planning
 valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på til slutt.
 
 > Bare oppdiktede data i dette repoet, og i de lokale utviklingsdatabasene. De ekte spillerne
-> skal bare ligge i hoveddatabasen, se [`docs/database.md`](docs/database.md). Ekte spillerdata
-> skal ikke inn før prosjektet er meldt til Sikt.
+> (navn, fødselsdato og bilde) skal bare ligge i hoveddatabasen, se
+> [`docs/database.md`](docs/database.md). Prosjektgruppa avgjorde 07.10.2026 at de kan legges
+> inn der før prosjektet er meldt til Sikt. Se «Ting som må avklares før ekte data».
 
 ---
 
@@ -244,8 +245,8 @@ Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle s
 - **Fornavn og bilde** ligger i egen tabell (`player_personal_details`). Ingen bilder ligger i
   repoet, og navnene i demodataene er oppdiktet — bortsett fra prosjektgruppas egne.
 - **De ekte spillerne flyttes** mellom to databaser med `export-players` og `import-players`.
-- **Må avklares:** Sikt-meldingen beskriver fortsatt spillerkoder i stedet for navn. Den må
-  oppdateres og sendes før ekte navn og bilder legges inn.
+- **Må avklares:** Sikt-meldingen beskriver fortsatt spillerkoder i stedet for navn, og må
+  oppdateres før den sendes. Navn og bilder legges inn før det (avgjort 07.10.2026).
 
 **Alt om dette: [`docs/player-welcome.md`](docs/player-welcome.md).**
 
@@ -304,7 +305,7 @@ StartPraksisGruppe3Prosjekt/
    └─ lib/                      Bootstrap, jQuery og jquery-validation, lokalt
 
 docs/                           én fil per funksjon, database.md, og utkastet til Sikt-melding
-scripts/database/               SQL for hoveddatabasen: rollene, og rettighetene til app-rollen
+scripts/database/               hoveddatabasen: rollene, rettighetene til app-rollen, backup
 scripts/identity/               StatsBomb-PDF → kampdata og foreløpige målområder
 scripts/squads/                 troppene fra ikstart.no til Data/Squads
 docker-compose.yml              den lokale utviklingsdatabasen (+ .env.example)
@@ -618,7 +619,22 @@ bruker, og da logges alle ut.
 ## Ting som må avklares før ekte data
 
 - [~] Melding til Sikt — utkast i [`docs/sikt-melding.md`](docs/sikt-melding.md). Sju punkter
-      gjenstår, og fire av dem er klubbens å svare på
+      gjenstår, og fire av dem er klubbens å svare på. Utkastet beskriver fortsatt
+      Supabase og spillerkoder; hva som må rettes, står sist i
+      [`docs/database.md`](docs/database.md)
+- [x] **Spillerne legges inn før meldingen til Sikt er sendt.** Avgjort i prosjektgruppa
+      07.10.2026: prosjektet er fortsatt under utvikling, og gruppa vurderer at melding til
+      Sikt hører til større prosjekter, som en bacheloroppgave. Det gjelder navn, fødselsdato
+      og bilde, som klubben har gitt tillatelse til å bruke
+- [ ] Avklar med veileder om UiA krever melding til Sikt også for dette prosjektet.
+      Personvernforordningen gjelder uansett om Sikt er meldt eller ikke: klubben er
+      behandlingsansvarlig, og trenger et grunnlag for behandlingen, informasjon til spillere
+      og foresatte, og databehandleravtaler (se «Drift: hvem gjør hva» i
+      [`docs/database.md`](docs/database.md))
+- [ ] Driften er ikke bestemt: hvem som drifter serveren, hvem som er databaseeier og
+      administratorer, og avtalene. Forslagene står i «Drift: hvem gjør hva» i
+      [`docs/database.md`](docs/database.md). Backup er daglig i 30 dager
+      (`scripts/database/backup.sh`)
 - [ ] Personvernerklæring (`Views/Home/Privacy.cshtml`)
 - [ ] **Hoveddatabasen er ikke opprettet.** Koden og oppskriften er klare
       ([`docs/database.md`](docs/database.md)); serveren, databehandleravtalen og backupen

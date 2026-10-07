@@ -85,9 +85,10 @@ Forhåndsvisningen for admin sendes med `no-store`.
 ## Personvern: må avklares før ekte data legges inn
 
 - **Sikt.** `docs/sikt-melding.md` sa at navn ikke lagres om spillere. Det stemmer ikke lenger,
-  og meldingen er oppdatert. Prosjektets egen regel er at ekte spillerdata ikke skal inn før
-  prosjektet er meldt til Sikt. Klubbens tillatelse gjelder publiseringen, men Sikt-meldingen må
-  også vise dette før fornavn og bilder av ekte spillere legges inn i appen.
+  og meldingen er oppdatert. Prosjektets regel var at ekte spillerdata ikke skulle inn før
+  prosjektet var meldt til Sikt. Prosjektgruppa avgjorde 07.10.2026 at navn, fødselsdato og
+  bilder kan legges inn før det, siden prosjektet fortsatt er under utvikling (README, «Ting
+  som må avklares før ekte data»). Meldingen må fortsatt vise dette når den sendes.
 - **Informasjon til spillerne og foresatte.** Bildene er publisert fra før, men dette er en ny
   bruk: i et system som også har svarene deres. Det bør stå i personvernerklæringen.
 - **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
