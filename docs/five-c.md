@@ -15,12 +15,15 @@ All tekst i grensesnittet er engelsk, i tråd med StartCompass-nettstedet og wir
 | --- | --- |
 | **Spørsmålene**, og refleksjonen etter dem | `Data/Questions/five-c-questions.json` |
 | Innlesing og validering av dem | `Services/FiveC/QuestionCatalog.cs` |
+| Rekkefølgen påstandene vises i | `Services/FiveC/QuestionOrder.cs` |
 | Skjemaet | `Controllers/SurveyController.cs`, `Views/Survey/` |
+| Perioder, og hvilken som er valgt | `Services/PeriodService.cs`, `Services/PeriodSelection.cs` |
 | Det som sendes når et skjema leveres | `Contracts/FiveC/SurveySubmission.cs` (+ speilet i `.ts`) |
-| Lagring | `Services/FiveC/ISurveySubmissionStore.cs` og de to implementasjonene |
+| Lagring | `Services/FiveC/ISurveySubmissionStore.cs` og de tre implementasjonene |
 | Spiller mot foresatt mot trener | `Services/FiveC/FiveCAnalysisService.cs` |
 | Differanseskårene | `Services/FiveC/FiveCDifference.cs` |
 | Trenervisningene | `CoachController.FiveCTeam` / `.FiveCPlayer`, `Views/Coach/` |
+| Spiller- og foresattsiden, og hva som skjules før treneren har delt | `Services/FiveC/FiveCFeedbackBuilder.cs`, `Views/Shared/FiveCFeedback.cshtml` |
 | Refleksjonen: hva den er og hvordan den lagres | `Models/FiveC/QuestionSet.cs`, `Models/FiveCSubmission.cs` |
 | Refleksjonen, slik den leses tilbake | `Views/Shared/_FiveCReflection.cshtml` |
 | Skalagrensene, oppfølgingsregelen og differansebåndene | `Models/FiveC/FiveCRules.cs` |
@@ -46,16 +49,67 @@ To regler når du redigerer:
   den leses, så en høy skår alltid betyr «bra». Ikke snu skalaen i skjemaet for å
   kompensere; da snus den to ganger.
 
-`textAboutPlayer` er valgfri og null overalt i dag, så alle tre rollene får et identisk
-skjema. Fyll den ut, og trenere og foresatte ser den ordlyden mens spilleren beholder `text`
-— det er kroken wireframene beskriver, klar, men ikke slått på.
-
 Fila valideres ved oppstart. En duplisert nøkkel, en manglende `text` eller en skala som ikke
 henger sammen, stopper applikasjonen med en melding som navngir problemet. Det er med vilje:
 alternativet er å oppdage det som et halvtomt skjema, midt i en runde, foran en fjortenåring.
 
 `version` lagres med hver innsending, så det er mulig å vite i ettertid hvilken ordlyd et
 sett svar ble gitt mot.
+
+### Tre ordlyder per spørsmål
+
+Samme påstand, tre lesere. Spilleren svarer om seg selv, treneren om en spiller, foresatt om
+sitt eget barn — bare grammatikken skifter:
+
+| Felt | Leser | Eksempel |
+| --- | --- | --- |
+| `text` | spilleren | «I keep working on my development …» |
+| `textAboutPlayer` | treneren | «The player keeps working on their development …» |
+| `textForGuardian` | foresatt | «My child keeps working on their development …» |
+
+Hver faller tilbake på den over, så et spørsmålssett som bare fyller ut `text`, fungerer for
+alle. Svaret lagres likt uansett hvilken ordlyd som produserte det.
+
+### Stokket rekkefølge og fargekoder
+
+Katalogrekkefølgen — fem C-er, fem påstander hver, alltid den samme — er et skjema man kan
+fylle ut uten å lese. Fem påstander om forpliktelse på rad lærer leseren at den neste også
+handler om forpliktelse, og i tredje periode klikker en spiller nedover en kolonne.
+
+`IQuestionOrder` stokker derfor alle 25 på tvers av kategoriene. To egenskaper må holde
+samtidig, og de drar i hver sin retning:
+
+* **Stabil innenfor en periode.** Den som lagrer, kommer tilbake og retter ett svar, må møte
+  det samme skjemaet. En rekkefølge som var tilfeldig *per forespørsel* ville renummerert
+  påstandene under dem midt i rettingen.
+* **Forskjellig mellom perioder.** Ellers er stokkingen pynt: samme rekkefølge hver september
+  er den samme autopiloten, én permutasjon lenger bort.
+
+Begge faller ut av å seede på **(spiller, periode)** og utlede permutasjonen av seedet i
+stedet for å lagre den. Ingenting skrives ned, ingenting må migreres, og den samme
+rekkefølgen kan gjenskapes senere fra de to ID-ene alene. Generatoren er en liten SplitMix64
+skrevet ut i koden og ikke `System.Random`: sistnevnte lover ikke samme sekvens på tvers av
+.NET-versjoner, og rekkefølgen må overleve en runtime-oppgradering midt i en måleperiode.
+
+Seedet henger på **spilleren** og ikke på den som svarer. Det betyr at spilleren, foresatt og
+treneren svarer om samme spiller i samme rekkefølge, som er det som gjør «du satte 5 på den
+fjerde» til en setning to personer kan ha. En trener med tjue spillere får likevel tjue ulike
+rekkefølger, så trenerens egen autopilot brytes også.
+
+Skjemaet er derfor **bolker på fem** og ikke de fem C-ene, og hver påstand bærer i stedet en
+fargekode og navnet på sin C. Fargen er et *navn* fra et fast sett — indigo, teal, plum,
+rust, moss, sky, sand, slate — og ikke en hex-verdi: CSP-en har ingen `unsafe-inline`, så en
+farge som ikke finnes, har ingen klasse bak seg, og appen nekter å starte på den. Rødt, gult
+og grønt står bevisst utenfor palettet; de tre betyr et *skårbånd* på treneroversikten, og en
+påstand merket rød ved siden av et rødt tall ville lest som en dom over svaret.
+
+Fargen settes per kategori i `five-c-questions.json` (og kan overstyres per påstand, men bør
+normalt ikke være det — 25 ulike farger er ikke en kode, det er en regnbue). Utelates den,
+får kategorien palett-oppføringen på sin egen plass, altså fem tydelige markører uansett.
+
+Det som **lagres**, er upåvirket: innsendingen bygges fra katalogen, i katalogrekkefølge,
+uansett hvilken rekkefølge skjemaet sto i. Løpenummeret på analysesidene er katalogens, ikke
+skjemaets — det finnes ikke lenger ett nummer en påstand «hadde da den ble besvart».
 
 ---
 
@@ -131,6 +185,102 @@ forskjellige. To kopier av en side som viser hva noen skrev om et barn, ville v�
 
 ---
 
+## Perioder
+
+En **periode** (`SurveyRound` i modellen) er ett målevindu. Spiller, foresatt og trener
+svarer på det samme skjemaet innenfor den, og svarene tilhører den perioden alene.
+
+Flere perioder kan være åpne samtidig — det er normalt når en ny starter før den forrige er
+stengt. Skjemaet lander på den som stenger sist.
+
+Perioder opprettes på to måter, og begge går gjennom `IPeriodService`, så reglene for hva
+som er en brukbar periode, bor ett sted:
+
+- **Admin-siden** `Admin/Periods`: navn, åpner, stenger. Ny periode starter tom. Den ligger
+  som **«Periods»** i hovedmenyen for admin, ikke bare under «Administration» — en periode må
+  finnes og være åpen før noen kan svare på noe, så det er den admin-siden som åpnes oftest.
+- **Seeding** i `SeedData.SeedRoundsAsync`, som er idempotent *per periode* — ellers kunne
+  en ny periode aldri legges til i en base som allerede var seedet.
+
+Seedingen ligger på **én** periode i alle miljøer: `Autumn <år>`, åpen. Det er en plassholder
+til klubben har bestemt hva de virkelige periodene er. Andre perioder fjernes ved oppstart —
+men **bare hvis de er tomme**. En periode med svar blir stående, for sletting tar svarene med
+seg, og det er ikke en avveining et seed-steg skal gjøre alene.
+
+Plassholderen **holdes** åpen, den blir ikke bare opprettet åpen. Den hadde tidligere et
+vindu på tre uker og stengte seg selv tre uker senere: seedingen spurte bare om det fantes en
+periode med det navnet, så hver senere oppstart hoppet rett forbi den, og en base seedet i
+august hadde ingen åpen periode i september. Nå åpnes den igjen ved oppstart — men **bare når
+ingen annen periode er åpen**. Har klubben laget sine egne perioder, er plassholderen ferdig
+med jobben sin, og en periode som er stengt fra `Admin/Periods`, er stengt med vilje. Vinduet
+er 90 dager, som er lenger enn en beslutning om virkelige perioder pleier å ta.
+
+**I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
+oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
+nettopp fordi de er demodata — uten dem er «over time» en tom side, både for spiller og lag.
+At de overlever oppryddingen over, er fordi de har svar i seg.
+
+En periode kan stenges fra admin-siden. Svar som allerede er gitt, beholdes; perioden slutter
+bare å ta imot nye.
+
+### Valgt periode huskes
+
+Uten dette kastet det å velge en periode på skjemasiden og så åpne lagoversikten valget og
+hoppet tilbake til gjeldende periode. Valget ligger derfor i en cookie (`StartCompass.Period`,
+30 dager), og `IPeriodSelection` er den ene veien inn: URL-en vinner hvis den navngir en
+periode — en delt lenke må bety det den sier — ellers det som ble husket, ellers gjeldende.
+En husket periode som siden er slettet, ignoreres i stedet for å bli en 404 på en side ingen
+ba om.
+
+---
+
+## Skjemaet
+
+### Skjemalisten
+
+`/Survey` er én liste med tre betydninger: for en spiller én rad om seg selv, for en
+foresatt én per barn, for en trener én per spiller i klubben. Visningen forgrener seg ikke
+på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører hjemme i lista.
+
+**En tabell, ikke kort.** Kolonnene er navn, posisjon, lag, alder, hvilken rolle du
+svarer i, og status. Kort var greit for en spiller med ett skjema og en foresatt med to; en
+trener får ett per spiller i klubben, og tretti kort er tretti overskrifter og en side man
+ruller i stedet for å skumme. Identifikatoren er spillerens **navn**, som er det en spiller
+heter i hele applikasjonen. Alderen regnes ut av `PlayerRules.AgeAt`, samme regel som kravet
+om foresatt henger på; fødselsdatoen selv vises aldri.
+
+Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og navn.
+Filtrene ligger i query-strengen, så en filtrert liste er en URL som kan deles, og som
+tilbakeknappen forstår. Totalene telles **før** filtrering — et fremdriftstall som flytter
+seg når du filtrerer, forteller om filteret og ikke om arbeidet som gjenstår.
+
+### Mobil
+
+Utfyllingen er den flyten som må fungere på en telefon, og den er bygget for det: skalaen
+1–5 tar full bredde, knapper er trykkflater i full bredde, inputfelt er 16px (mindre, og
+iOS Safari zoomer inn ved fokus), og etikettene under tallene viker for de to endepunktene
+på skalaen. Trenerens tabeller scroller i stedet sidelengs inne i `.sc-table-wrap` — en
+trener som sammenligner en tropp, sitter uansett på en laptop.
+
+### Kladden i nettleseren
+
+Mens et skjema fylles ut, holder `survey.js` en kopi av svarene i nettleserens
+`localStorage`, under nøkkelen `startcompass:draft:<hash>`. Tretti spørsmål besvares på en
+telefon, mellom andre ting, og uten kopien koster en låst skjerm, et feilslått tilbakesveip
+eller en fane nettleseren tar tilbake, hvert eneste svar.
+
+- **Kopien er ikke lagring.** Den når aldri serveren, og svarene finnes ikke for noen andre
+  før skjemaet er sendt inn. Siden sier det samme når en kladd er lagt tilbake.
+- **Nøkkelen er en hash** av periode, spiller og innlogget bruker
+  (`SurveyController.DraftKey`). To personer som svarer om samme barn på samme nettbrett, får
+  hver sin kladd, og ingen konto-ID står i sidekilden.
+- **Kladden slettes** når skjemaet sendes inn, når brukeren velger å forkaste den, og når den
+  ikke lenger passer med det serveren har — for eksempel fordi skjemaet er sendt inn fra en
+  annen enhet i mellomtiden.
+- **Den slettes ikke ved utlogging, og den har ingen utløpstid.** Se «Kjente begrensninger».
+
+---
+
 ## Dele et skjema som lenke
 
 ```
@@ -165,26 +315,59 @@ til én spiller og én periode, og mulig å trekke tilbake. Det er ikke en query
 
 ---
 
+## Hvem ser hva
+
+| | Egne svar | At de andre har svart | Trenerens svar og avvik | Hele laget |
+| --- | --- | --- | --- | --- |
+| Spiller | ja | ja | først når treneren frigir | nei |
+| Foresatt (eget barn) | ja | ja | først når treneren frigir | nei |
+| Trener | ja | ja | alltid, for alle spillere | ja |
+| Admin | ja | ja | alltid | ja |
+
+Trener- og admin-oppslag på en enkeltspiller havner i revisjonsloggen. Spillerens egne
+besøk på sin egen side gjør det ikke — det ville vært støy som skjuler radene som betyr noe.
+
+**Spilleren ser loggen selv**, nederst på sin egen side: rolle og tidspunkt, ikke bruker-ID
+eller e-postadresse. Leseren vet hvem treneren sin er, og en kontoadresse er ikke deres å få.
+Det er den andre halvdelen av at trenere ikke lenger trenger samtykke: klubben kan gjøre rede
+for hvert oppslag, og det kan den det gjelder også.
+
+### Samtaleflyten
+
+5C-runden er en samtale, ikke en dom. Rekkefølgen:
+
+1. Spilleren svarer om seg selv.
+2. Treneren svarer om spilleren. Ingen av dem ser den andre ennå.
+3. Spilleren får vite at treneren **har** svart — ikke hva.
+4. Treneren frigir svarene sine. Først da ser spilleren trenerens skår og avviket.
+
+Treneren ser alt hele veien. Foresatt ser nøyaktig det samme som spilleren.
+
+Merk at samtalen følger **spilleren**, ikke den som ser på: en foresatt som ikke har fylt ut
+sitt eget skjema, følger likevel barnets samtale med treneren. Deres eget skjema er et eget
+bidrag, ikke en sperre.
+
+Asymmetrien er med vilje: at en trener leser sin egen uenighet med en fjortenåring, er en
+treneravgjørelse, og det samme tallet som dukker opp uanmeldt på spillerens telefon, er det
+ikke.
+
+Frigivelsen er en append-only logg (`FeedbackRelease`), som samtykkeloggen — en frigivelse
+som senere trekkes tilbake, er fortsatt noe som skjedde. Trekker treneren tilbake, legges det
+til en ny hendelse; den gamle raden blir stående.
+
+Viktig for den som bygger videre: **redigeringen skjer i modellen, ikke i visningen.**
+`FiveCFeedbackBuilder` fjerner trenerens tall fra modellen når det ikke er frigitt, slik at
+en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelsen inn i en
+`.cshtml`-fil.
+
+---
+
 ## Lagring av svar
 
-> **Denne delen er nå halvveis utdatert, med vilje.** Den ble skrevet da appen kjørte på
-> lokal SQLite og Supabase var noe eget man nådde over HTTP. Siden 26. august kobler appen
-> seg direkte til Postgres-databasen i Supabase, gjennom EF Core og Npgsql — se «Kom i gang»
-> i README.
->
-> Det gjør `SupabaseSurveySubmissionStore` overflødig: den går ut over PostgREST til en
-> database prosessen allerede er koblet til, med en ekstra nøkkel, ingen felles transaksjon
-> og ingen fremmednøkler til `Players` eller `SurveyRounds`. Det enkle nå er to EF-entiteter
-> og én migrasjon, som alt annet i modellen. Lagerabstraksjonen kan bli — det er den som
-> holder minnelageret mulig — men den levende implementasjonen bør være en EF-implementasjon.
->
-> Ikke endret ennå, fordi 5C-tabellene er Victors å definere, og dette er hans avgjørelse.
-> Kontrakten i `Contracts/FiveC/` er upåvirket uansett: den beskriver hva skjemaet leverer
-> fra seg, ikke hvordan det skrives.
->
-> **Ikke bruk anon-/publishable-nøkkelen (`sb_publishable_…`) til dette.** Den er laget for
-> å være offentlig, og den er underlagt row level security. Svar om mindreårige bak en nøkkel
-> som sendes til nettlesere, er feil form uansett hva policyene sier.
+Svarene lagres i appens egen database, som er Postgres i Supabase: tabellene
+`FiveCSubmissions` og `FiveCAnswers`, med unik indeks på (periode, spiller, respondent), slik
+at et nytt svar er en retting og ikke en ny mening. Refleksjonen ligger i sin egen tabell,
+`FiveCReflectionAnswers`.
 
 `ISurveySubmissionStore` har tre implementasjoner, og konfigurasjonen velger én:
 
@@ -200,8 +383,12 @@ til én spiller og én periode, og mulig å trekke tilbake. Det er ikke en query
   nyttig til en demo og ubrukelig til alt annet. I Development seeder den seg selv med
   oppdiktede innsendinger, så treneroversikten har noe å tegne.
 
-En tom `Url` eller `ApiKey` betyr derfor databasen, ikke minnet. Det var omvendt mens appen
-kjørte på lokal SQLite, og hvert svar forsvant ved omstart.
+En tom `Url` eller `ApiKey` betyr derfor databasen, ikke minnet.
+
+De to siste er unntak, ikke alternativer. `SupabaseSurveySubmissionStore` går ut over
+PostgREST med en egen nøkkel, uten felles transaksjon og uten fremmednøkler til `Players`
+eller `SurveyRounds`, og har bare noe for seg når svarene faktisk skal til et annet prosjekt
+enn det appen er koblet til.
 
 Hvilken som er i bruk, skrives til loggen ved oppstart og vises for admin på `/Survey`.
 
@@ -222,6 +409,10 @@ Bruk service role-nøkkelen. Respondenten er innlogget *her*, ikke i Supabase, s
 ingen bruker-JWT å sende videre, og row level security kan ikke vite hvem som svarer. Det
 betyr også at nøkkelen aldri må nå nettleseren — og det gjør den ikke: hver forespørsel til
 Supabase gjøres på serveren.
+
+**Ikke bruk anon-/publishable-nøkkelen (`sb_publishable_…`) til dette.** Den er laget for å
+være offentlig, og den er underlagt row level security. Svar om mindreårige bak en nøkkel
+som sendes til nettlesere, er feil form uansett hva policyene sier.
 
 ### Kontrakten
 
@@ -257,7 +448,7 @@ uenige, vinner C#-fila.
    `NOT NULL`-kolonne gjør hvert blanke svar til en middels mening, og det er umulig å se
    forskjellen etterpå.
 
-Det ventede landingsstedet er tre tabeller:
+I et separat Supabase-prosjekt er det ventede landingsstedet tre tabeller:
 
 ```
 five_c_submissions (id, round_id, player_id, player_code, respondent_role,
@@ -333,9 +524,9 @@ med én desimal.
 kategori er **under 2,0**, med **minst 3 besvarte påstander** bak seg. Begge tallene er
 konstanter i `FiveCRules` — ett sted å endre dem.
 
-To er «Disagree»-punktet på skalaen, så en spiller under det på tvers av en hel kategori er
-uenig i de positive påstandene i hele den. Minstekravet til antall svar er det som gjør det
-*konsekvent* og ikke én dårlig dag. Det bygger på spillerens egne svar, aldri på hva noen
+To er «Rarely» på skalaen, så en spiller under det på tvers av en hel kategori svarer mellom
+«Never» og «Rarely» på påstandene i hele den. Minstekravet til antall svar er det som gjør
+det *konsekvent* og ikke én dårlig dag. Det bygger på spillerens egne svar, aldri på hva noen
 andre mener om dem.
 
 Spillere med flagg får et rødt merke i lagtabellen, en rød rad, en rød stolpe i diagrammet og
@@ -375,12 +566,75 @@ spiller. De står ved siden av kategorisnitt på en skala der høyere er bedre, 
 en reversert påstand ville vært den ene kolonnen i seksjonen som pekte motsatt vei.
 Påstandene er fortsatt merket `Reversed`, så en leser kan se hvilke som er snudd.
 
-**Over tid** er det samme aggregatet målt gjentatte ganger: for hver periode og hver C,
-snittet av spillernes egne snitt. Bare spillernes svar, av den grunnen den individuelle linja
-gir — en lagslinje som flyttet seg når en trener skiftet mening, ville blitt lest som at
-troppen hadde utviklet seg. En periode med for få spillere bak seg er et hull og ikke et
-tegnet punkt, og siden navngir den: et uforklart hull i en linje leses som «ingen svarte», og
-noen svarte.
+### Farge og spredning på oversikten
+
+To røde-gule-grønne skalaer bor på lagsiden, og de er **ikke** det samme:
+
+| Skala | Måler | Ser ut som |
+| --- | --- | --- |
+| `ScoreLevels` | hvordan troppen *svarte* | et tall på tonet bunn (`sc-mean`) |
+| `AgreementLevels` | hvor langt fra hverandre to personer er | et versalt merke (`sc-badge`) |
+
+De er skilt på form, hver har sin forklaring der den brukes, og de er to enum-er nettopp
+fordi én felles enum før eller siden ville fargelagt et avvik som om det var en skår.
+Skårbåndene er `< 2,0` (nederste linje er den samme som oppfølgingsflagget, med vilje),
+`2,0–3,5` og `≥ 3,5`.
+
+Ved siden av hvert snitt står **spredningen**: standardavviket (utvalg, *n−1*) over
+spillernes egne tall, på samme 1–5-skala. Det er tallet snittet ikke sier. En tropp som
+snitter 3,0 fordi alle svarte 3, og en som snitter 3,0 fordi halvparten svarte 1 og
+halvparten 5, er to helt forskjellige lag med samme snitt — og det er den andre som har noe å
+gjøre noe med. Spredningen holdes tilbake sammen med snittet under minstekravet på tre
+respondenter: å vite at to spillere er to poeng fra hverandre, er å vite svært mye om to
+personer.
+
+Spredningen fargelegges ikke. Lav spredning er ikke bra i seg selv — en tropp der alle svarte
+2, har spredning null — så et trafikklys på den ville sagt noe usant.
+
+### Pentagon
+
+De fem C-ene tegnet som én form: én akse per kategori, ett lukket polygon per respondent, i
+de samme tre rollefargene som stolpene. Stolpene svarer på «hvor høy er Commitment»; formen
+svarer på «hvilken form har denne spilleren» — jevn over de fem, eller spiss i én og hul i en
+annen. Det andre spørsmålet er det en sesongplan lages mot, og fem separate stolpediagrammer
+er dårligst på nettopp det.
+
+En rolle tegnes bare når den har et tall i **hver** kategori. Et polygon må plassere hvert
+hjørne et sted, og det eneste stedet et manglende hjørne kunne gå, er midten — som ville
+tegnet «ingen svarte på denne C-en» som «skåret bunnen av skalaen». Rollen navngis i stedet.
+
+All geometri regnes ut i `PentagonChartViewModel` og aldri i viewet. Det er ikke ryddighet:
+appen kjører under norsk kultur, der en `double` blir «3,0», og komma i et SVG-`points`-
+attributt skiller *koordinater*. Ett tall formatert med gjeldende kultur blir til to, og
+polygonet forsvinner eller tegnes et helt annet sted — uten at noe feiler høylytt.
+
+### Utvikling over tid
+
+Trenerens spillerside viser spillerens egne snitt per C på tvers av periodene de har svart i,
+med endringen i tall og ord. Kun **spillerens egne** svar: hva en trener mente om dem i mars,
+er ikke en del av hvordan spilleren utviklet seg til september, og en linje som blandet inn
+det, ville flyttet seg når treneren skiftet mening.
+
+**Lagsiden har den samme grafen for hele troppen**, aggregert på samme måte som
+lagoversikten: for hver periode og hver C, snittet av spillernes egne snitt. Samme partial og
+samme tidsakse — `IFiveCTrend` er det de to deler, og det eneste som skiller dem, er hvem
+linja handler om. En periode med for få spillere bak seg blir et hull i linja i stedet for et
+tegnet punkt, og siden navngir perioden: et uforklart hull leses som «ingen svarte», og noen
+svarte.
+
+Trenger minst to perioder med svar. Med én står det at det finnes en posisjon, men ingen
+retning — nye perioder opprettes under «Periods».
+
+### Påstand for påstand
+
+Under snittene på spillersiden ligger alle 25 påstandene med hva hver enkelt faktisk svarte.
+Tallene er **rå** — det respondenten klikket — ikke den reverserte skåren. På en reversert
+påstand betyr derfor 5 at man er sterkt enig i en negativt formulert setning, altså en lav
+skår, og den er merket «Reversed» av nettopp den grunn.
+
+Avstanden mellom to svar er lik uansett: reversering snur begge sider, så |(6−a) − (6−b)|
+er |a − b|. Rå svar og en absoluttdifferanse er derfor konsistent sammen, mens rå svar og en
+fortegnsdifferanse ikke ville vært det.
 
 ### Én komponent, fire sider
 
@@ -390,14 +644,21 @@ spiller som har lært én, har lært alle:
 | Side | Paneler |
 | --- | --- |
 | `Coach/FiveCTeam` | Overview, Per statement, Over time, Players |
+| Overview på `Coach/FiveCTeam` | *(nøstet)* All five, og én fane per C |
 | `Coach/FiveCPlayer` | Differences, The five C's, Statements, Over time, Sharing |
-| `Shared/FiveCFeedback` | Status, Your answers, Who has looked |
-| `Survey/Fill` | ett panel per C, pluss Back/Next og en levende teller for besvarte |
+| `Shared/FiveCFeedback` (spillerens og foresattes side) | Status, Your answers, Who has looked |
+| `Survey/Fill` | én fane per bolk på fem påstander, pluss refleksjonen, med Back/Next og teller |
 
 En seksjon melder seg på med `data-tab-panel` og en `data-tab-label`; `survey.js` gjør
 resten. To ting er bevisst holdt UTENFOR panelene, fordi de er grunnen til at siden ble
 åpnet og aldri skal ligge bak en fane: oppfordringen «svar på skjemaet» på
 tilbakemeldingssiden, og **Save** på skjemaet.
+
+Overview-panelet har en **stripe inni stripa**: «All five» er de fem C-ene ved siden av
+hverandre, og de fem etter den er én C hver, med tall per rolle, spredning og påstandene i
+akkurat den kategorien. Nøstede paneler merkes `data-subtab-panel` og ikke `data-tab-panel`,
+nettopp fordi spørringen på sidenivå ellers ville plukket dem opp og gjort to striper på
+fire og seks faner om til én stripe på ni.
 
 Lagsiden har fire seksjoner — troppens snitt, det samme påstand for påstand, troppen over
 tid, og spillerne — og stablet i én kolonne er det rundt fem skjermhøyder med rulling før en
@@ -415,9 +676,9 @@ stripe som ikke byttet noe, ville vært verre enn en lang side.
 
 Valgt fane huskes per side i `sessionStorage`, så å åpne en spiller og komme tilbake fører
 til seksjonen som var åpen. En `#sc-panel-N`-lenke vinner over den huskede, og
-`data-tab-open` fra serveren vinner over begge — det er slik skjemaet åpner den første C-en
-som fortsatt har en ubesvart påstand etter en avvist lagring, i stedet for å la feilmeldingen
-ligge bak en fane ingen ble bedt om å trykke på.
+`data-tab-open` fra serveren vinner over begge — det er slik skjemaet åpner den første
+bolken som fortsatt har en ubesvart påstand etter en avvist lagring, i stedet for å la
+feilmeldingen ligge bak en fane ingen ble bedt om å trykke på.
 
 **Skjemaet er det som gjør mer enn å bytte.** Det er fortsatt faner, og ser fortsatt ut som
 de andre, men et skjema trenger framdrift: `initFormSteps` legger Back og Next til hvert
@@ -433,20 +694,19 @@ og filteret avgjør bare hvilke som vises. Feltet er `hidden` i markupen og avde
 `survey.js`, så med JavaScript av er tabellen komplett, og det dukker ikke opp en død
 søkeboks.
 
-Koder og posisjoner, fordi det er det eneste som finnes: dette systemet har ingen navn.
+Navn og posisjon, fordi det er det som står i tabellen.
 
 ### Hva treneren ser og ikke ser
 
-- **Ingenting holdes tilbake for en trener lenger.** En trener ser hver spiller og hvert
-  tall. Koden som rendrer en rad uten tall, og formuleringen «no consent for individual
-  views» ved siden av, er rester fra da samtykke stanset en trener — de kan ikke lenger nås.
-  Å fjerne dem står på lista.
+- **Ingenting holdes tilbake for en trener.** En trener ser hver spiller og hvert tall.
 - «Has not answered» er fortsatt sin egen tilstand, og sier det fortsatt med ord i stedet
   for å vise en strek som kunne leses som en null.
 - Tellinger av *hvem som har svart* sier ingenting om en enkeltperson. De ble vist for hver
   rad også da tallene ikke ble det, og det var derfor de ble skilt ut i utgangspunktet.
-- Ikke noe fritekstfelt og ingen notater. En treners skrevne notat om en mindreårig er en ny
-  kategori personopplysninger og finnes ikke i datamodellen.
+- Ingen frie notater på oversikten. Det eneste en trener skriver om en spiller i 5C, er
+  refleksjonen, og den har sin egen tabell og sin egen frigivelsesregel — se «Refleksjonen
+  som avslutter perioden». Et notatfelt utover det ville vært en ny kategori
+  personopplysninger om en mindreårig.
 
 ---
 
@@ -486,3 +746,9 @@ Koder og posisjoner, fordi det er det eneste som finnes: dette systemet har inge
   produktbeslutning, og ingen har bedt om den.
 - **`Coach/Index` ble implementert** for å gjøre 5C-sidene tilgjengelige. Den rikere
   versjonen, med avvikstall for ti-påstandsskjemaet, er fortsatt Taavis.
+- **Kladden i nettleseren overlever utlogging.** Kopien `survey.js` holder i `localStorage`
+  mens et skjema fylles ut, slettes ved innsending, men ikke ved utlogging, og den har ingen
+  utløpstid. Forlates et halvferdig skjema på en delt maskin, blir svarene — også fritekst
+  om et barn — liggende i nettleseren til noen tømmer den. Neste bruker får dem ikke lagt
+  inn i skjemaet sitt, fordi nøkkelen er per bruker, men de kan leses i nettleserens
+  utviklerverktøy. Å tømme kladdene ved utlogging og gi dem en utløpstid ville lukket det.

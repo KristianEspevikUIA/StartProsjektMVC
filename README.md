@@ -169,355 +169,28 @@ StartCompass-nettstedet og wireframene. README og dokumentasjonen i `docs/` skri
 
 ## 5C-spørreskjemaet
 
-25 påstander i fem kategorier, 1–5-skala, besvart av spiller, foresatt og trener om samme
-spiller — pluss en treneroversikt som viser hvor de tre er uenige.
-
-Etter påstandene kommer **refleksjonen**: fem korte spørsmål som avslutter perioden — hvilken
-C som har vært sterkest, hvilken det er verdt å jobbe med neste periode, og hva som ville
-hjelpe. To av dem velger en C, tre besvares med egne ord. Alle tre gruppene får dem, ingen av
-dem er obligatoriske, og de ligger i den samme fila som påstandene. Se `docs/five-c.md`.
-
-**Spørsmålene ligger i `Data/Questions/five-c-questions.json` og ingen andre steder.** Ingen
-`.cshtml`-fil inneholder et kategorinavn eller en påstand, så treneteamet kan bytte hele
-settet uten at UI-koden røres. Fila valideres ved oppstart, og en feil i den stopper appen
-med en melding som sier hva som er galt.
-
-Svarene lagres i **appens egen database**, som etter overgangen til Npgsql *er* Supabase:
-tabellene `FiveCSubmissions` og `FiveCAnswers`, med unik indeks på
-(runde, spiller, respondent) slik at et nytt svar er en retting og ikke en ny mening.
-Tidligere lå de i minnet og forsvant ved omstart.
-
-Refleksjonen ligger i sin egen tabell, `FiveCReflectionAnswers`. Den er fritekst om et barn
-og regnes aldri med i et snitt — derfor ikke i samme tabell som tallene. Den følger
-innsendingen, som følger spilleren: sletting av en spiller tar den med seg, og innsyn
-(`/Admin/Export/{id}`) har den med.
-
-Treneren ser alle tre refleksjonene på spillersiden sin. Spilleren og foresatte ser sin egen
-— og trenerens først når treneren har delt, samme regel som tallene følger, og av en sterkere
-grunn: en setning om en fjortenåring er skarpere enn et snitt, ikke mildere.
-
-To unntak finnes, og de er unntak — ikke alternativer:
-
-| Konfigurasjon | Lagring |
-| --- | --- |
-| *(ingenting)* | appens database. **Standard.** |
-| `FiveC:Supabase:Url` + `:ApiKey` | et *genuint separat* Supabase-prosjekt, over PostgREST |
-| `FiveC:Store = "InMemory"` | ingenting lagres — for en demo uten å skrive |
-
-Kontrakten frontend sender ligger i `Contracts/FiveC/` — i C# og speilet i TypeScript.
-
-Deling skjer med query-param: `/Survey/Fill?roundId=2&playerId=14&role=Coach`. Lenken gir
-ingen tilgang i seg selv; den forhåndsvelger spiller og rolle, og begge sjekkene kjøres på
-nytt på serveren.
-
-**Alt om dette: [`docs/five-c.md`](docs/five-c.md)** — inkludert hvorfor det ikke ble token i
-URL-en, hva Victor trenger å vite om skjemaet, og hva som gjenstår.
-
-### Perioder
-
-En **periode** (`SurveyRound` i modellen) er ett målevindu. Spiller, foresatt og trener
-svarer på det samme skjemaet innenfor den, og svarene tilhører den perioden alene.
-
-Flere perioder kan være åpne samtidig — det er normalt når en ny starter før den forrige er
-stengt. Skjemaet lander på den som stenger sist.
-
-Perioder opprettes på to måter, og begge går gjennom `IPeriodService`, så reglene for hva
-som er en brukbar periode bor ett sted:
-
-- **Admin-siden** `Admin/Periods`: navn, åpner, stenger. Ny periode starter tom. Den ligger
-  som **«Periods»** i hovedmenyen for admin, ikke bare under «Administration» — en periode må
-  finnes og være åpen før noen kan svare på noe, så det er den admin-siden som åpnes oftest.
-- **Seeding** i `SeedData.SeedRoundsAsync`, som er idempotent *per periode* — ellers kunne
-  en ny periode aldri legges til i en base som allerede var seedet.
-
-Seedingen ligger på **én** periode i alle miljøer: `Autumn <år>`, åpen. Det er en plassholder
-til klubben har bestemt hva de virkelige periodene er. Andre perioder fjernes ved oppstart —
-men **bare hvis de er tomme**. En periode med svar blir stående, for sletting tar svarene med
-seg, og det er ikke en avveining et seed-steg skal gjøre alene.
-
-Plassholderen **holdes** åpen, den blir ikke bare opprettet åpen. Den hadde tidligere et
-vindu på tre uker og stengte seg selv tre uker senere: seedingen spurte bare om det fantes en
-periode med det navnet, så hver senere oppstart hoppet rett forbi den, og en base seedet i
-august hadde ingen åpen periode i september. Nå åpnes den igjen ved oppstart — men **bare når
-ingen annen periode er åpen**. Har klubben laget sine egne perioder, er plassholderen ferdig
-med jobben sin, og en periode som er stengt fra `Admin/Periods` er stengt med vilje. Vinduet
-er 90 dager, som er lenger enn en beslutning om virkelige perioder pleier å ta.
-
-**I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
-oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
-nettopp fordi de er demodata — uten dem er «over time» en tom side, både for spiller og lag.
-At de overlever oppryddingen over, er fordi de har svar i seg.
-
-### Valgt periode huskes
-
-Å velge en periode på skjemasiden og så åpne lagoversikten kastet tidligere valget og hoppet
-tilbake til gjeldende periode. Nå ligger valget i en cookie (`StartCompass.Period`), og
-`IPeriodSelection` er den ene veien inn: URL-en vinner hvis den navngir en periode — en delt
-lenke må bety det den sier — ellers det som ble husket, ellers gjeldende. En husket periode
-som siden er slettet ignoreres i stedet for å bli en 404 på en side ingen ba om.
-
-En periode kan stenges fra admin-siden. Svar som allerede er gitt beholdes; perioden slutter
-bare å ta imot nye.
-
-### Hvem ser hva
-
-| | Egne svar | At de andre har svart | Trenerens svar og avvik | Hele laget |
-| --- | --- | --- | --- | --- |
-| Spiller | ja | ja | først når treneren frigir | nei |
-| Foresatt (eget barn) | ja | ja | først når treneren frigir | nei |
-| Trener | ja | ja | alltid, for alle spillere | ja |
-| Admin | ja | ja | alltid | ja |
-
-Trener- og admin-oppslag på en enkeltspiller havner i revisjonsloggen. Spillerens egne
-besøk på sin egen side gjør det ikke — det ville vært støy som skjuler radene som betyr noe.
-
-**Spilleren ser loggen selv**, nederst på sin egen side: rolle og tidspunkt, ikke bruker-ID
-eller e-postadresse. Leseren vet hvem treneren sin er, og en kontoadresse er ikke deres å få.
-Det er den andre halvdelen av at trenere ikke lenger trenger samtykke: klubben kan gjøre rede
-for hvert oppslag, og det kan den det gjelder også.
-
-### Skjemalisten
-
-`/Survey` er én liste med tre betydninger: for en spiller én rad om seg selv, for en
-foresatt én per barn, for en trener én per spiller i klubben. Visningen forgrener seg ikke
-på rolle — `ISurveyAssignmentService` har allerede regnet ut hva som hører hjemme i lista.
-
-**En tabell, ikke kort.** Kolonnene er navn, posisjon, lag, alder, hvilken rolle du
-svarer i, og status. Kort var greit for en spiller med ett skjema og en foresatt med to; en
-trener får ett per spiller i klubben, og tretti kort er tretti overskrifter og en side man
-ruller i stedet for å skumme. Identifikatoren er spillerens **navn**, som er det en spiller
-heter i hele applikasjonen. Alderen regnes ut av
-`PlayerRules.AgeAt`, samme regel som kravet om foresatt henger på; fødselsdatoen selv vises
-aldri.
-
-Trenertilfellet er grunnen til at det er filtre: periode, lag, rolle, status og navn.
-Filtrene ligger i query-strengen, så en filtrert liste er en URL som kan deles og som
-tilbakeknappen forstår. Totalene telles **før** filtrering — et fremdriftstall som flytter
-seg når du filtrerer, forteller om filteret og ikke om arbeidet som gjenstår.
-
-### Mobil
-
-Utfyllingen er den flyten som må fungere på en telefon, og den er bygget for det: skalaen
-1–5 tar full bredde, knapper er trykkflater i full bredde, inputfelt er 16px (mindre, og
-iOS Safari zoomer inn ved fokus), og etikettene under tallene vikes til fordel for
-endepunktene «Strongly disagree» / «Strongly agree». Trenerens tabeller scroller i stedet
-sidelengs inne i `.sc-table-wrap` — en trener som sammenligner en tropp sitter uansett på
-en laptop.
-
-### Lagoversikt
-
-Øverst på lagsiden leses hele troppen som én, på de samme tre nivåene som en enkeltspiller:
-på tvers av alle 25 påstandene, per kategori, og per påstand. Samme stolper, samme partial,
-samme 1–5-skala — poenget er at man ikke skal lære seg diagrammet på nytt ett nivå opp.
-
-**Sidene er faner, ikke én lang kolonne.** Det gjelder *alle* de lange 5C-sidene, gjennom én
-og samme komponent, slik at man ikke møter ny navigasjon på hver side:
-
-| Side | Faner |
-| --- | --- |
-| Lagsiden | Overview, Per statement, Over time, Players |
-| Lagsidens Overview | *(nøstet)* All five, og én fane per C |
-| Spillersiden | Differences, The five C's, Statements, Over time, Sharing |
-| Spillerens egen side | Status, Your answers, Who has looked |
-| Skjemaet | én fane per bolk på fem påstander, med Back/Next og teller |
-
-Overview-panelet har en **stripe inni stripa**: «All five» er de fem C-ene ved siden av
-hverandre, og de fem etter den er én C hver, med tall per rolle, spredning og påstandene i
-akkurat den kategorien. Nøstede paneler merkes `data-subtab-panel` og ikke `data-tab-panel`,
-nettopp fordi spørringen på sidenivå ellers ville plukket dem opp og gjort to striper på
-fire og seks faner om til én stripe på ni.
-
-En seksjon melder seg på med `data-tab-panel`; `survey.js` bygger stripa av de panelene som
-faktisk står der. To ting ligger bevisst *utenfor* panelene, fordi de er grunnen til at siden
-ble åpnet: «fyll ut skjemaet» på spillersiden, og **Lagre** på skjemaet. Uten JavaScript
-finnes ingen stripe og ingenting er skjult — da er sidene de samme kolonnene som før. Valgt
-fane huskes per side i `sessionStorage`.
-
-Skjemaet gjør litt mer enn å bytte: hver fane viser hvor mange av bolkens fem påstander som
-er besvart (`3/5`) og markeres om noe mangler, og panelene har Back/Next. Skjulte paneler
-sendes inn som før — fanene endrer hva som vises, ikke hva som lagres.
-
-**Hvert tall er et snitt av SPILLERE, ikke av svar.** På hvert nivå er lagets tall snittet av
-spillernes tall på det nivået, slik at én spiller teller én gang enten hen svarte på fem
-påstander eller tjuefem. Å slå sammen alle svarene i stedet ville latt den som fylte ut
-skjemaet mest fullstendig veie mest, og et lagsnitt skal beskrive den gjennomsnittlige
-spilleren.
-
-Seksjonen avgjøres av `CanViewTeamAggregate` — én gang, mot det faktiske antallet spillere bak
-tallene — og ikke av `CanViewPlayer` gjentatt for alle. Samme grense gjelder **per rolle**:
-har færre enn tre foresatte svart, er «foresattsnittet» de foresattes egne svar med lagets
-navn på. `TeamRoleAverage.From` slipper tallet i stedet for å sende det videre, så ingen
-visning har det å lekke. At noe er holdt tilbake, og at ingen har svart, er to forskjellige
-ting, og siden sier hvilken av dem det er.
-
-Tallene per påstand her er **skårede**, i motsetning til påstandstabellen for én spiller: de
-står ved siden av kategorisnittene på en skala der høyt er bra, og et råsnitt på en reversert
-påstand ville vært den ene kolonnen i seksjonen som pekte motsatt vei.
-
-### Søk i troppen
-
-Spillerlista på lagsiden filtreres levende, på navn og posisjon, over den troppen som
-allerede står på siden. Ingenting hentes og ingenting forlater nettleseren — hver rad ligger
-i dokumentet, og filteret avgjør bare hvilke som vises. Feltet er `hidden` i markupen og
-avdekkes av `survey.js`, så uten JavaScript står tabellen komplett og det dukker ikke opp en
-søkeboks som ikke gjør noe.
-
-Navn og posisjon, fordi det er det som står i tabellen.
-
-### Utvikling over tid
-
-Trenerens spillerside viser spillerens egne snitt per C på tvers av periodene de har svart i,
-med endringen i tall og ord. Kun **spillerens egne** svar: hva en trener mente om dem i mars
-er ikke en del av hvordan spilleren utviklet seg til september, og en linje som blandet inn
-det ville flyttet seg når treneren skiftet mening.
-
-**Lagsiden har den samme grafen for hele troppen**, aggregert på samme måte som lagoversikten:
-for hver periode og hver C, snittet av spillernes egne snitt. Samme partial og samme tidsakse
-— `IFiveCTrend` er det de to deler, og det eneste som skiller dem er hvem linja handler om. En
-periode med for få spillere bak seg blir et hull i linja i stedet for et tegnet punkt, og
-siden navngir perioden: et uforklart hull leses som «ingen svarte», og noen svarte.
-
-Trenger minst to perioder med svar. Med én står det at det finnes en posisjon, men ingen
-retning — nye perioder opprettes under Administration.
-
-### Statement by statement
-
-Under snittene ligger alle 25 påstandene med hva hver enkelt faktisk svarte. Tallene er
-**rå** — det respondenten klikket — ikke den reverserte skåren. På en reversert påstand
-betyr derfor 5 at man er sterkt enig i en negativt formulert setning, altså en lav skår, og
-den er merket «Reversed» av nettopp den grunn.
-
-Avstanden mellom to svar er lik uansett: reversering snur begge sider, så |(6−a) − (6−b)|
-er |a − b|. Rå svar og en absoluttdifferanse er derfor konsistent sammen, mens rå svar og en
-fortegnsdifferanse ikke ville vært det.
-
-### Tre ordlyder per spørsmål
-
-Samme påstand, tre lesere. Spilleren svarer om seg selv, treneren om en spiller, foresatt om
-sitt eget barn — bare grammatikken skifter:
-
-| Felt | Leser | Eksempel |
-| --- | --- | --- |
-| `text` | spilleren | «I keep working on my development …» |
-| `textAboutPlayer` | treneren | «The player keeps working on their development …» |
-| `textForGuardian` | foresatt | «My child keeps working on their development …» |
-
-Hver faller tilbake på den over, så et spørsmålssett som bare fyller ut `text` fungerer for
-alle. Svaret lagres likt uansett hvilken ordlyd som produserte det.
-
-### Stokket rekkefølge og fargekoder
-
-Katalogrekkefølgen — fem C-er, fem påstander hver, alltid den samme — er et skjema man kan
-fylle ut uten å lese. Fem påstander om forpliktelse på rad lærer leseren at den neste også
-handler om forpliktelse, og i tredje periode klikker en spiller nedover en kolonne.
-
-`IQuestionOrder` stokker derfor alle 25 på tvers av kategoriene. To egenskaper må holde
-samtidig, og de drar i hver sin retning:
-
-* **Stabil innenfor en periode.** Den som lagrer, kommer tilbake og retter ett svar, må møte
-  det samme skjemaet. En rekkefølge som var tilfeldig *per forespørsel* ville renummerert
-  påstandene under dem midt i rettingen.
-* **Forskjellig mellom perioder.** Ellers er stokkingen pynt: samme rekkefølge hver september
-  er den samme autopiloten, én permutasjon lenger bort.
-
-Begge faller ut av å seede på **(spiller, periode)** og utlede permutasjonen av seedet i
-stedet for å lagre den. Ingenting skrives ned, ingenting må migreres, og den samme
-rekkefølgen kan gjenskapes senere fra de to ID-ene alene. Generatoren er en liten SplitMix64
-skrevet ut i koden og ikke `System.Random`: sistnevnte lover ikke samme sekvens på tvers av
-.NET-versjoner, og rekkefølgen må overleve en runtime-oppgradering midt i en måleperiode.
-
-Seedet henger på **spilleren** og ikke på den som svarer. Det betyr at spilleren, foresatt og
-treneren svarer om samme spiller i samme rekkefølge, som er det som gjør «du satte 5 på den
-fjerde» til en setning to personer kan ha. En trener med tjue spillere får likevel tjue ulike
-rekkefølger, så trenerens egen autopilot brytes også.
-
-Skjemaet er derfor **bolker på fem** og ikke de fem C-ene, og hver påstand bærer i stedet en
-fargekode og navnet på sin C. Fargen er et *navn* fra et fast sett — indigo, teal, plum,
-rust, moss, sky, sand, slate — og ikke en hex-verdi: CSP-en har ingen `unsafe-inline`, så en
-farge som ikke finnes har ingen klasse bak seg, og appen nekter å starte på den. Rødt, gult
-og grønt står bevisst utenfor palettet; de tre betyr et *skårbånd* på treneroversikten, og en
-påstand merket rød ved siden av et rødt tall ville lest som en dom over svaret.
-
-Fargen settes per kategori i `five-c-questions.json` (og kan overstyres per påstand, men bør
-normalt ikke være det — 25 ulike farger er ikke en kode, det er en regnbue). Utelates den,
-får kategorien palett-oppføringen på sin egen plass, altså fem tydelige markører uansett.
-
-Det som **lagres** er upåvirket: innsendingen bygges fra katalogen, i katalogrekkefølge,
-uansett hvilken rekkefølge skjemaet sto i. Løpenummeret på analysesidene er katalogens, ikke
-skjemaets — det finnes ikke lenger ett nummer en påstand «hadde da den ble besvart».
-
-### Farge og spredning på oversikten
-
-To røde-gule-grønne skalaer bor på lagsiden, og de er **ikke** det samme:
-
-| Skala | Måler | Ser ut som |
-| --- | --- | --- |
-| `ScoreLevels` | hvordan troppen *svarte* | et tall på tonet bunn (`sc-mean`) |
-| `AgreementLevels` | hvor langt fra hverandre to personer er | et versalt merke (`sc-badge`) |
-
-De er skilt på form, hver har sin forklaring der den brukes, og de er to enum-er nettopp
-fordi én felles enum før eller siden ville fargelagt et avvik som om det var en skår.
-Skårbåndene er `< 2,0` (nederste linje er den samme som følges opp-flagget, med vilje),
-`2,0–3,5` og `≥ 3,5`.
-
-Ved siden av hvert snitt står **spredningen**: standardavviket (utvalg, *n−1*) over
-spillernes egne tall, på samme 1–5-skala. Det er tallet snittet ikke sier. En tropp som
-snitter 3,0 fordi alle svarte 3, og en som snitter 3,0 fordi halvparten svarte 1 og
-halvparten 5, er to helt forskjellige lag med samme snitt — og det er den andre som har noe å
-gjøre noe med. Spredningen holdes tilbake sammen med snittet under minstekravet på tre
-respondenter: å vite at to spillere er to poeng fra hverandre er å vite svært mye om to
-personer.
-
-Spredningen fargelegges ikke. Lav spredning er ikke bra i seg selv — en tropp der alle svarte
-2 har spredning null — så et trafikklys på den ville sagt noe usant.
-
-### Pentagon
-
-De fem C-ene tegnet som én form: én akse per kategori, ett lukket polygon per respondent, i
-de samme tre rollefargene som stolpene. Stolpene svarer på «hvor høy er Commitment»; formen
-svarer på «hvilken form har denne spilleren» — jevn over de fem, eller spiss i én og hul i en
-annen. Det andre spørsmålet er det en sesongplan lages mot, og fem separate stolpediagrammer
-er dårligst på nettopp det.
-
-En rolle tegnes bare når den har et tall i **hver** kategori. Et polygon må plassere hvert
-hjørne et sted, og det eneste stedet et manglende hjørne kunne gå er midten — som ville tegnet
-«ingen svarte på denne C-en» som «skåret bunnen av skalaen». Rollen navngis i stedet.
-
-All geometri regnes ut i `PentagonChartViewModel` og aldri i viewet. Det er ikke ryddighet:
-appen kjører under norsk kultur, der en `double` blir «3,0», og komma i et SVG-`points`-
-attributt skiller *koordinater*. Ett tall formatert med gjeldende kultur blir til to, og
-polygonet forsvinner eller tegnes et helt annet sted — uten at noe feiler høylytt.
-
-### Samtaleflyten
-
-5C-runden er en samtale, ikke en dom. Rekkefølgen:
-
-1. Spilleren svarer om seg selv.
-2. Treneren svarer om spilleren. Ingen av dem ser den andre ennå.
-3. Spilleren får vite at treneren **har** svart — ikke hva.
-4. Treneren frigir svarene sine. Først da ser spilleren trenerens score og avviket.
-
-Treneren ser alt hele veien. Foresatt ser nøyaktig det samme som spilleren.
-
-Merk at samtalen følger **spilleren**, ikke den som ser på: en foresatt som ikke har fylt ut
-sitt eget skjema følger likevel barnets samtale med treneren. Deres eget skjema er et eget
-bidrag, ikke en sperre. (Det var en bug til 02.09.2026 — foresatte så ingenting før de hadde
-svart selv.)
-
-Asymmetrien er med vilje: at en trener leser sin egen uenighet med en fjortenåring er en
-treneravgjørelse, og det samme tallet som dukker opp uanmeldt på spillerens telefon er det
-ikke.
-
-Frigivelsen er en append-only logg (`FeedbackRelease`), som samtykkeloggen — en frigivelse
-som senere trekkes tilbake er fortsatt noe som skjedde. Trekker treneren tilbake, legges det
-til en ny hendelse; den gamle raden blir stående.
-
-Viktig for den som bygger videre: **redigeringen skjer i modellen, ikke i visningen.**
-`FiveCFeedbackBuilder` fjerner trenerens tall fra modellen når det ikke er frigitt, slik at
-en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelsen inn i en
-`.cshtml`-fil.
-
----
+25 påstander i fem kategorier på en skala fra 1 til 5, besvart av spiller, foresatt og trener
+om samme spiller, og trenersider som viser hvor de tre er uenige. Etter påstandene kommer en
+kort refleksjon med egne ord, som avslutter perioden.
+
+- **Spørsmålene** ligger i `Data/Questions/five-c-questions.json` og ingen andre steder. Ingen
+  `.cshtml`-fil inneholder et kategorinavn eller en påstand, så treneteamet kan bytte hele
+  settet uten at UI-koden røres. Fila valideres ved oppstart.
+- **Perioder:** svarene tilhører ett målevindu (`SurveyRound`). Admin oppretter og stenger
+  perioder på `Admin/Periods`, og valgt periode huskes i cookien `StartCompass.Period`.
+- **Skjemaet** er bygget for mobil. Påstandene stokkes per spiller og periode, i bolker på
+  fem, og en kladd holdes i nettleseren til skjemaet er sendt inn.
+- **Hvem ser hva:** spiller og foresatt ser egne svar, og trenerens svar og avviket først når
+  treneren frigir dem. Trener og admin ser alt, og hvert oppslag på en enkeltspiller havner i
+  revisjonsloggen, som spilleren selv kan se.
+- **Trenersidene:** per spiller (differanser, de fem C-ene, påstand for påstand, utvikling
+  over tid) og per lag (snitt av spillere, spredning, og minst tre svar bak hvert tall).
+- **Lagring:** appens egen database (`FiveCSubmissions`, `FiveCAnswers` og
+  `FiveCReflectionAnswers`). Avvik og snitt regnes ut ved hver visning og lagres aldri.
+- **Deling:** `/Survey/Fill?roundId=2&playerId=14&role=Coach` forhåndsvelger skjemaet. Lenken
+  gir ingen tilgang i seg selv; begge sjekkene kjøres på nytt på serveren.
+
+**Alt om dette: [`docs/five-c.md`](docs/five-c.md).**
 
 ## Identity Benchmarking
 
@@ -728,7 +401,8 @@ kalle `IPlayerAccessLog.RecordAsync`.
 trener. Et lag er i seg selv bare et navn og en liste med spillere; enkeltsvarene er
 vernet av `CanViewPlayer` og loggen over.
 
-**`CanViewTeamAggregate`** — trener med `CoachTeam` på laget, eller admin. I tillegg:
+**`CanViewTeamAggregate`** — trener eller admin, uten lagavgrensning: `CoachTeam` ligger
+fortsatt i modellen, men ingen policy ser på den lenger. I tillegg:
 snittet vises ikke hvis færre enn **3** besvarelser ligger bak det, ellers kan tallet
 regnes tilbake til enkeltpersoner. Grensen er `CanViewTeamAggregateRequirement.MinimumResponses`,
 og den er en del av ressursen (`TeamAggregateResource`) nettopp for at ingen skal kunne
@@ -926,7 +600,7 @@ forskjell på Supabase og en som står i veien.
 - [x] Revisjonslogg for oppslag på enkeltspillere — `PlayerAccessEvent` og
       `IPlayerAccessLog`. Admin-visningen av loggen er fortsatt TODO
 - [x] Skal spilleren se trenerens svar og avviket? Avgjort: ja, men først når treneren
-      frigir dem. Se «Samtaleflyten» over
+      frigir dem. Se «Samtaleflyten» i [`docs/five-c.md`](docs/five-c.md)
 - [ ] **Samtykke stanser ikke lenger en trener.** Dette må inn i Sikt-meldingen og i
       personvernerklæringen: trenere ser alle spillere, og det som dokumenterer bruken er
       revisjonsloggen. Klubben bør bekrefte at det er slik de vil ha det
