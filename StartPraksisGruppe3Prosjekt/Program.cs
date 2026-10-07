@@ -76,6 +76,15 @@ builder.Services.ConfigureApplicationCookie(options =>
     // Delte maskiner: en glemt fane skal ikke være innlogget i morgen.
     options.ExpireTimeSpan = TimeSpan.FromHours(2);
     options.SlidingExpiration = true;
+
+    // Et avslag svares med 403 på adressen det ble spurt etter, ikke med en omdirigering
+    // til Identity-pakkens /Account/AccessDenied. Den siden er pakkens egen og ligner ikke
+    // resten av appen; statuskodesiden lenger ned gjør 403 til en side som gjør det.
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
 });
 
 // Antiforgery-cookien herdes på samme måte.
@@ -278,6 +287,15 @@ var app = builder.Build();
 
 // Først i pipelinen: da følger hodene med på alt, også statiske filer og feilsvar.
 app.UseSecurityHeaders();
+
+// Et tomt 4xx- eller 5xx-svar kjøres om igjen som /Home/Status/{kode}: en adresse som ikke
+// finnes, eller en side kontoen ikke får åpne, blir en side med en vei videre i stedet for
+// nettleserens egen feilside. Statuskoden beholdes.
+//
+// Ligger før UseClosedSelfRegistration, slik at 404-en derfra ser ut som enhver annen ukjent
+// adresse. Svar som allerede har innhold røres ikke, så 429 fra rate limiteren og feilsiden
+// fra UseExceptionHandler er som før.
+app.UseStatusCodePagesWithReExecute("/Home/Status/{0}");
 
 // Selvregistrering er stengt — kontoer opprettes av klubben. Se Security/.
 app.UseClosedSelfRegistration();
