@@ -1,0 +1,14 @@
+<!--
+    The StartCompass mark for the browser tab: a compass in the three club colours,
+    yellow f5ce00, blue 24479b and ink 111111, the same values as the tokens in
+    css/startcompass.css. Drawn here, so there is no licence to keep track of.
+
+    favicon.ico is this drawing at 16, 32 and 48 pixels, for browsers that do not take an
+    SVG icon. Change one and the other has to be redrawn.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+    <rect width="32" height="32" fill="#f5ce00"/>
+    <circle cx="16" cy="16" r="11.5" fill="none" stroke="#111111" stroke-width="3"/>
+    <path d="M22.5 9.5 19 19 13 13Z" fill="#24479b"/>
+    <path d="M9.5 22.5 13 13 19 19Z" fill="#111111"/>
+</svg>

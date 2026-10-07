@@ -49,7 +49,14 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @* An internal tool. robots.txt asks crawlers not to fetch anything; this tells one that
+       fetches a page anyway, from a link somewhere, not to list it. *@
+    <meta name="robots" content="noindex" />
     <title>@ViewData["Title"] – StartCompass</title>
+    @* The .ico first and the SVG second: a browser that takes SVG icons uses the last one
+       it understands, and the rest stop at the .ico. Both are the same drawing. *@
+    <link rel="icon" href="~/favicon.ico" sizes="32x32" asp-append-version="true" />
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/startcompass.css" asp-append-version="true" />

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Models;
@@ -10,8 +11,8 @@ using StartPraksisGruppe3Prosjekt.ViewModels;
 namespace StartPraksisGruppe3Prosjekt.Controllers;
 
 /// <summary>
-/// De eneste sidene som er åpne uten innlogging: forside, personvernerklæring og
-/// feilside. Alt annet krever innlogging via FallbackPolicy i Program.cs, også
+/// De eneste sidene som er åpne uten innlogging: forside, personvernerklæring og de to
+/// feilsidene. Alt annet krever innlogging via FallbackPolicy i Program.cs, også
 /// actions som glemmer [Authorize].
 /// </summary>
 [AllowAnonymous]
@@ -54,5 +55,31 @@ public class HomeController : Controller
     public IActionResult Error()
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+    }
+
+    /// <summary>
+    /// The page behind a status code that would otherwise be an empty response: an address
+    /// with nothing on it (404), a page the account is not allowed to open (403). Reached
+    /// through UseStatusCodePagesWithReExecute in Program.cs, never by a link.
+    ///
+    /// The code is only believed when the pipeline sent the request here. Typed into the
+    /// address bar, /Home/Status/403 is itself an address with nothing on it, and what a page
+    /// says about access should not be something a link can choose.
+    ///
+    /// [IgnoreAntiforgeryToken] is deliberate. The request is re-executed with its original
+    /// method, so a POST that was refused arrives here as a POST -- and one refused because
+    /// its token was missing would be refused a second time, leaving the empty response this
+    /// page exists to replace. Nothing is read from the request and nothing is changed.
+    /// </summary>
+    [IgnoreAntiforgeryToken]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Status(int id)
+    {
+        var reExecuted = HttpContext.Features.Get<IStatusCodeReExecuteFeature>() is not null;
+        var statusCode = reExecuted ? id : StatusCodes.Status404NotFound;
+
+        Response.StatusCode = statusCode;
+
+        return View(statusCode);
     }
 }

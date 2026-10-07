@@ -1,0 +1,42 @@
+@model int
+@*
+    What a reader gets instead of an empty response. See HomeController.Status for how a
+    request ends up here.
+
+    Three texts, not one per status code. A missing page and a refusal are the two a person
+    can do something about, and they are told apart because the next step differs: check the
+    address, or ask the club. Everything else gets the sentence the error page uses.
+
+    The 403 text does not say what the page was or who may open it. Whoever reads it has
+    just been refused, and the refusal is all they are owed.
+
+    Keep the way out, for the same reason _NotBuiltYet has one: most people land here from a
+    link, and the back button is not always somewhere to go.
+*@
+@{
+    var (heading, message) = Model switch
+    {
+        StatusCodes.Status404NotFound => (
+            "Page not found",
+            "There is nothing at this address. The link may be old, or the address may have been mistyped."),
+        StatusCodes.Status403Forbidden => (
+            "No access",
+            "Your account is not allowed to open this page. If you think it should be, ask the club."),
+        _ => (
+            "Something went wrong",
+            "We could not process that request. Try again, and tell the club if it keeps happening.")
+    };
+
+    // Red is for the application failing. An address with nothing on it, or a page that is
+    // closed to this account, is the application working.
+    var failed = Model is not (StatusCodes.Status404NotFound or StatusCodes.Status403Forbidden);
+
+    ViewData["Title"] = heading;
+}
+
+<h1 class="@(failed ? "text-danger" : null)">@heading</h1>
+<p>@message</p>
+
+<div class="sc-actions">
+    <a class="sc-btn" asp-controller="Home" asp-action="Index">Back to the front page</a>
+</div>
