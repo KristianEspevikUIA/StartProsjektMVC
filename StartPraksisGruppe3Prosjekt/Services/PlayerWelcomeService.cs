@@ -41,6 +41,15 @@ public interface IPlayerWelcomeService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Which of these players have a photo, by player id, with the photo's version for its URL.
+    /// A player without one is left out. For the coaches' best eleven, which shows the photo on
+    /// each player -- the bytes are fetched one by one, through <see cref="GetPhotoAsync"/>.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, long>> PhotoVersionsAsync(
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Saves the first name and photo source, and replaces or removes the photo.
     /// </summary>
     /// <param name="photo">A photo already through <see cref="PlayerPhotoRules.Prepare"/>, or null to keep the current one.</param>
@@ -84,6 +93,25 @@ public sealed class PlayerWelcomeService : IPlayerWelcomeService
         return rows
             .Where(r => !string.IsNullOrWhiteSpace(r.FirstName))
             .ToDictionary(r => r.PlayerId, r => r.FirstName!.Trim());
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<int, long>> PhotoVersionsAsync(
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (playerIds.Count == 0)
+        {
+            return new Dictionary<int, long>();
+        }
+
+        var rows = await _db.PlayerPersonalDetails
+            .AsNoTracking()
+            .Where(d => playerIds.Contains(d.PlayerId) && d.Photo != null)
+            .Select(d => new { d.PlayerId, d.PhotoUpdatedAt })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(r => r.PlayerId, r => VersionOf(r.PhotoUpdatedAt));
     }
 
     /// <inheritdoc />

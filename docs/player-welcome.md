@@ -9,14 +9,17 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
 ## Slik virker det
 
 - **Spilleren** logger inn og lander på forsiden. Har klubben lagt inn fornavn eller bilde, står
-  det «Welcome, Alex» i toppen, med bildet i en sirkel ved siden av. Uten noe lagt inn ser
+  det «Welcome, Alex» i toppen, med bildet i en sirkel ved siden av. Bildet står også på
+  kontoknappen oppe til høyre, på alle sider, i stedet for forbokstaven. Uten noe lagt inn ser
   forsiden ut som før.
 - **Admin** legger inn fornavn og bilde på `/Admin/Players` → «Name and photo». Siden viser hva
   spilleren kommer til å se, før det lagres. Samme liste har også lenker til innsyn (Export) og
   sletting for hver spiller, som tidligere bare kunne nås med ID-en i URL-en.
-- **Trenere og admin** ser fornavnet på én side: «Best eleven» (`/Succession/Formation`), der
-  hver spiller er en markør på banen med navnet under. Trenerne ba om det. Har to spillere på
-  siden samme fornavn, står hele navnet under. Bildet vises ikke der.
+- **Trenere og admin** ser fornavnet og bildet på én side: «Best eleven» (`/Succession/Formation`),
+  der hver spiller er en markør på banen med bildet i og navnet under, og innbytterne har bildet
+  ved navnet. Trenerne ba om det. Har to spillere på siden samme fornavn, står hele navnet under.
+  Bildet hentes fra `/Succession/Photo/{id}`, som bare gir bildet av en spiller `CanViewPlayer`
+  slipper treneren til. Den logges ikke for seg: siden bildet står på, logger hver spiller den viser.
 - **Andre sider** viser spillerens fulle navn (`Player.Code`), ikke fornavnet herfra.
 
 Velkomsten er ikke låst til U14, U15 og U17 i koden. Alle spillere med konto kan få den. Det er
@@ -37,8 +40,9 @@ Tabellen `PlayerPersonalDetails`, én rad per spiller:
 
 **Egen tabell, med vilje.** Fornavnet og bildet ligger ikke på `Player`, så en side som bare
 skal vise det fulle navnet ikke kan vise bildet ved en feil.
-Ingenting utenom velkomsten, admin-skjemaet og «Best eleven» leser tabellen, og alle går gjennom
-`IPlayerWelcomeService`. «Best eleven» henter bare fornavnene (`FirstNamesAsync`), aldri bildet.
+Ingenting utenom velkomsten, kontoknappen, admin-skjemaet og «Best eleven» leser tabellen, og alle
+går gjennom `IPlayerWelcomeService`. «Best eleven» henter fornavnene (`FirstNamesAsync`) og hvilke
+spillere som har bilde (`PhotoVersionsAsync`); selve bildet hentes ett og ett.
 
 **Bildet ligger i databasen, ikke på klubbens nettsted.** Tre grunner:
 
@@ -67,9 +71,9 @@ Ingenting utenom velkomsten, admin-skjemaet og «Best eleven» leser tabellen, o
 
 | Hvem | Ser navn og bilde |
 | --- | --- |
-| Spilleren selv | Ja, på forsiden. `/Player/Photo` har ingen ID, så den kan bare gi ditt eget bilde |
+| Spilleren selv | Ja, på forsiden og på kontoknappen. `/Player/Photo` har ingen ID, så den kan bare gi ditt eget bilde |
 | Admin | Ja, på `/Admin/Players` og skjemaet. Å åpne skjemaet logges i revisjonsloggen |
-| Trener | Fornavnet, bare på «Best eleven». Ikke bildet. Siden logges i revisjonsloggen for hver spiller den viser |
+| Trener | Fornavn og bilde, bare på «Best eleven». Siden logges i revisjonsloggen for hver spiller den viser |
 | Foresatt | Nei |
 | Ikke innlogget | Nei |
 
@@ -86,8 +90,13 @@ Forhåndsvisningen for admin sendes med `no-store`.
   også vise dette før fornavn og bilder av ekte spillere legges inn i appen.
 - **Informasjon til spillerne og foresatte.** Bildene er publisert fra før, men dette er en ny
   bruk: i et system som også har svarene deres. Det bør stå i personvernerklæringen.
-- **Demodata:** `Data/SeedWelcome.cs` gir spillerkontoene i Development oppdiktede fornavn, og
-  ingen bilder. Ingen av navnene finnes i trenernes arbeidsbok.
+- **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
+  bilde for U14, U15 og U17 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert.
+  Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
+  fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
+  som en opplasting på admin-siden.
+- **Demodata:** uten den fila gir `Data/SeedWelcome.cs` de oppdiktede spillerkontoene fornavn,
+  og ingen bilder.
 
 ---
 

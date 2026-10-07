@@ -188,11 +188,19 @@
                                 {
                                     if (slot.Starter is { } starter)
                                     {
-                                        <a class="sc-token sc-spot--@slot.Position"
+                                        <a class="sc-token sc-spot--@slot.Position @(starter.PhotoUrl is null ? "" : "sc-token--photo")"
                                            asp-action="Player" asp-route-id="@starter.PlayerId" asp-route-cycle="@filter.Cycle.Key"
                                            aria-label="@slot.PositionName: @starter.Name@(starter.NameTag is null ? "" : $" ({starter.NameTag})"), @SuccessionFormat.Number(starter.Fit) in this position">
                                             <span class="sc-marker">
-                                                @slot.Position
+                                                @if (starter.PhotoUrl is { } photo)
+                                                {
+                                                    <img class="sc-marker__photo" src="@photo" alt="" draggable="false" />
+                                                    <span class="sc-marker__pos">@slot.Position</span>
+                                                }
+                                                else
+                                                {
+                                                    @slot.Position
+                                                }
                                                 <span class="sc-marker__rating @SuccessionFormat.RatingTone(starter.Fit, settings)">@SuccessionFormat.Number(starter.Fit)</span>
                                             </span>
                                             <span class="sc-token__name">@starter.Name@if (starter.NameTag is { } tag)
@@ -229,6 +237,14 @@
                             <li class="sc-bench__row">
                                 <a class="sc-sub" asp-action="Player" asp-route-id="@player.PlayerId" asp-route-cycle="@filter.Cycle.Key">
                                     <span class="sc-sub__pos">@(player.Positions.FirstOrDefault()?.Key ?? "–")</span>
+                                    @if (player.PhotoUrl is { } photo)
+                                    {
+                                        <img class="sc-sub__photo" src="@photo" alt="" draggable="false" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <span class="sc-sub__photo" aria-hidden="true"></span>
+                                    }
                                     <span class="sc-sub__name">@player.Name@if (player.NameTag is { } tag)
                                     {<span class="sc-sub__tag">@tag</span>}</span>
                                     <span class="sc-sub__rating @SuccessionFormat.RatingTone(player.Overall, settings)">@SuccessionFormat.Number(player.Overall)</span>

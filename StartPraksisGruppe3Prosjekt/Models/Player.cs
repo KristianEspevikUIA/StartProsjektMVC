@@ -12,11 +12,12 @@ public class Player
     public int Id { get; set; }
 
     /// <summary>
-    /// Spillerens navn, f.eks. "Brage Kristoffersen". Heter Code fordi spillerne het koder
-    /// ("TS-08-16") før de fikk navn -- kolonnen er den samme, og navnet er høyst 20 tegn.
+    /// Spillerens navn, f.eks. "Henrik Kjellevold Skaanes". Heter Code fordi spillerne het koder
+    /// ("TS-08-16") før de fikk navn -- kolonnen er den samme. Høyst 50 tegn: den var 20 da
+    /// navnene var oppdiktede og korte, og klubbens egne navn er opptil 25.
     /// </summary>
     [Required]
-    [StringLength(20)]
+    [StringLength(50)]
     [Display(Name = "Name")]
     public string Code { get; set; } = string.Empty;
 

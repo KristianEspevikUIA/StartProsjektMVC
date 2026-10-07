@@ -151,6 +151,21 @@
             return node;
         }
 
+        // The club's photo of the player, where there is one. Not draggable on its own: the whole
+        // card is what is picked up.
+        function photoNode(className, player) {
+            if (!player.photo) {
+                var blank = element("span", className);
+                blank.setAttribute("aria-hidden", "true");
+                return blank;
+            }
+            var image = element("img", className);
+            image.src = player.photo;
+            image.alt = "";
+            image.draggable = false;
+            return image;
+        }
+
         function playerIn(index) {
             var id = lineup[index];
             return id ? players[id] : null;
@@ -397,12 +412,21 @@
             var player = playerIn(index);
             // On the spot for the position: .sc-spot--LWB and so on in startcompass.css.
             var card = element("div", "sc-token sc-spot--" + slot.position);
-            var marker = element("span", "sc-marker", slot.position);
+            var marker = element("span", "sc-marker");
 
             card.setAttribute("data-lineup-item", "slot:" + index);
             card.setAttribute("role", "button");
             card.tabIndex = 0;
             card.appendChild(marker);
+
+            // With a photo it fills the marker, and the position moves to a tab on top of it.
+            if (player && player.photo) {
+                card.classList.add("sc-token--photo");
+                marker.appendChild(photoNode("sc-marker__photo", player));
+                marker.appendChild(element("span", "sc-marker__pos", slot.position));
+            } else {
+                marker.textContent = slot.position;
+            }
 
             if (!player) {
                 card.classList.add("sc-token--empty");
@@ -450,6 +474,7 @@
             }
 
             card.appendChild(element("span", "sc-sub__pos", position ? (rank ? ordinal(rank) : "–") : first));
+            card.appendChild(photoNode("sc-sub__photo", player));
             card.appendChild(nameNode("sc-sub__name", player));
             card.appendChild(element("span", "sc-sub__rating " + tone(value), format(value)));
 
