@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using StartPraksisGruppe3Prosjekt.Contracts.FiveC;
@@ -148,23 +147,10 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         }
     }
 
-    /// <summary>SQLITE_CONSTRAINT_UNIQUE. Microsoft.Data.Sqlite names no constant for it.</summary>
-    private const int SqliteUniqueViolation = 2067;
-
-    /// <summary>
-    /// Was that a unique index refusing the row? Postgres is what production runs on and
-    /// says so in the SQLSTATE; SQLite, which the tests run on, leaves SqlState null and
-    /// reports the same refusal as an extended result code.
-    /// </summary>
+    /// <summary>Was that a unique index refusing the row? Postgres says so in the SQLSTATE.</summary>
     private static bool IsUniqueConstraintViolation(DbUpdateException exception) =>
-        exception.InnerException switch
-        {
-            PostgresException postgres =>
-                postgres.SqlState == PostgresErrorCodes.UniqueViolation,
-            SqliteException sqlite =>
-                sqlite.SqliteExtendedErrorCode == SqliteUniqueViolation,
-            _ => false
-        };
+        exception.InnerException is PostgresException postgres
+        && postgres.SqlState == PostgresErrorCodes.UniqueViolation;
 
     /// <inheritdoc />
     public async Task<SurveySubmission?> FindAsync(

@@ -274,7 +274,7 @@ Table and column names are configuration, not constants, so renaming one of them
 `appsettings.json` change rather than a code change.
 
 **Not yet verified against a real project.** The tables did not exist when this was written,
-so the request shapes follow the PostgREST documentation rather than a green test. The two
+so the request shapes follow the PostgREST documentation rather than a real run. The two
 POSTs in `SupabaseSurveySubmissionStore` are the first thing to check once the tables are up.
 
 ---
@@ -427,7 +427,7 @@ change what is on screen and nothing at all about what is saved.
 
 ### Finding a player in a squad
 
-The player table filters live, on player code and position, over the squad already on the
+The player table filters live, on name and position, over the squad already on the
 page. Nothing is fetched and no code leaves the browser — every row is in the document, and
 the filter only decides which are shown. The control is `hidden` in the markup and revealed
 by `survey.js`, so with JavaScript off the table is complete and no dead search box appears.
@@ -460,15 +460,14 @@ Codes and positions, because those are the only things there are: this system ho
   which player, from which page, when. It prevents nothing; it makes every lookup
   accountable afterwards. **If it stops being written, the rule in `CanViewPlayerHandler`
   has no counterweight at all**, so any new page that shows one player's answers has to call
-  `IPlayerAccessLog.RecordAsync`. `AccessControlTests` holds that down for the two pages
-  that exist.
+  `IPlayerAccessLog.RecordAsync`.
 - **`CoachTeam` is still in the model, but no longer grants or limits anything.** The table,
   the entity and the seeded rows are untouched — dropping them is a schema migration on a
   shared database and nobody has asked for it. The only remaining reader is the development
   demo-data seeder, which uses it to pick a plausible coach. If it is not going to come back,
   it should be removed deliberately, in its own change.
 - **`/Survey` lists every player in the club for a coach**, which is why that page has
-  filters: period, team, role, status and player code. If it becomes unusable again at a few
+  filters: period, team, role, status and name. If it becomes unusable again at a few
   hundred players, the answer is a better filter — not a quiet return to team-scoped access,
   which is an authorisation decision and belongs in `Authorization/`.
 - **Consent no longer decides anything a coach does.** It is still recorded, still

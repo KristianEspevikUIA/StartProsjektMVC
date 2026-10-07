@@ -46,7 +46,7 @@ ligger slik:
 
 | Kolonne i arket | I appen | Hvem fyller ut |
 | --- | --- | --- |
-| Last Name, First Name | **Ikke med.** Spilleren er koden (`TS-08-16`) | – |
+| Last Name, First Name | **Ikke fra arket.** Appen har sine egne, oppdiktede demospillere | – |
 | Coach/Coaches (Raters) | Den innloggede treneren, én vurdering hver | automatisk |
 | Rated as (List) | `RatedAs`, fra nivålista | trener |
 | Ability Cat. (List) | `AbilityCategory` | trener |
@@ -100,8 +100,7 @@ den neste. En vurdering lagrer syklusens første dag.
 
 ## Utregningene
 
-Alt ligger i `Services/Succession/SuccessionMath.cs`, og hver regel har en test i
-`SuccessionMathTests`.
+Alt ligger i `Services/Succession/SuccessionMath.cs`.
 
 **Sammen («Together»).** Snittet av trenerne, der hver trener teller én gang. Overall er snittet
 av hver treners egen overall, ikke av alle enkeltvurderinger. Det er samme regel som lagsnittet
@@ -148,7 +147,7 @@ Det er et anslag ut fra farten så langt, ikke et løfte, og siden sier det.
 4. «Next in line» er de to neste for posisjonen, også hvis de starter et annet sted. Det svarer
    på hvem som tar over etter startspilleren.
 
-Ved likhet avgjør overall, så rangering og til slutt spillerkoden. Samme vurderinger gir derfor
+Ved likhet avgjør overall, så rangering og til slutt navnet. Samme vurderinger gir derfor
 alltid samme lag.
 
 Formasjonene ligger i JSON-fila som rader, fra angrep til keeper. Vi har lagt inn 3-5-2 (standard,
@@ -178,8 +177,8 @@ rating.
 og høyt, en midtstopper foran eget mål. Plassene ligger i `startcompass.css` som `.sc-spot--LWB`
 osv., én per posisjon, regnet fra tegningens meter og stilt inn etter skissen. De gjelder i alle
 formasjoner, så 4-3-3 og 4-2-3-1 tegnes riktig uten mer. Klasser og ikke koordinater i markupen,
-fordi CSP-en ikke tillater `style=""`. En ny posisjon i JSON-fila trenger en plass i CSS-en, og
-`SuccessionPageTests` sier fra hvis den mangler.
+fordi CSP-en ikke tillater `style=""`. En ny posisjon i JSON-fila trenger en plass i CSS-en,
+ellers har drakten ingen plass å stå.
 
 **3-5-2 er tegnet som i skissen:** to spisser, vingbackene i høyde med en 10-er (ACM), to 8-ere
 (L8, R8) bak, tre midtstoppere og keeper. C6 er dermed ikke med i 3-5-2; den er med i 4-3-3.
@@ -212,9 +211,8 @@ hvor mange som er klare (overall 8 eller mer), og hvor mange som står utenfor p
 
 **Navn.** Markøren viser spillerens fornavn, slik admin har lagt det inn til velkomsten
 (`PlayerPersonalDetails`, via `IPlayerWelcomeService.FirstNamesAsync`). Har ikke klubben lagt inn
-noe, står koden. Har to spillere på siden samme fornavn, står koden i liten skrift under. Dette er
-den eneste trenersiden som viser navn, og det ble bestemt da trenerne ba om det. Tavla,
-lagsidene og spillersidene bruker fortsatt koden. Bildet vises ikke. Se
+noe, står hele navnet. Har to spillere på siden samme fornavn, står hele navnet i liten skrift
+under. Resten av appen viser hele navnet. Bildet vises ikke. Se
 `docs/player-welcome.md`.
 
 **Draktnummer** finnes ikke i databasen. Det krever en ny kolonne og en migrasjon, og det er
@@ -243,7 +241,7 @@ evner og modenhet, kontraktsforhold, og fritekst. Det følger de samme reglene s
 systemet:
 
 - **Ingen navn fra arket.** Excel-arket trenerne leverte har fullt navn på alle spillerne. Det ligger ikke
-  i repoet og skal ikke dit. I appen er spilleren koden.
+  i repoet og skal ikke dit. Appen har sine egne, oppdiktede demospillere.
 - **Bare stab.** `[Authorize(Roles = Coach,Admin)]` på hele controlleren, og `CanViewPlayer` per
   spiller.
 - **Revisjonslogg.** Spillersiden og skjemaet skriver én rad hver (`Succession/Player`,
@@ -304,4 +302,3 @@ systemet:
 | Flytte spillere på banen | `wwwroot/js/lineup.js`, stilene «Moving players about» i `startcompass.css` |
 | Migrasjon | `Data/Migrations/*_AddSuccessionPlanning.cs` |
 | Demodata | `Data/SeedSuccession.cs` |
-| Tester | `SuccessionMathTests`, `SuccessionCatalogTests`, `SuccessionPageTests`, pluss GDPR i `AdminGdprTests` |

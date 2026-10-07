@@ -75,8 +75,8 @@ public sealed class SuccessionCatalog : ISuccessionCatalog
             Settings.Version);
     }
 
-    /// <summary>From settings already in hand. For tests, and for the constructor above.</summary>
-    public SuccessionCatalog(SuccessionSettings settings)
+    /// <summary>From settings already in hand. Used by the constructor above.</summary>
+    private SuccessionCatalog(SuccessionSettings settings)
     {
         Validate(settings);
 
@@ -147,8 +147,8 @@ public sealed class SuccessionCatalog : ISuccessionCatalog
 
     public SuccessionCycle CycleOf(DateOnly date) => SuccessionCycle.Of(date, Settings.Cycle);
 
-    /// <summary>Reads the file. Internal so the tests can load THE file the application ships.</summary>
-    internal static SuccessionSettings Load(string path)
+    /// <summary>Reads the file.</summary>
+    private static SuccessionSettings Load(string path)
     {
         if (!File.Exists(path))
         {

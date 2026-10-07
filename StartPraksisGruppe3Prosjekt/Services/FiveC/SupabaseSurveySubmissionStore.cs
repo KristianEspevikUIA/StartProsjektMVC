@@ -17,7 +17,7 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// If a name here is wrong, it is configuration that is wrong, not code.
 ///
 /// UNVERIFIED AGAINST A REAL PROJECT. The tables did not exist when this was written, so
-/// the request shapes follow the PostgREST documentation rather than a green test. Expect
+/// the request shapes follow the PostgREST documentation rather than a real run. Expect
 /// to check the two POSTs against the real tables the first time it is pointed at them.
 /// </summary>
 public sealed class SupabaseSurveySubmissionStore : ISurveySubmissionStore

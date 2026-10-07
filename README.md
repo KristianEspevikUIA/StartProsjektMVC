@@ -33,8 +33,7 @@ står på lista der som «Not built yet», og selve siden forteller hvem som eie
 den skal gjøre, og har en vei tilbake — se `Views/Shared/_NotBuiltYet.cshtml`. En lenke som
 fører til en tom side koster et klikk å oppdage, og det er verre enn ingen lenke.
 
-`dotnet build` kjører rent, `dotnet test` er grønn, og `dotnet run` migrerer databasen og
-legger inn seed-data.
+`dotnet build` kjører rent, og `dotnet run` migrerer databasen og legger inn seed-data.
 
 ---
 
@@ -153,77 +152,6 @@ tilstand fra «har ikke svart», og begge skal virke.
 
 Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
 og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
-
----
-
-## Tester
-
-```bash
-dotnet test
-```
-
-Testene ligger i `StartPraksisGruppe3Prosjekt.Tests` (xUnit) og kjører på **SQLite i minnet**,
-ikke mot Supabase. Ingen hemmeligheter, ingen nettverk, og ingen fare for å skrive i den delte
-basen — kjør dem så ofte du vil.
-
-At de kjører på SQLite og appen på Postgres er en avveining og ikke en forglemmelse: SQLite
-gir ekte unike indekser, fremmednøkler og faktisk SQL-oversetting, og en spørring som ikke
-lar seg oversette i det hele tatt faller her i stedet for i produksjon. SQLite har ingen
-`DateTimeOffset`, så `SqliteAppDbContext` i testprosjektet legger på en konvertering. Den
-hører hjemme der og ikke i `AppDbContext` — Postgres har `timestamptz` og trenger den ikke.
-
-Det som testes er reglene som ikke tåler å bli feil:
-
-- **Reverseringen og båndene** (`FiveCRules`, `ScoringService.ScoreOf`) — inkludert at de to
-  skjemaene skårer en reversert påstand likt.
-- **Append-only-loggene.** Vakten ligger i `AppDbContext.SaveChanges`, så testene skriver
-  direkte på konteksten: går de gjennom en tjeneste, tester de tjenesten og ikke vakten.
-- **Redigeringen før frigivelse.** At trenerens tall ikke er i *modellen* før treneren har
-  frigitt dem — ikke bare at de er skjult i visningen.
-- **Perioder**: navnekrav, dubletter, vindu som slutter før det starter, og hvilken periode
-  som er «gjeldende» når flere er åpne.
-- **Spørsmålsfila.** `QuestionCatalogTests` laster *den* fila appen leverer (lenket inn i
-  testprosjektet), så en redigering som ødelegger skjemaet faller i CI i stedet for ved neste
-  oppstart.
-- **Revisjonsloggen**, inkludert at den ikke lagrer noe annet forespørselen holdt på med.
-- **GDPR-innsyn og -sletting** (`AdminGdprTests`, `PlayerWelcomeTests`): at eksporten har med
-  alle tabellene om spilleren — også trenernes succession-vurderinger, kontraktsopplysningene og
-  fornavn og bilde — og navngir andre personer med rolle og løpenummer i stedet for Identity-ID, at
-  innsynet havner i revisjonsloggen, at slettingen faktisk tar svar, samtykkelogg,
-  foresattkoblinger, loggrader, succession-vurderinger og Identity-kontoen — kontrollert både før og etter, siden
-  hver eneste påstand ellers ville holdt mot en tom base — at den etterlater et spor som
-  overlever spilleren, og at den ikke skjer uten at spillerens navn er skrevet inn.
-- **Succession planning** (`SuccessionMathTests`, `SuccessionCatalogTests`,
-  `SuccessionPageTests`): at overall er snittet av de seks vurderingene og at en tom vurdering
-  ikke teller som 0, at hver trener teller én gang, at uavgjort kategori er «Split», uker til
-  klar ut fra trenden, at beste ellever aldri bruker en spiller to ganger og foretrekker en
-  naturlig i posisjonen, at fila holder arkets lister, og at bare trenere vurderer — spillere og
-  foresatte får 403, også om seg selv.
-- **Velkomsten** (`PlayerWelcomeTests`, `PlayerPhotoRulesTests`): at spilleren møtes med
-  fornavn og bilde, at ingen andre ser dem — ikke en annen spiller, en foresatt, en trener eller
-  trenersidene — at bildeadressen bare gir ditt eget bilde, at bare admin legger inn, at SVG og
-  andre filer avvises uansett filnavn, og at GPS og annen metadata er borte før lagring.
-- **Lagsnittet** (`TeamAggregateTests`): at det er et snitt av spillere og ikke av svar, at
-  grensen på tre respondenter holder per rolle, at «holdt tilbake» og «ingen har svart» er to
-  ulike tilstander, og at et snitt per påstand er skåret slik at en reversert påstand peker
-  samme vei som resten.
-
-En del av testene går gjennom **hele applikasjonen over HTTP**, med `WebApplicationFactory`
-og `StartCompassFactory`. De svarer på spørsmål ingen enkelttjeneste kan svare på: hva en
-gitt innlogget bruker faktisk får tilbake, gjennom ruting, policyer, controller og ferdig
-rendret visning. Innloggingscookien er byttet mot `TestAuthHandler`, så en test kan spørre
-«hva ser en foresatt her» uten å håndtere passord. Databasen er den samme SQLite-en som
-resten.
-
-Det er der disse ligger, og de kunne ellers bare sjekkes ved å logge inn som fire personer og
-klikke: at en anonym forespørsel avvises, at en foresatt ser sitt eget barn og *ikke* et
-annet, at en trener slipper inn uten samtykke **og** at oppslaget havner i revisjonsloggen,
-at spillerens egne besøk ikke logges, at trenerens svar er skjult til de er frigitt, og at
-lagoversikten står **over** spillerlista og sier hvorfor den er tom når for få har svart.
-
-CI ligger i [`.github/workflows/ci.yml`](.github/workflows/ci.yml) og kjører `restore`,
-`build` og `test` på hver push og hver pull request. Den trenger ingen hemmeligheter:
-databasepassordet trengs for å *kjøre* appen, ikke for å bygge eller teste den.
 
 ---
 
@@ -580,7 +508,7 @@ Treneren ser alt hele veien. Foresatt ser nøyaktig det samme som spilleren.
 Merk at samtalen følger **spilleren**, ikke den som ser på: en foresatt som ikke har fylt ut
 sitt eget skjema følger likevel barnets samtale med treneren. Deres eget skjema er et eget
 bidrag, ikke en sperre. (Det var en bug til 02.09.2026 — foresatte så ingenting før de hadde
-svart selv. Testen `Guardian_sees_the_same_as_the_player` fanget den.)
+svart selv.)
 
 Asymmetrien er med vilje: at en trener leser sin egen uenighet med en fjortenåring er en
 treneravgjørelse, og det samme tallet som dukker opp uanmeldt på spillerens telefon er det
@@ -604,7 +532,6 @@ Lagenes kamptall fra StatsBomb-rapportene mot IK Starts Identity Gold Standard, 
 over time. Bare trener og administrator har tilgang.
 
 - **Gold Standard:** `Data/Identity/gold-standard.json`, transkribert ordrett fra klubbens PDF.
-  `IdentityCatalogTests` holder fila til dokumentet.
 - **Kampdata:** hentes ut med `scripts/identity/extract_stats.py` til `Data/Identity/Matches/`,
   som er **git-ignorert** fordi rapportene navngir spillere.
 - **Erstatninger:** 4 av klubbens 10 markører kan måles direkte fra rapportene. De andre seks er
@@ -688,9 +615,8 @@ StartPraksisGruppe3Prosjekt/
 ├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Succession/ Shared/
 └─ Program.cs
 
-StartPraksisGruppe3Prosjekt.Tests/   xUnit, SQLite i minnet. Se «Tester».
 scripts/identity/extract_stats.py    StatsBomb-PDF → kampdata for Identity Benchmarking
-.github/workflows/ci.yml             build + test på push og pull request
+.github/workflows/ci.yml             build på push og pull request
 ```
 
 ---

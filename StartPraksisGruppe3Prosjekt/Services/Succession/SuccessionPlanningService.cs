@@ -1,4 +1,3 @@
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using StartPraksisGruppe3Prosjekt.Data;
@@ -473,16 +472,10 @@ public sealed class SuccessionPlanningService : ISuccessionPlanningService
     private PlayerConsensus Consensus(IReadOnlyList<SuccessionAssessment> assessments) =>
         SuccessionMath.Consensus(assessments, Settings, _catalog.RiskSeverity);
 
-    /// <summary>SQLITE_CONSTRAINT_UNIQUE. Same test as EfSurveySubmissionStore.</summary>
-    private const int SqliteUniqueViolation = 2067;
-
+    /// <summary>Same test as EfSurveySubmissionStore.</summary>
     private static bool IsUniqueConstraintViolation(DbUpdateException exception) =>
-        exception.InnerException switch
-        {
-            PostgresException postgres => postgres.SqlState == PostgresErrorCodes.UniqueViolation,
-            SqliteException sqlite => sqlite.SqliteExtendedErrorCode == SqliteUniqueViolation,
-            _ => false
-        };
+        exception.InnerException is PostgresException postgres
+        && postgres.SqlState == PostgresErrorCodes.UniqueViolation;
 }
 
 // ---------------------------------------------------------------------------------------

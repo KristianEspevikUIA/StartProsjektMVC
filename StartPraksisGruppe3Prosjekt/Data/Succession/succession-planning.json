@@ -85,8 +85,8 @@
   // two 8s and the wing-backs level with the 10.
   //
   // Where each position stands on the pitch is not here but in startcompass.css (.sc-spot--RB
-  // and so on), one spot per position, whatever the formation. A new position needs one too;
-  // a test says so.
+  // and so on), one spot per position, whatever the formation. A new position needs one too,
+  // or its shirt has nowhere to stand.
   "formations": [
     {
       "key": "3-5-2",
