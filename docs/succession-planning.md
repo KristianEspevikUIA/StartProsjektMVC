@@ -160,8 +160,8 @@ begge skrivemåtene når navnet er tall (`FormationDefinition.GoalkeeperNotation
 
 ### Et lag i en formasjon
 
-«Choose from» er en rad med lenker, én per lag (U14, U15, U17), over filtrene: ett klikk på U15
-gir U15s beste ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rated as». Hvert lag under
+«Choose from» er en rad med lenker, én per lag (G14, G15, G17, G19), over filtrene: ett klikk på G15
+gir G15s beste ellever i formasjonen som er valgt. Lenkene beholder formasjon, syklus og «Rated as». Hvert lag under
 My teams (`/Coach`) har også en knapp «Best eleven». Menyen «Squad board / Best eleven» tar med
 laget og en eldre syklus, så man blir i samme lag når man bytter side.
 

@@ -2,11 +2,14 @@
 """
 Extracts IK Start's identity markers from StatsBomb Match Report (v1.1) PDFs.
 
-    python3 scripts/identity/extract_stats.py --team U14 --source "<folder with the PDFs>"
-    python3 scripts/identity/extract_stats.py --team U14 --source "<folder>" --table
+    python3 scripts/identity/extract_stats.py --team G14 --source "<folder with the PDFs>"
+    python3 scripts/identity/extract_stats.py --team G14 --source "<folder>" --table
 
-Writes StartPraksisGruppe3Prosjekt/Data/Identity/Matches/<team>.json, which the Identity
-Benchmarking page reads. That folder is git-ignored ON PURPOSE: the reports name every
+Writes StartPraksisGruppe3Prosjekt/Data/Identity/Matches/<team>.json (g14.json), which the
+Identity Benchmarking page reads. The team is named as the club and the app name it, G14; the
+reports call it "Start U14", and that is what is looked for in them. Everything read from a
+report -- team names included -- is written as the report spells it, so it can be found in the
+PDF again; the page shows the club's spelling. --team U14 still works, and means the same. That folder is git-ignored ON PURPOSE: the reports name every
 player, most of them minors, and the repository is public. See docs/identity-benchmarking.md.
 
 Needs Python 3.9+ and poppler (pdftotext, pdfinfo). Nothing else.
@@ -751,15 +754,19 @@ def print_table(team: str, matches: list[dict]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--team", required=True, help="U14, U15 or U17")
+    parser.add_argument("--team", required=True, help="G14, G15 or G17 (U14 and so on work too)")
     parser.add_argument("--source", required=True, type=Path, help="Folder with the StatsBomb match report PDFs")
     parser.add_argument("--out", type=Path, help="Output file (default: Data/Identity/Matches/<team>.json)")
     parser.add_argument("--table", action="store_true", help="Also print a Markdown table for checking")
     args = parser.parse_args()
 
-    team = args.team.upper()
-    if not re.fullmatch(r"U\d{2}", team):
-        parser.error("--team must look like U14")
+    key = args.team.upper()
+    if not re.fullmatch(r"[GU]\d{2}", key):
+        parser.error("--team must look like G14")
+
+    # The app's name for the team, and the reports'.
+    key = "G" + key[1:]
+    team = "U" + key[1:]
 
     # Only match reports. The Gold Standard documents can sit in the same folder.
     pdfs = sorted(p for p in args.source.expanduser().glob("*.pdf") if p.name.startswith("OBOS "))
@@ -779,7 +786,7 @@ def main() -> int:
 
     document = {
         "schemaVersion": SCHEMA_VERSION,
-        "team": team,
+        "team": key,
         "teamName": matches[0]["_checks"]["startName"],
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "generatedBy": "scripts/identity/extract_stats.py",
@@ -789,11 +796,11 @@ def main() -> int:
     for match in matches:
         del match["_checks"]
 
-    out = args.out or DEFAULT_OUTPUT_DIR / f"{team.lower()}.json"
+    out = args.out or DEFAULT_OUTPUT_DIR / f"{key.lower()}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(f"{team}: {len(matches)} matches -> {out}")
+    print(f"{key}: {len(matches)} matches -> {out}")
     if args.table:
         print_table(team, matches)
     return 0

@@ -77,11 +77,11 @@
           "key": "final-third-passes",
           "name": "Final Third Passes",
           "eliteRange": "68 – 140 / match",
-          "bestAtIt": "Stabæk U14 (peak 140)",
+          "bestAtIt": "Stabæk G14 (peak 140)",
           "target": {
             "direction": "higher-is-better", "min": 68, "max": 140, "display": "68–140",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 67.5, up to their best single match, 140 by Stabæk U14 on 23 Aug 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 67.5, up to their best single match, 140 by Stabæk G14 on 23 Aug 2026."
           },
           "measurement": { "metric": "finalThirdPasses" },
           "replaces": {
@@ -102,11 +102,11 @@
           "key": "total-passes",
           "name": "Total Passes",
           "eliteRange": "471 – 596 / match",
-          "bestAtIt": "Rosenborg U17 (peak 596)",
+          "bestAtIt": "Rosenborg G17 (peak 596)",
           "target": {
             "direction": "higher-is-better", "min": 471, "max": 596, "display": "471–596",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 470.9, up to their best single match, 596 by Rosenborg U17 on 7 Jun 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 470.9, up to their best single match, 596 by Rosenborg G17 on 7 Jun 2026."
           },
           "measurement": { "metric": "totalPasses" },
           "replaces": {
@@ -154,11 +154,11 @@
           "key": "pressures",
           "name": "Pressures",
           "eliteRange": "182 – 298 / match",
-          "bestAtIt": "Haugesund U15 (peak 298)",
+          "bestAtIt": "Haugesund G15 (peak 298)",
           "target": {
             "direction": "higher-is-better", "min": 182, "max": 298, "display": "182–298",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 181.7, up to their best single match, 298 by Haugesund U15 on 26 Apr 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 181.7, up to their best single match, 298 by Haugesund G15 on 26 Apr 2026."
           },
           "measurement": { "metric": "pressures" },
           "replaces": {
@@ -186,11 +186,11 @@
           "key": "counterpresses",
           "name": "Counterpresses",
           "eliteRange": "45 – 77 / match",
-          "bestAtIt": "Haugesund U15 (peak 77)",
+          "bestAtIt": "Haugesund G15 (peak 77)",
           "target": {
             "direction": "higher-is-better", "min": 45, "max": 77, "display": "45–77",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 45.2, up to their best single match, 77 by Haugesund U15 on 26 Apr 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 45.2, up to their best single match, 77 by Haugesund G15 on 26 Apr 2026."
           },
           "measurement": { "metric": "counterpresses" },
           "replaces": {
@@ -211,11 +211,11 @@
           "key": "tackle-success",
           "name": "Tackle Success %",
           "eliteRange": "64% – 83%",
-          "bestAtIt": "Stabæk U14 (peak 83%)",
+          "bestAtIt": "Stabæk G14 (peak 83%)",
           "target": {
             "direction": "higher-is-better", "min": 64, "max": 83, "unit": "%", "display": "64–83%",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 63.5%, up to their best single match, 83% by Stabæk U14 on 23 Aug 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 63.5%, up to their best single match, 83% by Stabæk G14 on 23 Aug 2026."
           },
           "measurement": { "metric": "tackleSuccessPct" },
           "replaces": {
@@ -236,11 +236,11 @@
           "key": "pressure-regains",
           "name": "Pressure Regains",
           "eliteRange": "61 – 99 / match",
-          "bestAtIt": "Haugesund U15 (peak 99)",
+          "bestAtIt": "Haugesund G15 (peak 99)",
           "target": {
             "direction": "higher-is-better", "min": 61, "max": 99, "display": "61–99",
             "provisional": true,
-            "basis": "Start's opponents in 20 StatsBomb reports (U14, U15, U17; 1 Apr – 29 Aug 2026): their average, 60.9, up to their best single match, 99 by Haugesund U15 on 26 Apr 2026."
+            "basis": "Start's opponents in 20 StatsBomb reports (G14, G15, G17; 1 Apr – 29 Aug 2026): their average, 60.9, up to their best single match, 99 by Haugesund G15 on 26 Apr 2026."
           },
           "measurement": { "metric": "pressureRegains" },
           "replaces": {

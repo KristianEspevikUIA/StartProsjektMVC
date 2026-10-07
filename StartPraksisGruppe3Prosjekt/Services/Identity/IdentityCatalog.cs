@@ -68,7 +68,15 @@ public sealed class IdentityCatalog : IIdentityCatalog
         var teams = new List<IdentityTeam>();
         foreach (var key in options.Value.Teams.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()))
         {
+            // g14.json, or u14.json from before the teams were G: scripts/identity/extract_stats.py
+            // wrote that until 07.10.2026, and it is the same data.
             var path = Path.Combine(matchDataFolder, key.ToLowerInvariant() + ".json");
+            var reportPath = Path.Combine(matchDataFolder, IdentityFormat.ReportKey(key).ToLowerInvariant() + ".json");
+
+            if (!File.Exists(path) && File.Exists(reportPath))
+            {
+                path = reportPath;
+            }
 
             if (!File.Exists(path))
             {
@@ -85,7 +93,7 @@ public sealed class IdentityCatalog : IIdentityCatalog
             data = new TeamMatchData
             {
                 SchemaVersion = data.SchemaVersion,
-                Team = data.Team,
+                Team = key,
                 TeamName = data.TeamName,
                 GeneratedAt = data.GeneratedAt,
                 GeneratedBy = data.GeneratedBy,
@@ -314,7 +322,9 @@ public sealed class IdentityCatalog : IIdentityCatalog
                 $"{SupportedSchemaVersion}. Re-run scripts/identity/extract_stats.py.");
         }
 
-        if (!string.Equals(data.Team, team, StringComparison.OrdinalIgnoreCase))
+        // "U14" in a file from before the teams were G is the same team as "G14".
+        if (!string.Equals(data.Team, team, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(data.Team, IdentityFormat.ReportKey(team), StringComparison.OrdinalIgnoreCase))
         {
             problems.Add($"'team' is '{data.Team}', but the file is loaded as {team}.");
         }

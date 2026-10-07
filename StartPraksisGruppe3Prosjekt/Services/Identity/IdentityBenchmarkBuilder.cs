@@ -130,13 +130,14 @@ public sealed class IdentityBenchmarkBuilder : IIdentityBenchmarkBuilder
     private static bool IsAll(string matchId) =>
         string.Equals(matchId, AllMatches, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>"13 Jun 2026 · Start U14 6–2 Viking U14". Home team first, as in the report.</summary>
+    /// <summary>"13 Jun 2026 · Start G14 6–2 Viking G14". Home team first, as in the report.</summary>
     public static string MatchLabel(IdentityMatch match)
     {
         var homeGoals = match.StartIsHome ? match.Goals.Start : match.Goals.Opponent;
         var awayGoals = match.StartIsHome ? match.Goals.Opponent : match.Goals.Start;
 
-        return $"{IdentityFormat.Date(match.Date)} · {match.HomeTeam} {homeGoals}–{awayGoals} {match.AwayTeam}";
+        return $"{IdentityFormat.Date(match.Date)} · {IdentityFormat.ClubName(match.HomeTeam)} {homeGoals}–{awayGoals} " +
+            IdentityFormat.ClubName(match.AwayTeam);
     }
 
     private static MarkerReading Read(
@@ -268,7 +269,7 @@ public sealed class IdentityBenchmarkBuilder : IIdentityBenchmarkBuilder
                 return new TrendPoint(
                     m.Id,
                     m.Date,
-                    $"{IdentityFormat.Date(m.Date)} · {(m.StartIsHome ? "vs" : "at")} {m.Opponent}",
+                    $"{IdentityFormat.Date(m.Date)} · {(m.StartIsHome ? "vs" : "at")} {IdentityFormat.ClubName(m.Opponent)}",
                     metric.Value,
                     IdentityFormat.Value(metric.Value, marker.Target.Unit, isAverage: false),
                     IdentityStatusRules.Evaluate(marker, metric.Value, rules),

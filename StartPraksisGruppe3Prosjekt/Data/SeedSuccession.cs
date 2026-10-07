@@ -157,19 +157,21 @@ internal static class SeedSuccession
             var random = new Random(SeedData.StableSeed($"{SeedData.SeedKey(player)}|profile"));
             var team = player.Team?.Name;
 
-            // U14, U15 and U17: a youth contract is for the oldest, and not all of them.
+            // A youth contract is for the oldest, and not all of them; G19 has the odd pro.
             var contract = team switch
             {
-                "U17" => random.NextDouble() < 0.6 ? "youth" : "non",
-                "U15" => random.NextDouble() < 0.15 ? "youth" : "non",
+                "G19" => random.NextDouble() < 0.15 ? "pro" : random.NextDouble() < 0.8 ? "youth" : "non",
+                "G17" => random.NextDouble() < 0.6 ? "youth" : "non",
+                "G15" => random.NextDouble() < 0.15 ? "youth" : "non",
                 _ => "non"
             };
 
             // The MESO group is usually the player's own age group, sometimes the one above.
             var group = team switch
             {
-                "U17" => random.NextDouble() < 0.2 ? "u19" : "u17",
-                "U15" => random.NextDouble() < 0.2 ? "u17" : "u15",
+                "G19" => random.NextDouble() < 0.2 ? "u21" : "u19",
+                "G17" => random.NextDouble() < 0.2 ? "u19" : "u17",
+                "G15" => random.NextDouble() < 0.2 ? "u17" : "u15",
                 _ => random.NextDouble() < 0.15 ? "u15" : "u14"
             };
 
@@ -207,8 +209,9 @@ internal static class SeedSuccession
 
         var level = team switch
         {
-            "U17" => 6.0 + random.NextDouble() * 2.4,
-            "U15" => 4.8 + random.NextDouble() * 2.6,
+            "G19" => 6.6 + random.NextDouble() * 2.4,
+            "G17" => 6.0 + random.NextDouble() * 2.4,
+            "G15" => 4.8 + random.NextDouble() * 2.6,
             _ => 3.8 + random.NextDouble() * 2.8
         };
 
@@ -238,8 +241,9 @@ internal static class SeedSuccession
         // Judged against their own age group, or the one above for the ones who are close.
         var ratedAs = team switch
         {
-            "U17" => level > 7.2 ? "u19" : "u17",
-            "U15" => level > 6.4 ? "u17" : "u15",
+            "G19" => level > 8.0 ? "u21" : "u19",
+            "G17" => level > 7.2 ? "u19" : "u17",
+            "G15" => level > 6.4 ? "u17" : "u15",
             _ => level > 5.8 ? "u15" : "u14"
         };
 
@@ -338,21 +342,24 @@ internal static class SeedSuccession
                 : null,
             Projection0To6Months = Pick(random, 0.7, team switch
             {
-                "U17" => new[] { "U17s starter", "Train with the U19s", "U17s rotation" },
-                "U15" => new[] { "U15s starter", "Train with the U17s", "U15s rotation" },
-                _ => new[] { "U14s starter", "Train with the U15s", "U14s rotation" }
+                "G19" => new[] { "G19 starter", "Train with the 1st team", "G19 rotation" },
+                "G17" => new[] { "G17 starter", "Train with G19", "G17 rotation" },
+                "G15" => new[] { "G15 starter", "Train with G17", "G15 rotation" },
+                _ => new[] { "G14 starter", "Train with G15", "G14 rotation" }
             }),
             Projection6To18Months = Pick(random, 0.6, team switch
             {
-                "U17" => new[] { "U19s squad", "Train with the 1st team", "U17s captain" },
-                "U15" => new[] { "U17s squad", "U17s starter", "U15s captain" },
-                _ => new[] { "U15s starter", "U15s squad", "U14s captain" }
+                "G19" => new[] { "1st team squad", "Loan for minutes", "G19 captain" },
+                "G17" => new[] { "G19 squad", "Train with the 1st team", "G17 captain" },
+                "G15" => new[] { "G17 squad", "G17 starter", "G15 captain" },
+                _ => new[] { "G15 starter", "G15 squad", "G14 captain" }
             }),
             Projection18To36Months = Pick(random, 0.45, team switch
             {
-                "U17" => new[] { "U19s starter", "1st team squad", "Youth contract" },
-                "U15" => new[] { "U17s starter", "U19s squad" },
-                _ => new[] { "U17s squad", "U15s starter" }
+                "G19" => new[] { "1st team starter", "Pro contract", "1st team squad" },
+                "G17" => new[] { "G19 starter", "1st team squad", "Youth contract" },
+                "G15" => new[] { "G17 starter", "G19 squad" },
+                _ => new[] { "G17 squad", "G15 starter" }
             }),
             PathwayBlocked = Maybe(random, 0.25, 0.8),
             WhatNow = Pick(random, 0.5, new[]

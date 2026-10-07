@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using StartPraksisGruppe3Prosjekt.Models.Identity;
 
 namespace StartPraksisGruppe3Prosjekt.Services.Identity;
@@ -12,6 +13,20 @@ public static class IdentityFormat
     /// <summary>The metric keys that also exist per player, in the match data.</summary>
     public const string SuccessfulDribbles = "successfulDribbles";
     public const string Interceptions = "interceptions";
+
+    private static readonly Regex ReportAgeGroup = new(@"\bU(\d{2})\b", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// A team as the club names it: "Start U14" is shown as "Start G14", "Viking U17" as
+    /// "Viking G17". The StatsBomb reports say U, for under; the club says G, for gutter. The match
+    /// data keeps the reports' spelling, so every name still matches the PDF it was read from --
+    /// only what the page shows changes.
+    /// </summary>
+    public static string ClubName(string name) => ReportAgeGroup.Replace(name, "G$1");
+
+    /// <summary>"U14", the reports' name for the team the app calls "G14".</summary>
+    public static string ReportKey(string key) =>
+        key.Length > 1 && char.ToUpperInvariant(key[0]) == 'G' ? "U" + key[1..] : key;
 
     /// <summary>
     /// "34%" for a match; "34.0%" for an average, so a mean is never mistaken for a count

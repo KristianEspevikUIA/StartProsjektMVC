@@ -129,12 +129,14 @@ kan ikke være uenig med seg selv. De har vurderinger i demodataene, og man kan 
 av dem og se sin egen kolonne. Se `Data/SeedSuccession.cs`.
 
 Spillerne har tilfeldige, oppdiktede navn — bortsett fra prosjektgruppa (Brage Kristoffersen,
-Kristian Espevik, Victor Ziad og Taavi-Topias Henell), som spiller på U17 og kan logge
+Kristian Espevik, Victor Ziad og Taavi-Topias Henell), som spiller på G17 og kan logge
 inn som seg selv. Troppene står i `SeedData.Squads`.
 
-**Lagene er U14, U15 og U17**, de tre prosjektet gjelder, med fødselsdatoer etter årsklassene
-(U17 født 2009–2010, U15 2011, U14 2012). Alle spillerne er dermed mindreårige og har en
-foresatt.
+**Lagene er G14, G15 og G17**, de tre prosjektet gjelder, med fødselsdatoer etter årsklassene
+(G17 født 2009–2010, G15 2011, G14 2012). Alle spillerne er dermed mindreårige og har en
+foresatt. G19 finnes også, men har bare spillere når de ekte troppene er hentet (se
+`docs/player-welcome.md`). Lagene het U14, U15, U17 og U19 til 07.10.2026, og døpes om på
+stedet ved neste oppstart (`SeedData.SeedTeamsAsync`).
 
 Spillerkontoen utledes av navnet: `Brage Kristoffersen` blir
 `spiller.brage.kristoffersen@ikstart.example`, med æ, ø og å skrevet ae, o og aa. Foresatte

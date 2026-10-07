@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fetches IK Start's U14, U15 and U17 squads from the club's own player pages on ikstart.no.
+Fetches IK Start's G14, G15, G17 and G19 squads from the club's own player pages on ikstart.no.
 
     python3 scripts/squads/fetch_squads.py
     python3 scripts/squads/fetch_squads.py --table
@@ -8,7 +8,7 @@ Fetches IK Start's U14, U15 and U17 squads from the club's own player pages on i
 Writes StartPraksisGruppe3Prosjekt/Data/Squads/squads.json and one photo per player in
 StartPraksisGruppe3Prosjekt/Data/Squads/photos/. The application reads them when it seeds in
 Development (Data/SeedSquads.cs). That folder is git-ignored ON PURPOSE: it names every
-player, all of them minors, with a photo and a date of birth, and the repository is public.
+player, most of them minors, with a photo and a date of birth, and the repository is public.
 IK Start has given permission for the names and photos to be used in the app -- not for them
 to be published anywhere else. See docs/player-welcome.md.
 
@@ -19,12 +19,15 @@ What it takes from each player, and nothing more
   name        As the club writes it, with runs of spaces collapsed.
   position    The line the club lists the player under, in the app's words: Goalkeeper,
               Defender, Midfielder or Forward. The pages say no more than that.
-  birthDate   The club's "Født". Two players on U17 have none; they get 1 January of their age
-              group's year, and birthDateEstimated says so.
+  birthDate   The club's "Født". A player without one gets 1 January of their age group's
+              year, and birthDateEstimated says so.
   photo       The club's squad photo, at 400 pixels wide -- a welcome circle needs no more.
 
 Nationality and shirt number are on some of the cards and are left out: nothing in the app
 uses them.
+
+A player on two pages -- a G17 who also plays for G19 -- is kept on the first, the youngest
+team, and skipped on the other. The app has one team per player.
 
 Why it refuses rather than guesses
 ----------------------------------
@@ -50,11 +53,12 @@ from pathlib import Path
 BASE = "https://www.ikstart.no"
 
 # The app's team name, the club's page, and the birth year the age group is named after this
-# season (U17 in 2026 is born 2009). The year is only for a player the club gives no date for.
+# season (G17 in 2026 is born 2009). The year is only for a player the club gives no date for.
 TEAMS = [
-    ("U14", "/lag/start-g14/spillere", 14),
-    ("U15", "/lag/start-g15-nasjonal/spillere", 15),
-    ("U17", "/lag/start-g17-nasjonal/spillere", 17),
+    ("G14", "/lag/start-g14/spillere", 14),
+    ("G15", "/lag/start-g15-nasjonal/spillere", 15),
+    ("G17", "/lag/start-g17-nasjonal/spillere", 17),
+    ("G19", "/lag/start-g19/spillere", 19),
 ]
 
 POSITIONS = {
@@ -196,7 +200,7 @@ def photo_kind(data: bytes) -> str | None:
     return None
 
 
-def read_team(team: str, path: str, age: int, season: int, out: Path) -> list[dict]:
+def read_team(team: str, path: str, age: int, season: int, out: Path, seen: dict[str, str]) -> list[dict]:
     page_url = BASE + path
     parser = SquadPage()
     parser.feed(fetch(page_url).decode("utf-8"))
@@ -214,6 +218,12 @@ def read_team(team: str, path: str, age: int, season: int, out: Path) -> list[di
             raise Refused(f"{page_url}: a player card without a name ({card['href']}).")
 
         where = f"{page_url}, {name}"
+
+        if name.lower() in seen:
+            print(f"  {team}: {name} is already on {seen[name.lower()]}, and stays there.")
+            continue
+
+        seen[name.lower()] = team
 
         position = POSITIONS.get(card["text"].get("position", ""))
         if position is None:
@@ -261,10 +271,11 @@ def main() -> int:
         old.unlink()
 
     today = dt.date.today()
+    seen: dict[str, str] = {}
 
     try:
         teams = [
-            {"team": team, "page": BASE + path, "players": read_team(team, path, age, today.year, out)}
+            {"team": team, "page": BASE + path, "players": read_team(team, path, age, today.year, out, seen)}
             for team, path, age in TEAMS
         ]
     except Refused as refusal:
