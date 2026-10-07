@@ -153,15 +153,20 @@ med dem. Administrator- og trenerkontoene blir stående. Se
 
 ## Stack
 
-- ASP.NET Core MVC, **.NET 8 (LTS)**
-- EF Core 8, code-first, **PostgreSQL 17** (Npgsql). Tabeller og kolonner har små bokstaver
+- ASP.NET Core MVC, **.NET 10 (LTS)**
+- EF Core 10, code-first, **PostgreSQL 17** (Npgsql). Tabeller og kolonner har små bokstaver
   og understrek (`EFCore.NamingConventions`)
 - ASP.NET Core Identity med roller
 
-Om rammeverkversjonen: prosjektet står på `net8.0` fordi .NET 8 er en LTS-utgave. Skal dere
-opp på .NET 10 LTS, er det `<TargetFramework>` i csproj-filen, pakkeversjonene og
-`dotnet-version` i `.github/workflows/ci.yml`. Gjør det som en egen, samlet endring, ikke
-midt i en feature.
+Om rammeverkversjonen: prosjektet står på `net10.0`, som er LTS-utgaven og støttes til
+november 2028. Det ble oppgradert fra .NET 8 den 07.10.2026, en måned før .NET 8 går ut av
+støtte. **Alle trenger .NET 10 SDK for å bygge:** `winget install Microsoft.DotNet.SDK.10`, eller
+fra [dotnet.microsoft.com/download](https://dotnet.microsoft.com/download). `dotnet-ef` må
+følge med: `dotnet tool update --global dotnet-ef --version 10.0.12`.
+
+Neste oppgradering er `<TargetFramework>` i csproj-filen, pakkeversjonene, `dotnet-version` i
+`.github/workflows/ci.yml` og stiene i `.vscode/launch.json`. Gjør det som en egen, samlet
+endring, ikke midt i en feature.
 
 **Kode og identifikatorer på engelsk. Brukergrensesnittet er også på engelsk**, i tråd med
 StartCompass-nettstedet og wireframene. README og dokumentasjonen i `docs/` skrives på norsk.
@@ -576,9 +581,10 @@ libpq: den *krever kryptering* og **verifiserer ikke** sertifikatet. `Trust Serv
 er i samme slengen merket obsolete med «no longer needed and does nothing». Det som faktisk
 verifiserer, er `VerifyCA` (signatur) og `VerifyFull` (signatur + vertsnavn).
 
-Målt 07.10.2026 mot en lokal PostgreSQL som bare tar imot TLS (TLS 1.3), med et
+Målt 07.10.2026 mot en lokal PostgreSQL 17 som bare tar imot TLS (TLS 1.3), med et
 serversertifikat utstedt til `localhost` av en egen test-CA som ikke ligger i maskinens
-rotlager, og Npgsql 8.0.6, som er versjonen prosjektet drar inn:
+rotlager, og Npgsql 10.0.3, som er versjonen prosjektet drar inn. Npgsql 8.0.6 ga de samme
+svarene før oppgraderingen:
 
 | Tilkobling | Resultat |
 | --- | --- |
@@ -676,5 +682,5 @@ bruker, og da logges alle ut.
 - [ ] `TempData` legger en fjerde cookie, `.AspNetCore.Mvc.CookieTempDataProvider`, med
       kvitteringsmeldinger som navngir spilleren. Den er kryptert, men har ikke fått navn
       og herding som de to andre, og mangler i cookie-oversikten i Sikt-meldingen
-- [ ] .NET 8 går ut av støtte 10. november 2026, og pakkene står på 8.0.11 (nyeste er
-      8.0.31). Se «Stack» for hva en oppgradering til .NET 10 innebærer
+- [x] Oppgradert til .NET 10 (LTS, støttet til november 2028) og pakkene i 10.0-serien.
+      .NET 8 går ut av støtte 10. november 2026. Se «Stack»

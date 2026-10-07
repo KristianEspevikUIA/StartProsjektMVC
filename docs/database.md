@@ -74,6 +74,11 @@ Første gang lager appen tabellene, markerer databasen som en utviklingsbase, og
 roller, lag og oppdiktede data: demokontoene (se README, «Demokontoer»), tropper, perioder,
 5C-svar og succession-vurderinger. Senere oppstarter legger bare til det som mangler.
 
+Den aller første oppstarten mot en tom database skriver én linje som ser ut som en feil:
+`fail: ... Failed executing DbCommand ... FROM "__EFMigrationsHistory"`. Det er EF Core som
+ser etter lista over migrasjoner før den finnes. Den lager tabellen rett etterpå, og linja
+kommer ikke igjen.
+
 ### Begynne på nytt
 
 Slett den lokale databasen og start igjen. Ingen andre merker det.
@@ -335,7 +340,7 @@ Den faste prosedyren, første gang og hver gang en ny versjon av appen har en ny
 Appen migrerer **ikke** selv i drift. Den kobler til med en rolle som ikke får endre skjemaet,
 og starter ikke hvis en migrasjon mangler.
 
-Databaseeieren gjør dette, fra en maskin med repoet og .NET 8 SDK:
+Databaseeieren gjør dette, fra en maskin med repoet og .NET 10 SDK:
 
 **1. Sjekk ut nøyaktig den versjonen av appen som skal ut.**
 
@@ -349,7 +354,7 @@ git checkout <commit eller tag>
 dotnet ef migrations script --idempotent --project StartPraksisGruppe3Prosjekt --output migrate.sql
 ```
 
-(`dotnet-ef` installeres med `dotnet tool install --global dotnet-ef --version 8.0.11`.)
+(`dotnet-ef` installeres med `dotnet tool install --global dotnet-ef --version 10.0.12`.)
 Skriptet er idempotent: det ser i `__EFMigrationsHistory` hva som er kjørt, og kjører bare
 resten. Les gjennom det før det kjøres, særlig når det endrer eller fjerner en kolonne.
 
@@ -554,10 +559,15 @@ Det som hører med:
 
 Bruk `pg_dump` og `pg_restore` fra samme hovedversjon som serveren.
 
-### .NET 8
+### .NET-versjonen
 
-.NET 8 går ut av støtte 10. november 2026 (README, «Stack»). Oppgraderingen til .NET 10 er en
-egen PR, og bør være gjort før hoveddatabasen tas i bruk med ekte data.
+Appen står på .NET 10, som er LTS-utgaven og støttes til november 2028. Appserveren trenger
+ASP.NET Core Runtime 10. Sikkerhetsoppdateringene kommer hver måned, og hører med i
+driftsansvaret: oppdater kjøremiljøet på serveren, og pakkene i 10.0-serien i repoet.
+
+Skjemaet er det samme som før oppgraderingen fra .NET 8. Migrasjonsskriptet fra EF Core 10 er
+likt det fra EF Core 8 linje for linje, bortsett fra versjonsnummeret det skriver i
+`__EFMigrationsHistory`.
 
 ---
 
