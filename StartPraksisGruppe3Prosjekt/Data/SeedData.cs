@@ -925,6 +925,14 @@ public static class SeedData
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Om en spiller med dette navnet er en av de oppdiktede: navnet står i troppene over, eller
+    /// det er koden en av dem het før navnene. export-players holder dem utenfor eksporten.
+    /// </summary>
+    internal static bool IsFictional(string name) =>
+        FictionalNames.Contains(name)
+        || FormerCodeByName.Values.Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Kontoene de oppdiktede troppene har fått: spillerens egen, foresatt utledet av navnet, og
     /// de nummererte foresatt1..7.
     /// </summary>

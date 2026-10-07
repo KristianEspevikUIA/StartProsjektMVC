@@ -32,17 +32,26 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// seedingens å endre. Vil man ha et nytt bilde fra klubben, fjernes det gamle der først.
 ///
 /// Loggen sier hvor mange, aldri hvem.
+///
+/// Lesingen (<see cref="Load(string)"/>) og innleggingen (<see cref="ApplyAsync"/>) deles med
+/// engangskommandoene export-players og import-players -- se <see cref="PlayerTransfer"/>. De
+/// flytter de samme spillerne mellom to databaser, og skal ha nøyaktig samme validering og
+/// bildekontroll som seedingen.
 /// </summary>
 internal static class SeedSquads
 {
-    private const int SchemaVersion = 1;
+    internal const int SchemaVersion = 1;
 
-    private static readonly string[] TeamNames = { "G14", "G15", "G17", "G19" };
+    internal static readonly string[] TeamNames = { "G14", "G15", "G17", "G19" };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
+
+    private const string HowToRecreate =
+        "Lag fila på nytt: scripts/squads/fetch_squads.py for troppene fra ikstart.no, " +
+        "eller export-players for en eksport.";
 
     /// <summary>Data/Squads under appens rotmappe. Fila og bildene ligger der.</summary>
     internal static string FolderIn(IHostEnvironment environment) =>
@@ -53,9 +62,14 @@ internal static class SeedSquads
     /// gjelder. Finnes fila, men henger ikke sammen, stopper oppstarten: en halvlest tropp ville
     /// ellers erstattet de oppdiktede med noe som mangler spillere.
     /// </summary>
-    internal static SquadFile? Load(IHostEnvironment environment)
+    internal static SquadFile? Load(IHostEnvironment environment) => Load(FolderIn(environment));
+
+    /// <summary>
+    /// Det samme for en hvilken som helst mappe med squads.json og bildene ved siden av.
+    /// import-players leser en eksport herfra.
+    /// </summary>
+    internal static SquadFile? Load(string folder)
     {
-        var folder = FolderIn(environment);
         var path = Path.Combine(folder, "squads.json");
 
         if (!File.Exists(path))
@@ -72,7 +86,7 @@ internal static class SeedSquads
         catch (JsonException ex)
         {
             throw new InvalidOperationException(
-                $"{path} kan ikke leses: {ex.Message} Kjør scripts/squads/fetch_squads.py på nytt.", ex);
+                $"{path} kan ikke leses: {ex.Message} {HowToRecreate}", ex);
         }
 
         var problems = new List<string>();
@@ -131,7 +145,7 @@ internal static class SeedSquads
 
                         if (!full.StartsWith(root, StringComparison.Ordinal))
                         {
-                            problems.Add($"{where}: bildet ligger utenfor Data/Squads");
+                            problems.Add($"{where}: bildet ligger utenfor mappa fila står i");
                         }
                         else if (!File.Exists(full))
                         {
@@ -150,8 +164,7 @@ internal static class SeedSquads
         if (problems.Count > 0)
         {
             throw new InvalidOperationException(
-                $"{path} henger ikke sammen: {string.Join("; ", problems)}. " +
-                "Kjør scripts/squads/fetch_squads.py på nytt.");
+                $"{path} henger ikke sammen: {string.Join("; ", problems)}. {HowToRecreate}");
         }
 
         return squads;
@@ -169,8 +182,52 @@ internal static class SeedSquads
         var admin = await userManager.FindByEmailAsync("admin@ikstart.example")
             ?? throw new InvalidOperationException("Admin-kontoen finnes ikke. Den seedes før troppene.");
 
-        var folder = FolderIn(environment);
-        var photoSource = $"{squads.Source}, {squads.FetchedOn:yyyy-MM-dd}";
+        var changes = await ApplyAsync(
+            db,
+            teams,
+            squads,
+            FolderIn(environment),
+            admin.Id,
+            (teamId, member) => AddPlayerAsync(db, userManager, teamId, member, password),
+            logger);
+
+        if (changes.Created + changes.Updated + changes.Photos > 0)
+        {
+            logger.LogInformation(
+                "Troppene fra {Source}: {Created} spillere lagt til, {Moved} oppdatert, {Photos} bilder lagt inn.",
+                PhotoSourceOf(squads),
+                changes.Created,
+                changes.Updated,
+                changes.Photos);
+        }
+
+        var keep = squads.Teams.SelectMany(t => t.Players).Select(p => p.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        await RemoveFictionalPlayersAsync(db, userManager, keep, logger);
+    }
+
+    /// <summary>
+    /// Legger spillerne i fila inn i databasen: en spiller som mangler, legges til med
+    /// <paramref name="addPlayer"/>; en som finnes, får lag, posisjon og fødselsdato fra fila; og
+    /// fornavn og bilde legges inn der de mangler. Ingenting slettes, og et fornavn eller bilde som
+    /// finnes fra før, blir stående.
+    ///
+    /// Hvordan en ny spiller legges til, er det eneste som skiller de to som kaller: seedingen
+    /// lager konto, foresatt og samtykke rundt spilleren, import-players bare spillerraden.
+    /// </summary>
+    /// <param name="folder">Mappa fila ble lest fra. Bildene ligger relativt til den.</param>
+    /// <param name="updatedBy">Hva som står som «endret av» på fornavn og bilde.</param>
+    internal static async Task<SquadChanges> ApplyAsync(
+        AppDbContext db,
+        IReadOnlyDictionary<string, Team> teams,
+        SquadFile squads,
+        string folder,
+        string updatedBy,
+        Func<int, SquadFilePlayer, Task<Player>> addPlayer,
+        ILogger logger)
+    {
+        var photoSource = PhotoSourceOf(squads);
 
         // Sporet, og lest én gang: løkka både slår opp spillere og endrer dem den finner.
         var byCode = (await db.Players.ToListAsync())
@@ -184,8 +241,9 @@ internal static class SeedSquads
             .ToDictionary(d => d.PlayerId, d => d.HasPhoto);
 
         var created = 0;
-        var moved = 0;
+        var updated = 0;
         var photos = 0;
+        var refused = 0;
 
         foreach (var team in squads.Teams)
         {
@@ -200,12 +258,12 @@ internal static class SeedSquads
                         player.TeamId = teamId;
                         player.Position = member.Position;
                         player.BirthDate = member.BirthDate;
-                        moved++;
+                        updated++;
                     }
                 }
                 else
                 {
-                    player = await AddPlayerAsync(db, userManager, teamId, member, password);
+                    player = await addPlayer(teamId, member);
                     byCode[member.Name] = player;
                     created++;
                 }
@@ -214,9 +272,14 @@ internal static class SeedSquads
 
                 if (!details.ContainsKey(player.Id) || (!hasPhoto && member.Photo is not null))
                 {
-                    if (await AddWelcomeAsync(db, player, member, folder, photoSource, admin.Id, logger))
+                    switch (await AddWelcomeAsync(db, player, member, folder, photoSource, updatedBy, logger))
                     {
-                        photos++;
+                        case PhotoOutcome.Added:
+                            photos++;
+                            break;
+                        case PhotoOutcome.Refused:
+                            refused++;
+                            break;
                     }
 
                     details[player.Id] = true;
@@ -226,21 +289,11 @@ internal static class SeedSquads
             }
         }
 
-        if (created + moved + photos > 0)
-        {
-            logger.LogInformation(
-                "Troppene fra {Source}: {Created} spillere lagt til, {Moved} oppdatert, {Photos} bilder lagt inn.",
-                photoSource,
-                created,
-                moved,
-                photos);
-        }
-
-        var keep = squads.Teams.SelectMany(t => t.Players).Select(p => p.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        await RemoveFictionalPlayersAsync(db, userManager, keep, logger);
+        return new SquadChanges(created, updated, photos, refused);
     }
+
+    /// <summary>Bildekilden for en fil som ikke oppgir en per spiller: «ikstart.no, spillersidene, 2026-10-07».</summary>
+    private static string PhotoSourceOf(SquadFile squads) => $"{squads.Source}, {squads.FetchedOn:yyyy-MM-dd}";
 
     /// <summary>
     /// Spilleren, kontoen, den oppdiktede foresatte og samtykket -- det samme en oppdiktet spiller
@@ -298,15 +351,18 @@ internal static class SeedSquads
     /// <summary>
     /// Fornavnet og bildet til velkomsten, gjennom samme kontroll som et bilde lastet opp på
     /// /Admin/Players: formatet leses av bytene, og metadata fjernes. Et bilde som ikke går
-    /// gjennom, hoppes over -- velkomsten viser da bare navnet. True når et bilde ble lagt inn.
+    /// gjennom, hoppes over -- velkomsten viser da bare navnet.
+    ///
+    /// Fornavnet og bildekilden kommer fra fila når den oppgir dem per spiller (en eksport gjør
+    /// det), ellers fra navnet og filas egen kilde. Se <see cref="SquadFilePlayer"/>.
     /// </summary>
-    private static async Task<bool> AddWelcomeAsync(
+    private static async Task<PhotoOutcome> AddWelcomeAsync(
         AppDbContext db,
         Player player,
         SquadFilePlayer member,
         string folder,
         string photoSource,
-        string adminUserId,
+        string updatedBy,
         ILogger logger)
     {
         var row = await db.PlayerPersonalDetails.FirstOrDefaultAsync(d => d.PlayerId == player.Id);
@@ -314,21 +370,31 @@ internal static class SeedSquads
 
         if (row is null)
         {
+            var firstName = member.FirstName is null
+                ? SeedData.FirstNameOf(member.Name)
+                : Blank(member.FirstName);
+
+            if (firstName is null && member.Photo is null)
+            {
+                // Verken fornavn eller bilde: da er det ingenting å lagre, og ingen rad.
+                return PhotoOutcome.None;
+            }
+
             row = new PlayerPersonalDetails
             {
                 PlayerId = player.Id,
-                FirstName = SeedData.FirstNameOf(member.Name)
+                FirstName = firstName
             };
 
             db.PlayerPersonalDetails.Add(row);
         }
 
-        row.UpdatedByUserId = adminUserId;
+        row.UpdatedByUserId = updatedBy;
         row.UpdatedAt = now;
 
         if (member.Photo is null)
         {
-            return false;
+            return PhotoOutcome.None;
         }
 
         var check = PlayerPhotoRules.Prepare(await File.ReadAllBytesAsync(Path.Combine(folder, member.Photo)));
@@ -336,19 +402,29 @@ internal static class SeedSquads
         if (check is not { IsAccepted: true })
         {
             logger.LogWarning(
-                "Et bilde i Data/Squads ble ikke godtatt ({Reason}). Spiller-ID {PlayerId} får velkomsten uten bilde.",
+                "Et bilde i {Folder} ble ikke godtatt ({Reason}). Spiller-ID {PlayerId} får velkomsten uten bilde.",
+                folder,
                 check.Error,
                 player.Id);
 
-            return false;
+            return PhotoOutcome.Refused;
         }
 
         row.Photo = check.Photo;
         row.PhotoContentType = check.ContentType;
-        row.PhotoSource = photoSource;
+        row.PhotoSource = member.PhotoSource is null ? photoSource : Blank(member.PhotoSource);
         row.PhotoUpdatedAt = now;
 
-        return true;
+        return PhotoOutcome.Added;
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private enum PhotoOutcome
+    {
+        None,
+        Added,
+        Refused
     }
 
     /// <summary>
@@ -420,7 +496,14 @@ internal static class SeedSquads
     }
 }
 
-/// <summary>Data/Squads/squads.json, slik scripts/squads/fetch_squads.py skriver den.</summary>
+/// <summary>Hva <see cref="SeedSquads.ApplyAsync"/> gjorde. Tall, aldri navn: de havner i loggen.</summary>
+/// <param name="PhotosRefused">Bilder i fila som ikke gikk gjennom bildekontrollen, og ikke ble lagt inn.</param>
+internal sealed record SquadChanges(int Created, int Updated, int Photos, int PhotosRefused);
+
+/// <summary>
+/// Data/Squads/squads.json, slik scripts/squads/fetch_squads.py skriver den -- og slik
+/// export-players skriver en eksport fra en database.
+/// </summary>
 internal sealed record SquadFile(
     int SchemaVersion,
     string Source,
@@ -428,20 +511,30 @@ internal sealed record SquadFile(
     IReadOnlyList<SquadFileTeam> Teams);
 
 /// <param name="Team">Lagets navn i appen: G14, G15, G17 eller G19.</param>
-/// <param name="Page">Klubbens side troppen er hentet fra.</param>
+/// <param name="Page">Klubbens side troppen er hentet fra. Null i en eksport.</param>
 internal sealed record SquadFileTeam(
     string Team,
-    string Page,
+    string? Page,
     IReadOnlyList<SquadFilePlayer> Players);
 
 /// <param name="Name">Navnet slik klubben skriver det. Blir <see cref="Player.Code"/>.</param>
 /// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under.</param>
 /// <param name="BirthDateEstimated">Klubben oppgir ingen dato, og 1. januar i årsklassen er brukt.</param>
-/// <param name="Photo">Bildet, relativt til Data/Squads. Null når klubben ikke har noe.</param>
+/// <param name="Photo">Bildet, relativt til mappa fila står i. Null når klubben ikke har noe.</param>
+/// <param name="FirstName">
+/// Fornavnet til velkomsten. Bare en eksport oppgir det: null (feltet mangler) betyr at det
+/// utledes av navnet, en tom streng at spilleren ikke hadde noe fornavn lagt inn.
+/// </param>
+/// <param name="PhotoSource">
+/// Hvor bildet kom fra. Bare en eksport oppgir det: null (feltet mangler) betyr filas egen kilde
+/// og dato, en tom streng at ingen kilde var lagt inn.
+/// </param>
 internal sealed record SquadFilePlayer(
     string Name,
     string Position,
     DateOnly BirthDate,
     bool BirthDateEstimated,
     string? Photo,
-    string? ProfileUrl);
+    string? ProfileUrl,
+    string? FirstName = null,
+    string? PhotoSource = null);

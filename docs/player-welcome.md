@@ -100,6 +100,55 @@ Forhåndsvisningen for admin sendes med `no-store`.
 
 ---
 
+## Flytte spillerne mellom to databaser
+
+To engangskommandoer flytter de ekte spillerne fra én database til en annen. De kjøres fra
+kommandolinja, før appen migrerer eller seeder, og avslutter uten å starte webserveren.
+
+```bash
+dotnet run --project StartPraksisGruppe3Prosjekt -- export-players --out D:\spillerflytting\eksport
+dotnet run --project StartPraksisGruppe3Prosjekt -- import-players --from D:\spillerflytting\eksport
+```
+
+Begge bruker databasen appen er satt opp mot (`ConnectionStrings:DefaultConnection`). Uten
+`--out` og `--from` brukes `Data/Squads/`.
+
+**`export-players`** skriver en `squads.json` med bildene i `photos/`, i samme format som
+`scripts/squads/fetch_squads.py` lager, pluss fornavn og bildekilde per spiller.
+
+- Den **leser bare**: transaksjonen er satt til `READ ONLY`, så databasen selv nekter alt annet.
+- De oppdiktede spillerne (`SeedData.Squads`) er ikke med. Har en av dem likevel et bilde, sier
+  loggen fra med spiller-ID, i tilfelle en ekte spiller deler navn med en oppdiktet.
+- Den skriver aldri oppå en `squads.json` eller bilder som ligger der fra før.
+- Mangler en spiller posisjon, står hen på et annet lag enn G14, G15, G17 og G19, eller går et
+  bilde ikke gjennom bildekontrollen, stopper eksporten før noe er skrevet.
+- Heter laget fortsatt U14, U15, U17 eller U19 i databasen, står det med dagens navn i fila.
+  Databasen røres ikke.
+
+**`import-players`** leser en slik mappe med samme validering og bildekontroll som seedingen
+(`SeedSquads.Load` og `SeedSquads.ApplyAsync`).
+
+- Den **legger til og oppdaterer, og sletter aldri**. En spiller som finnes (samme navn), får lag,
+  posisjon og fødselsdato fra fila. Kommandoen kan kjøres flere ganger.
+- **Fornavn og bilde legges bare inn der de mangler.** Et fornavn eller bilde som finnes fra før,
+  for eksempel et admin har endret på `/Admin/Players`, blir stående. Har admin fjernet et bilde,
+  legger en ny import det inn igjen.
+- Den lager **ingen kontoer, foresatte, samtykker, svar eller vurderinger**. Mangler et lag fra
+  fila, opprettes det.
+- Alt skjer i én transaksjon. Går noe galt, er ingenting lagt inn.
+- Databasen må ha tabellene fra før. Kommandoen migrerer ikke.
+
+Hva som ikke følger med i flyttingen: spillerens konto, foresatte, samtykker, svar og
+vurderinger, og tidspunktene for når fornavn og bilde ble lagt inn. «Endret av» på fornavn og
+bilde blir `import-players`.
+
+**Filene er personopplysninger om mindreårige.** Kommandoene skriver og leser bare i
+`Data/Squads/` (git-ignorert) eller en mappe utenfor repoet, og nekter alle andre mapper i
+repoet. Loggen sier hvor mange spillere og bilder, aldri hvem. Fila skal aldri i git, chat eller
+e-post, og slettes når importen er bekreftet.
+
+---
+
 ## Filer
 
 | Hva | Hvor |
@@ -111,3 +160,5 @@ Forhåndsvisningen for admin sendes med `no-store`.
 | Spillerens eget bilde | `PlayerController.Photo` (`/Player/Photo`) |
 | Admin | `AdminController.Players`, `PlayerDetails`, `PlayerPhoto`, `Views/Admin/Players.cshtml`, `PlayerDetails.cshtml` |
 | Migrasjon | `Data/Migrations/*_AddPlayerPersonalDetails.cs` |
+| De ekte troppene i Development | `Data/SeedSquads.cs`, `scripts/squads/fetch_squads.py` |
+| Flytting mellom databaser | `Data/PlayerTransfer.cs`, `Commands/OneOffCommands.cs` |

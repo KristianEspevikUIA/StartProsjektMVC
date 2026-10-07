@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Net;
 using StartPraksisGruppe3Prosjekt.Authorization;
+using StartPraksisGruppe3Prosjekt.Commands;
 using StartPraksisGruppe3Prosjekt.Data;
 using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
@@ -369,6 +370,23 @@ if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
         "som helst Host-hode. Sett det faktiske vertsnavnet i miljøet, f.eks. " +
         "AllowedHosts=startcompass.example.no.",
         allowedHosts ?? "(ikke satt)");
+}
+
+// ---------------------------------------------------------------------------
+// Engangskommandoer (export-players, import-players). Se Commands/OneOffCommands.
+//
+// Ligger FØR migrering og seeding med vilje. Eksporten skal kunne kjøres mot en database
+// uten at den endres av at noen leste fra den, og importen skal ikke få demodata med på
+// kjøpet. En kommando gjør det ene den er til for, og avslutter uten å starte webserveren.
+// ---------------------------------------------------------------------------
+if (await OneOffCommands.TryRunAsync(app, args) is { } exitCode)
+{
+    // Loggen skrives fra en kø. Uten dette kan prosessen avslutte før de siste linjene --
+    // de som sier hvor mange spillere som ble flyttet -- er kommet ut.
+    await app.DisposeAsync();
+
+    Environment.ExitCode = exitCode;
+    return;
 }
 
 // Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
