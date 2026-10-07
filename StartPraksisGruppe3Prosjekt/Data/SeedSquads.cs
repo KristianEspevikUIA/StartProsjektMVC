@@ -8,19 +8,20 @@ using StartPraksisGruppe3Prosjekt.Services;
 namespace StartPraksisGruppe3Prosjekt.Data;
 
 /// <summary>
-/// De ekte troppene til U14, U15 og U17, for Development: navn, posisjon, fødselsdato og bilde
+/// De ekte troppene til G14, G15, G17 og G19, for Development: navn, posisjon, fødselsdato og bilde
 /// fra klubbens egne spillersider på ikstart.no. IK Start har gitt tillatelse til at navnene og
 /// bildene brukes i appen.
 ///
 /// INGENTING AV DET STÅR I REPOET. Fila og bildene ligger i Data/Squads/, som er git-ignorert:
-/// repoet er offentlig, og alle spillerne er mindreårige. De hentes med
+/// repoet er offentlig, og nesten alle spillerne er mindreårige. De hentes med
 /// scripts/squads/fetch_squads.py. Mangler fila, gjør denne klassen ingenting, og seedingen er
 /// som før.
 ///
 /// Når fila finnes, ERSTATTER troppene de oppdiktede:
 ///   * Hver spiller i fila får en spillerrad, en konto utledet av navnet
-///     (spiller.leon.enger@ikstart.example), en foresatt -- alle er mindreårige, og
-///     foresattkontoen er oppdiktet som før -- og fornavn og bilde til velkomsten.
+///     (spiller.leon.enger@ikstart.example), og fornavn og bilde til velkomsten. Spillere under
+///     PlayerRules.GuardianRequiredBelowAge får en foresatt, oppdiktet som før; de eldste på
+///     G19 er over grensen og får ingen.
 ///   * De oppdiktede spillerne i SeedData.Squads slettes, med alt som henger på dem, og
 ///     kontoene deres. Det skjer etter at de ekte er lagt inn, så en oppstart som stopper
 ///     halvveis aldri etterlater et lag uten spillere.
@@ -36,7 +37,7 @@ internal static class SeedSquads
 {
     private const int SchemaVersion = 1;
 
-    private static readonly string[] TeamNames = { "U14", "U15", "U17" };
+    private static readonly string[] TeamNames = { "G14", "G15", "G17", "G19" };
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -243,7 +244,9 @@ internal static class SeedSquads
 
     /// <summary>
     /// Spilleren, kontoen, den oppdiktede foresatte og samtykket -- det samme en oppdiktet spiller
-    /// fikk i SeedData. Alle på disse lagene er under aldersgrensen, så alle får en foresatt.
+    /// fikk i SeedData. En foresatt bare under aldersgrensen, som regelen i
+    /// <see cref="PlayerRules.GuardianRequiredBelowAge"/>: en foresatt med innsyn i en voksen
+    /// spillers svar er like galt som en mindreårig uten. Uten foresatt setter spilleren samtykket selv.
     /// </summary>
     private static async Task<Player> AddPlayerAsync(
         AppDbContext db,
@@ -267,20 +270,25 @@ internal static class SeedSquads
         db.Players.Add(player);
         await db.SaveChangesAsync();
 
-        var guardianUserId = await SeedData.EnsureUserAsync(
-            userManager, SeedData.GuardianEmail(member.Name), password, Roles.Guardian);
+        string? guardianUserId = null;
 
-        db.Guardianships.Add(new Guardianship
+        if (player.AgeAt(DateOnly.FromDateTime(DateTime.UtcNow)) < PlayerRules.GuardianRequiredBelowAge)
         {
-            PlayerId = player.Id,
-            GuardianUserId = guardianUserId
-        });
+            guardianUserId = await SeedData.EnsureUserAsync(
+                userManager, SeedData.GuardianEmail(member.Name), password, Roles.Guardian);
+
+            db.Guardianships.Add(new Guardianship
+            {
+                PlayerId = player.Id,
+                GuardianUserId = guardianUserId
+            });
+        }
 
         db.ConsentEvents.Add(new ConsentEvent
         {
             PlayerId = player.Id,
             Level = ConsentLevel.Full,
-            ChangedByUserId = guardianUserId,
+            ChangedByUserId = guardianUserId ?? userId,
             OccurredAt = DateTimeOffset.UtcNow.AddDays(-30)
         });
 
@@ -419,7 +427,7 @@ internal sealed record SquadFile(
     DateOnly FetchedOn,
     IReadOnlyList<SquadFileTeam> Teams);
 
-/// <param name="Team">Lagets navn i appen: U14, U15 eller U17.</param>
+/// <param name="Team">Lagets navn i appen: G14, G15, G17 eller G19.</param>
 /// <param name="Page">Klubbens side troppen er hentet fra.</param>
 internal sealed record SquadFileTeam(
     string Team,

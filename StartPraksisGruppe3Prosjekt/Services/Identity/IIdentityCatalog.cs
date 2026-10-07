@@ -13,7 +13,7 @@ public interface IIdentityCatalog
     /// <summary>Every configured team, in the configured order -- with or without data.</summary>
     IReadOnlyList<IdentityTeam> Teams { get; }
 
-    /// <summary>The team with this key ("U14"), case-insensitive, or null.</summary>
+    /// <summary>The team with this key ("G14"), case-insensitive, or null.</summary>
     IdentityTeam? FindTeam(string key);
 }
 
@@ -22,6 +22,6 @@ public sealed record IdentityTeam(string Key, TeamMatchData? Data)
 {
     public bool HasData => Data is { Matches.Count: > 0 };
 
-    /// <summary>"Start U14" when the file says so, otherwise the key.</summary>
-    public string DisplayName => string.IsNullOrWhiteSpace(Data?.TeamName) ? Key : Data.TeamName;
+    /// <summary>"Start G14" when the file says so ("Start U14", in the report's words), otherwise the key.</summary>
+    public string DisplayName => string.IsNullOrWhiteSpace(Data?.TeamName) ? Key : IdentityFormat.ClubName(Data.TeamName);
 }

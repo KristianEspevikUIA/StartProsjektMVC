@@ -25,7 +25,7 @@ spillere (Player Highlight), og derfor er rollesperren på hele controlleren.
 ## Hvor tallene kommer fra
 
 ```
-StatsBomb-PDF-er  ──scripts/identity/extract_stats.py──▶  Data/Identity/Matches/u14.json   (git-ignorert)
+StatsBomb-PDF-er  ──scripts/identity/extract_stats.py──▶  Data/Identity/Matches/g14.json   (git-ignorert)
 StatsBomb-PDF-er  ──scripts/identity/derive_targets.py──▶  foreløpige målområder, limes inn i gold-standard.json
 IK Start – Identity Gold Standard.pdf  ──(transkribert)──▶  Data/Identity/gold-standard.json (i git)
                                                            │
@@ -42,12 +42,18 @@ JSON-filene.
 Krever Python 3.9+ og poppler (`brew install poppler`).
 
 ```bash
-python3 scripts/identity/extract_stats.py --team U14 --source "<mappe med rapportene>" --table
+python3 scripts/identity/extract_stats.py --team G14 --source "<mappe med rapportene>" --table
 ```
 
-Kjør én gang per lag (U14, U15, U17). Scriptet skriver
+Kjør én gang per lag (G14, G15, G17). Scriptet skriver
 `StartPraksisGruppe3Prosjekt/Data/Identity/Matches/<lag>.json`, og `--table` skriver en
 kontrolltabell. Start appen på nytt etterpå, fordi dataene leses ved oppstart.
+
+**G og U.** Appen kaller lagene som klubben gjør, G14, G15 og G17. StatsBomb-rapportene sier
+«Start U14», og det er det scriptet leter etter i dem. Alt som leses fra en rapport, lagnavnene
+også, skrives i fila slik rapporten staver det, så det kan finnes igjen i PDF-en; siden viser
+«Start G14» og «Viking G14» (`IdentityFormat.ClubName`). Filer fra før 07.10.2026 heter
+`u14.json` og har `"team": "U14"`. De leses fortsatt, og trenger ikke lages på nytt.
 
 Filene har `schemaVersion` 2 fra og med erstatningsmarkørene. Appen nekter å starte med en
 fil i versjon 1 og ber deg kjøre scriptet på nytt, i stedet for å vise seks tomme rader.
@@ -138,28 +144,28 @@ følger de dokumentets egen metode, «consistent team averages (the floor) with 
 
 ```bash
 python3 scripts/identity/derive_targets.py \
-  --source "<U14-mappe>" --source "<U15-mappe>" --source "<U17-mappe>"
+  --source "<G14-mappe>" --source "<G15-mappe>" --source "<G17-mappe>"
 ```
 
 Scriptet leser motstanderens side av hver rapport med de samme funksjonene og kontrollene som
 Starts side, og skriver ut verdiene som skal inn i `gold-standard.json`. Det skriver ingenting
 selv. Fra de 20 rapportene (1. april – 29. august 2026):
 
-| Markør | Målområde | Beste enkeltkamp | Motstandernes snitt U14 · U15 · U17 |
+| Markør | Målområde | Beste enkeltkamp | Motstandernes snitt G14 · G15 · G17 |
 | --- | --- | --- | --- |
-| Final Third Passes | 68 – 140 | Stabæk U14 | 68.2 · 61.7 · 71.1 |
-| Total Passes | 471 – 596 | Rosenborg U17 | 425.6 · 459.5 · 503.7 |
-| Pressures | 182 – 298 | Haugesund U15 | 179.2 · 213.5 · 161.9 |
-| Counterpresses | 45 – 77 | Haugesund U15 | 54.6 · 57.5 · 31.8 |
-| Tackle Success % | 64 % – 83 % | Stabæk U14 | 62.2 · 63.2 · 64.4 |
-| Pressure Regains | 61 – 99 | Haugesund U15 | 73.6 · 70.8 · 47.1 |
+| Final Third Passes | 68 – 140 | Stabæk G14 | 68.2 · 61.7 · 71.1 |
+| Total Passes | 471 – 596 | Rosenborg G17 | 425.6 · 459.5 · 503.7 |
+| Pressures | 182 – 298 | Haugesund G15 | 179.2 · 213.5 · 161.9 |
+| Counterpresses | 45 – 77 | Haugesund G15 | 54.6 · 57.5 · 31.8 |
+| Tackle Success % | 64 % – 83 % | Stabæk G14 | 62.2 · 63.2 · 64.4 |
+| Pressure Regains | 61 – 99 | Haugesund G15 | 73.6 · 70.8 · 47.1 |
 
 Disse områdene er merket `"provisional": true` og har en `basis` som sier hvor de kommer fra.
 Siden merker dem **Provisional**, og innsiktene kaller dem «provisional range», aldri «elite
 range». Katalogen godtar ikke et foreløpig målområde uten `basis`.
 
 **Svakhet:** Som klubbens egne gjelder ett målområde for alle årskull. Volummarkørene øker
-med alderen, så U14 blir målt hardt på Total Passes, og U17 på Counterpresses og Pressure
+med alderen, så G14 blir målt hardt på Total Passes, og G17 på Counterpresses og Pressure
 Regains. Snittene per årskull i tabellen over er et utgangspunkt hvis klubben vil sette egne.
 
 **Når klubben setter egne:** bytt `min`, `max`, `display`, `eliteRange` og `bestAtIt`, og
@@ -210,7 +216,7 @@ Rapportene og JSON-filene navngir spillere, de fleste mindreårige, og repoet er
 - `Data/Identity/Matches/*` er git-ignorert. Bare README-en der følger med.
 - Per spiller lagres bare navn, Drib og I, altså det highlighten viser. Pasnings- og
   presstabellene leses spiller for spiller for å kontrollere dem, men bare Starts summer lagres.
-- `gold-standard.json` nevner motstanderlag (for eksempel «Stabæk U14 (peak 140)»), men ingen
+- `gold-standard.json` nevner motstanderlag (for eksempel «Stabæk G14 (peak 140)»), men ingen
   spillere.
 - **Må avklares:** `docs/sikt-melding.md` sier at navn ikke lagres om spillere. Denne siden
   leser navn fra filer, ikke fra databasen, men meldingen bør oppdateres før siden brukes med

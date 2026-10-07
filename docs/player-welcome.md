@@ -1,7 +1,7 @@
 # Velkomst med navn og bilde
 
 Trenerne ønsket at spilleren skal møtes med «Welcome, Alex» og sitt eget bilde når hen logger
-inn, så det føles mer personlig. Bildene er klubbens offisielle spillerbilder for U14, U15 og U17,
+inn, så det føles mer personlig. Bildene er klubbens offisielle spillerbilder for G14, G15, G17 og G19,
 som allerede er publisert på nett. IK Start har gitt tillatelse til at de brukes her.
 
 ---
@@ -22,7 +22,7 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
   slipper treneren til. Den logges ikke for seg: siden bildet står på, logger hver spiller den viser.
 - **Andre sider** viser spillerens fulle navn (`Player.Code`), ikke fornavnet herfra.
 
-Velkomsten er ikke låst til U14, U15 og U17 i koden. Alle spillere med konto kan få den. Det er
+Velkomsten er ikke låst til bestemte lag i koden. Alle spillere med konto kan få den. Det er
 klubben som bestemmer hvem som får navn og bilde lagt inn.
 
 ---
@@ -91,7 +91,7 @@ Forhåndsvisningen for admin sendes med `no-store`.
 - **Informasjon til spillerne og foresatte.** Bildene er publisert fra før, men dette er en ny
   bruk: i et system som også har svarene deres. Det bør stå i personvernerklæringen.
 - **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
-  bilde for U14, U15 og U17 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert.
+  bilde for G14, G15, G17 og G19 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert.
   Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
   fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
   som en opplasting på admin-siden.

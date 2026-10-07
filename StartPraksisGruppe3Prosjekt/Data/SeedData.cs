@@ -168,27 +168,36 @@ public static class SeedData
     }
 
     /// <summary>
-    /// The three teams the project is about: U14, U15 and U17 -- the club's academy age groups,
-    /// the same three the identity benchmarking has match data for.
+    /// The three teams the project is about: G14, G15 and G17 -- the club's academy age groups,
+    /// the same three the identity benchmarking has match data for (where they are still called
+    /// U14, U15 and U17, as in the StatsBomb reports). And G19, which came with the real squads
+    /// from ikstart.no (SeedSquads); the made-up squads have nobody on it.
     ///
-    /// Existing rows are renamed in place rather than re-created: a new "U17" next to the old
-    /// "Senior" would leave every player on the old one, and the coach looking at an empty
-    /// squad. The demo teams were Senior, G19 and G16 until the club pointed out that they are
-    /// not the teams this is for; strongest first, they became U17, U15 and U14. "A-laget" is
-    /// older still, from before the interface was English.
+    /// Existing rows are renamed in place rather than re-created: a new "G17" next to the old
+    /// "U17" would leave every player on the old one, and the coach looking at an empty squad.
+    /// The teams are named as the club names them, G for gutter; they were U14, U15, U17 and U19
+    /// until 07.10.2026. Before that the demo teams were Senior, G19 and G16, until the club
+    /// pointed out that they are not the teams this is for; strongest first, they became U17, U15
+    /// and U14. That G19 was the made-up one, and is not renamed: G19 is now the club's real
+    /// G19. "A-laget" is older still, from before the interface was English.
     /// </summary>
     private static async Task<IReadOnlyDictionary<string, Team>> SeedTeamsAsync(AppDbContext db)
     {
         // One rename each, straight to the current name: the renames are saved together below,
-        // so a chain (A-laget to Senior to U17) would find nothing to rename at its second step.
-        await RenameTeamAsync(db, "A-laget", "U17");
-        await RenameTeamAsync(db, "Senior", "U17");
-        await RenameTeamAsync(db, "G19", "U15");
-        await RenameTeamAsync(db, "G16", "U14");
+        // so a chain (A-laget to Senior to U17 to G17) would find nothing to rename after its
+        // first step.
+        await RenameTeamAsync(db, "A-laget", "G17");
+        await RenameTeamAsync(db, "Senior", "G17");
+        await RenameTeamAsync(db, "U17", "G17");
+        await RenameTeamAsync(db, "U15", "G15");
+        await RenameTeamAsync(db, "U14", "G14");
+        await RenameTeamAsync(db, "G16", "G14");
+        await RenameTeamAsync(db, "U19", "G19");
         await TranslatePositionsAsync(db);
         await db.SaveChangesAsync();
 
-        var names = new[] { "U14", "U15", "U17" };
+        // G19 kom til med de ekte troppene (SeedSquads). Uten dem står laget tomt.
+        var names = new[] { "G14", "G15", "G17", "G19" };
 
         foreach (var name in names)
         {
@@ -685,7 +694,7 @@ public static class SeedData
                     // writer and it can line an older squad up with the formation.
                     player.Position = position;
 
-                    // And the birth date, since the squads became U14, U15 and U17: an
+                    // And the birth date, since the squads became G14, G15 and G17: an
                     // under-17 born in 1998 is not one. A player who is a minor now and was
                     // not before gets the guardian every minor has -- without one the check
                     // at the end of seeding stops the application.
@@ -764,7 +773,7 @@ public static class SeedData
 
     /// <summary>
     /// A guardian where the club needs one: an explicitly named account, or one derived from
-    /// the name for anybody under the age limit -- which, in U14, U15 and U17, is everybody.
+    /// the name for anybody under the age limit -- which, in G14, G15 and G17, is everybody.
     /// Null when the player needs none. Added, not saved.
     /// </summary>
     private static async Task<string?> AddGuardianAsync(
@@ -818,11 +827,11 @@ public static class SeedData
     /// <summary>
     /// Troppene. Elleve spillere per lag, i samme rekkefølge som <see cref="Formation"/>.
     ///
-    /// Lagene er U14, U15 og U17, de tre prosjektet gjelder.
+    /// Lagene er G14, G15 og G17, de tre prosjektet gjelder.
     ///
     /// Navnene er tilfeldige og oppdiktet, med ett unntak: prosjektgruppa -- Brage
     /// Kristoffersen, Kristian Espevik, Victor Ziad og Taavi-Topias Henell -- spiller på
-    /// U17. Ingen fornavn går igjen i klubben, så en drakt på beste elleve aldri
+    /// G17. Ingen fornavn går igjen i klubben, så en drakt på beste elleve aldri
     /// trenger mer enn fornavnet. De to som deler etternavn, er søsknene nedenfor.
     ///
     /// Særtilfellene er de samme som da spillerne het koder: en spiller uten samtykkehendelse
@@ -830,7 +839,7 @@ public static class SeedData
     /// uten egen konto. De er de eneste radene her som betyr noe utover å fylle en tropp.
     ///
     /// Fødselsdatoene følger årsklassene slik NFF regner dem, etter året spilleren fyller:
-    /// U17 er født 2009 og 2010, U15 2011 og U14 2012, med et par som er et år yngre og spiller
+    /// G17 er født 2009 og 2010, G15 2011 og G14 2012, med et par som er et år yngre og spiller
     /// opp. Alle er dermed mindreårige, og alle har en foresatt -- som i virkeligheten for disse
     /// lagene. Koden en spiller het før navnene (TS-98-07) sier ingenting om alderen lenger; den
     /// er bare frøet til demodataene.
@@ -838,7 +847,7 @@ public static class SeedData
     private static readonly IReadOnlyList<(string TeamName, IReadOnlyList<SquadMember> Squad)> Squads =
         new (string, IReadOnlyList<SquadMember>)[]
         {
-            ("U17", new SquadMember[]
+            ("G17", new SquadMember[]
             {
                 new("Kristian Espevik", "TS-98-07", new DateOnly(2009, 3, 11), ConsentLevel.Full),
                 new("Victor Ziad", "TS-02-05", new DateOnly(2009, 5, 14), ConsentLevel.Full),
@@ -853,7 +862,7 @@ public static class SeedData
                 new("Lucas Birkeland", "TS-09-21", new DateOnly(2010, 1, 27), ConsentLevel.Full)
             }),
 
-            ("U15", new SquadMember[]
+            ("G15", new SquadMember[]
             {
                 new("Sander Fjeld", "TS-07-21", new DateOnly(2011, 8, 9), ConsentLevel.Full),
                 new("Mathias Lunde", "TS-07-14", new DateOnly(2011, 12, 1), ConsentLevel.Full, GuardianEmail: "foresatt2@example.test"),
@@ -876,9 +885,9 @@ public static class SeedData
                 new("Adrian Lie", "TS-08-14", new DateOnly(2012, 3, 8), ConsentLevel.Full)
             }),
 
-            ("U14", new SquadMember[]
+            ("G14", new SquadMember[]
             {
-                // Lillebroren til Tobias Moe på U15, med samme foresatte -- søsken i to lag
+                // Lillebroren til Tobias Moe på G15, med samme foresatte -- søsken i to lag
                 // skal fungere.
                 new("Emil Moe", "TS-10-02", new DateOnly(2012, 1, 14), ConsentLevel.Full, GuardianEmail: "foresatt3@example.test"),
 
