@@ -17,9 +17,12 @@ namespace StartPraksisGruppe3Prosjekt.Controllers;
 /// <summary>
 /// Eier: Kristian.
 ///
-/// Brukere, lag og GDPR-oppgavene: innsyn (utlevering av det som er registrert om en
+/// Kontoer, perioder, lag og GDPR-oppgavene: innsyn (utlevering av det som er registrert om en
 /// spiller) og sletting. Admin ser alt — derfor logges admin-oppslag på enkeltspillere i
 /// revisjonsloggen (<see cref="IPlayerAccessLog"/>).
+///
+/// Kontoene styres herfra fordi det ikke finnes noen annen vei inn: selvregistrering er stengt,
+/// og appen sender ikke e-post. Reglene bor i <see cref="IAccountAdministration"/>, ikke her.
 /// </summary>
 [Authorize(Roles = Roles.Admin)]
 public class AdminController : Controller
@@ -30,6 +33,7 @@ public class AdminController : Controller
     private readonly IPlayerAccessLog _accessLog;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IPlayerWelcomeService _welcome;
+    private readonly IAccountAdministration _accounts;
 
     public AdminController(
         AppDbContext db,
@@ -37,7 +41,8 @@ public class AdminController : Controller
         IPeriodService periods,
         IPlayerAccessLog accessLog,
         UserManager<IdentityUser> userManager,
-        IPlayerWelcomeService welcome)
+        IPlayerWelcomeService welcome,
+        IAccountAdministration accounts)
     {
         _db = db;
         _consent = consent;
@@ -45,6 +50,7 @@ public class AdminController : Controller
         _accessLog = accessLog;
         _userManager = userManager;
         _welcome = welcome;
+        _accounts = accounts;
     }
 
     public IActionResult Index()
@@ -155,7 +161,7 @@ public class AdminController : Controller
             form.PhotoSource,
             checkedPhoto,
             form.RemovePhoto,
-            User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+            CurrentUserId,
             cancellationToken);
 
         TempData["AdminMessage"] = $"Name and photo for {player.Name} are saved.";
@@ -266,13 +272,158 @@ public class AdminController : Controller
         };
     }
 
+    // -----------------------------------------------------------------------------------
+    // Kontoer
+    // -----------------------------------------------------------------------------------
+
     /// <summary>
-    /// Brukere og rolletildeling.
-    /// TODO (Kristian): list brukere med roller, og la admin gi/fjerne roller.
+    /// Alle kontoene, og skjemaene som oppretter en ny: trener eller administrator, spiller,
+    /// og foresatt. Lista viser e-postadresser. Det er admin, på siden der kontoene styres.
     /// </summary>
-    public IActionResult Users()
+    [HttpGet]
+    public async Task<IActionResult> Users(CancellationToken cancellationToken) =>
+        View(await BuildUsersViewAsync(null, Array.Empty<string>(), cancellationToken));
+
+    /// <summary>
+    /// Oppretter en konto og viser det midlertidige passordet, én gang.
+    ///
+    /// Svaret er siden med passordet, ikke en omdirigering til den. En omdirigering måtte ha
+    /// båret passordet med seg et sted i mellomtiden, og det skal ikke ligge noe sted.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> CreateUser(
+        string? email,
+        string? role,
+        int? playerId,
+        CancellationToken cancellationToken)
     {
-        return View();
+        var request = new NewAccount(email, role ?? string.Empty, playerId);
+        var result = await _accounts.CreateAsync(request, CurrentUserId, cancellationToken);
+
+        if (!result.Succeeded)
+        {
+            return View(nameof(Users), await BuildUsersViewAsync(request, result.Problems, cancellationToken));
+        }
+
+        return ShowTemporaryPassword(result, isNewAccount: true);
+    }
+
+    /// <summary>Én konto: hva den er knyttet til, og det en administrator kan gjøre med den.</summary>
+    [HttpGet]
+    public async Task<IActionResult> Account(string id, CancellationToken cancellationToken)
+    {
+        var view = await BuildAccountViewAsync(id, cancellationToken);
+
+        return view is null ? NotFound() : View(view);
+    }
+
+    /// <summary>
+    /// Et nytt midlertidig passord. Det gamle slutter å virke, kontoen logges ut der den er
+    /// innlogget, og personen må velge sitt eget ved neste innlogging. Dette er også svaret på
+    /// «jeg har glemt passordet»: appen sender ikke e-post.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> IssuePassword(string id, CancellationToken cancellationToken)
+    {
+        var result = await _accounts.IssueTemporaryPasswordAsync(id, CurrentUserId, cancellationToken);
+
+        return result.Succeeded
+            ? ShowTemporaryPassword(result, isNewAccount: false)
+            : BackToAccount(id, result, string.Empty);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> LockAccount(string id, CancellationToken cancellationToken) =>
+        BackToAccount(
+            id,
+            await _accounts.LockAsync(id, CurrentUserId, cancellationToken),
+            "The account is locked. It is signed out everywhere within a few minutes, and cannot sign in again until it is unlocked.");
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> UnlockAccount(string id, CancellationToken cancellationToken) =>
+        BackToAccount(
+            id,
+            await _accounts.UnlockAsync(id, CurrentUserId, cancellationToken),
+            "The account is unlocked.");
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> AddGuardianLink(string id, int playerId, CancellationToken cancellationToken) =>
+        BackToAccount(
+            id,
+            await _accounts.AddGuardianLinkAsync(id, playerId, CurrentUserId, cancellationToken),
+            "The guardian can now see that player.");
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> RemoveGuardianLink(string id, int playerId, CancellationToken cancellationToken) =>
+        BackToAccount(
+            id,
+            await _accounts.RemoveGuardianLinkAsync(id, playerId, CurrentUserId, cancellationToken),
+            "The guardian can no longer see that player.");
+
+    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+    private IActionResult ShowTemporaryPassword(AccountResult result, bool isNewAccount)
+    {
+        // Sidene til innloggede brukere sendes allerede med no-store. Sagt en gang til her,
+        // fordi dette er den ene siden der det ville vært en feil å ta det for gitt.
+        Response.Headers.CacheControl = "no-store";
+
+        return View("TemporaryPassword", new TemporaryPasswordViewModel
+        {
+            UserId = result.UserId!,
+            Email = result.Email!,
+            Password = result.TemporaryPassword!,
+            IsNewAccount = isNewAccount
+        });
+    }
+
+    private IActionResult BackToAccount(string id, AccountResult result, string done)
+    {
+        TempData["AdminMessage"] = result.Succeeded ? done : string.Join(" ", result.Problems);
+
+        return RedirectToAction(nameof(Account), new { id });
+    }
+
+    private async Task<AdminUsersViewModel> BuildUsersViewAsync(
+        NewAccount? attempt,
+        IReadOnlyList<string> problems,
+        CancellationToken cancellationToken) => new()
+    {
+        Accounts = await _accounts.ListAsync(cancellationToken),
+        Players = await _accounts.PlayersAsync(cancellationToken),
+        Attempt = attempt,
+        Problems = problems
+    };
+
+    private async Task<AdminAccountViewModel?> BuildAccountViewAsync(string id, CancellationToken cancellationToken)
+    {
+        if (await _accounts.GetAsync(id, cancellationToken) is not { } account)
+        {
+            return null;
+        }
+
+        var tied = account.GuardianOf.Select(p => p.PlayerId).ToHashSet();
+
+        return new AdminAccountViewModel
+        {
+            Account = account,
+            IsOwnAccount = string.Equals(account.UserId, CurrentUserId, StringComparison.Ordinal),
+            OtherPlayers = account.Roles.Contains(Roles.Guardian)
+                ? (await _accounts.PlayersAsync(cancellationToken)).Where(p => !tied.Contains(p.PlayerId)).ToList()
+                : Array.Empty<PlayerChoice>()
+        };
     }
 
     /// <summary>

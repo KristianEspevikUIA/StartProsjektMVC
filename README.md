@@ -20,13 +20,13 @@ refleksjonen som avslutter perioden), skjemalisten med
 filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten med snitt per
 kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
 mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, admin-siden for
-perioder, GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
-`/Admin/Delete/{id}`, begge per spiller, med lenker fra spillerlista på `/Admin/Players`),
-Identity Benchmarking, og **succession planning** — trenernes Excel-ark som sider i appen
-(se under).
+perioder, **kontoer** (`/Admin/Users`: opprette, gi midlertidig passord, låse), GDPR-innsyn og
+-sletting i `AdminController` (`/Admin/Export/{id}` og `/Admin/Delete/{id}`, begge per
+spiller, med lenker fra spillerlista på `/Admin/Players`), Identity Benchmarking, og
+**succession planning** — trenernes Excel-ark som sider i appen (se under).
 
-**Fortsatt TODO:** samtykkeskjemaet for foresatte, og brukeradministrasjon i
-`AdminController`. Samtykkesiden finnes på `/Guardian/Consent/{id}`, men ingenting lenker
+**Fortsatt TODO:** samtykkeskjemaet for foresatte, og siden for lag i `AdminController`.
+Samtykkesiden finnes på `/Guardian/Consent/{id}`, men ingenting lenker
 dit, og nivået som velges, styrer ingenting — se A1 og A2 i
 [`docs/sikt-melding.md`](docs/sikt-melding.md).
 
@@ -260,14 +260,15 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ CoachController.cs        5C for treneren: alle lag, ett lag, én spiller
 │  ├─ PlayerController.cs       spiller ser egne svar
 │  ├─ GuardianController.cs     foresatt ser eget barn
-│  ├─ AdminController.cs        perioder, spillere, innsyn og sletting
+│  ├─ AdminController.cs        kontoer, perioder, spillere, innsyn og sletting
 │  ├─ IdentityController.cs     Identity Benchmarking
 │  ├─ SuccessionController.cs   succession planning
 │  └─ HelpController.cs         hjelpesiden: hvordan tallene skal leses
 ├─ Commands/                    engangskommandoene: create-admin, export- og import-players
 ├─ Areas/Identity/Pages/        vår egen innloggingsside; resten er Identity UI-pakkens
 ├─ Authorization/               policyer, krav og handlere
-├─ Security/                    sikkerhetshoder og CSP, rate limiting, stengt registrering
+├─ Security/                    sikkerhetshoder og CSP, rate limiting, stengt registrering,
+│                               midlertidige passord
 ├─ Contracts/FiveC/             det 5C-skjemaet sender inn, i C# og TypeScript
 ├─ Models/                      entiteter, enums og PlayerRules
 ├─ Data/
@@ -625,9 +626,11 @@ bruker, og da logges alle ut.
 - [ ] De ekte spillerne ligger fortsatt i den gamle Supabase-databasen. De flyttes med
       `export-players` og `import-players`, og Supabase slås av etterpå
 - [x] Selvregistrering stengt — kontoer opprettes av klubben. Den første administratoren i en
-      ny database lages med `create-admin`. Admin-siden som oppretter resten er fortsatt TODO
-      i `AdminController.Users`, og til den finnes har verken spillere, foresatte eller
-      trenere kontoer i hoveddatabasen
+      ny database lages med `create-admin`, og resten på `/Admin/Users`: trenere,
+      administratorer, spillere og foresatte, med et midlertidig passord som må byttes ved
+      første innlogging. Se [`docs/user-administration.md`](docs/user-administration.md)
+- [ ] Kontoene til spillere og foresatte i hoveddatabasen trenger e-postadresser fra klubben.
+      Det er nye personopplysninger, og må med i informasjonen til de registrerte
 - [x] `AllowedHosts` er ikke lenger `*`. `appsettings.json` slipper bare gjennom lokale navn,
       `appsettings.Development.json` beholder `*` for utvikling, og produksjon setter det
       faktiske vertsnavnet i miljøet (`AllowedHosts=…`). Står den likevel på `*` utenfor
@@ -646,13 +649,14 @@ bruker, og da logges alle ut.
       revisjonsloggen. Klubben bør bekrefte at det er slik de vil ha det
 - [ ] Foresatt ser det samme som spilleren, også for myndige spillere over 19. Vurder om
       det burde følge `PlayerRules.GuardianRequiredBelowAge`
-- [ ] Regelen om foresatt for spillere under 19 håndheves i seed-data, men ikke ennå
-      ved registrering i `AdminController`
-- [ ] Appen sender ikke e-post: ingen `IEmailSender` er registrert, så Identity bruker en
-      avsender som ikke sender noe. «Forgotten your password?» på innloggingssiden og
-      e-postbytte under «My account» ser derfor ut til å virke, men gjør det ikke, og
-      siden der admin kunne satt nytt passord, er ikke bygget. Koble på e-post, eller fjern
-      lenken og bygg admin-siden
+- [x] Regelen om foresatt for spillere under 19 håndheves når kontoer opprettes: en spiller
+      under 19 får ikke konto før en foresatt er registrert, og den siste foresatte kan ikke
+      fjernes (`AccountAdministration`). Spillere uten konto, som de som kommer inn med
+      `import-players`, har ingen foresatt før noen registrerer en
+- [~] Appen sender ikke e-post: ingen `IEmailSender` er registrert. Glemt passord er løst uten
+      e-post: en administrator gir kontoen et nytt midlertidig passord, lenken på
+      innloggingssiden er borte, og sidene for «glemt passord» er stengt. Det som gjenstår, er
+      e-postbytte under «My account», som fortsatt ser ut til å virke uten å gjøre det
 - [ ] `TempData` legger en fjerde cookie, `.AspNetCore.Mvc.CookieTempDataProvider`, med
       kvitteringsmeldinger som navngir spilleren. Den er kryptert, men har ikke fått navn
       og herding som de to andre, og mangler i cookie-oversikten i Sikt-meldingen

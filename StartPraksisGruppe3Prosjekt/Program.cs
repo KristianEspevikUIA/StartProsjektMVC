@@ -220,6 +220,11 @@ builder.Services.AddScoped<IPeriodSelection, PeriodSelection>();
 // et navn lagres om en spiller -- se PlayerPersonalDetails og docs/player-welcome.md.
 builder.Services.AddScoped<IPlayerWelcomeService, PlayerWelcomeService>();
 
+// Kontoene: opprette, gi nytt midlertidig passord, låse. Selvregistrering er stengt og appen
+// sender ikke e-post, så dette er den eneste veien inn for andre enn den første
+// administratoren. Se AccountAdministration og docs/user-administration.md.
+builder.Services.AddScoped<IAccountAdministration, AccountAdministration>();
+
 // Spiller- og foresattsiden. Bygger begge, slik at avgjørelsen om hva som skal skjules
 // før treneren har frigitt, tas ett sted og ikke i to views.
 builder.Services.AddScoped<IFiveCFeedbackBuilder, FiveCFeedbackBuilder>();
@@ -323,6 +328,12 @@ app.UseRouting();
 app.UseRateLimiter();
 
 app.UseAuthentication();
+
+// En konto med midlertidig passord kommer ingen andre steder enn til siden der passordet
+// byttes. Etter autentiseringen, så kontoen er kjent, og før autorisasjonen, så det gjelder
+// uansett rolle. Se Security/TemporaryPassword.cs.
+app.UseTemporaryPasswordGate();
+
 app.UseAuthorization();
 
 app.MapControllerRoute(

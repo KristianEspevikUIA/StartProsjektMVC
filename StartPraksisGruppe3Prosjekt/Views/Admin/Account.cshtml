@@ -1,0 +1,203 @@
+@model AdminAccountViewModel
+@{
+    ViewData["Title"] = "Account";
+    ViewData["FullWidth"] = true;
+
+    var account = Model.Account;
+    var message = TempData["AdminMessage"] as string;
+    var isLocked = account.State == AccountState.Locked;
+}
+
+@*
+    One account. What it is tied to, and the three things an administrator can do with it:
+    hand out a new temporary password, lock or unlock it, and -- for a guardian -- say which
+    players it may see.
+
+    The title says "Account" and not the address: the title ends up in the browser's history.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <a class="sc-hero__back" asp-action="Users">← Accounts</a>
+
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">@string.Join(", ", account.Roles.Select(Roles.DisplayName))</p>
+        <h1>@account.Email</h1>
+        <div class="sc-hero__meta">
+            <span>@AdminAccountViewModel.Describe(account.State)</span>
+            @if (Model.IsOwnAccount)
+            {
+                <span>This is the account you are signed in with</span>
+            }
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <section class="sc-section">
+            <div class="sc-notice" role="status"><p>@message</p></div>
+        </section>
+    }
+
+    @if (account.State == AccountState.TemporaryPassword)
+    {
+        <section class="sc-section">
+            <div class="sc-notice sc-notice--info" role="status">
+                <p>
+                    This account still has the temporary password it was given. The person has
+                    not signed in and chosen their own yet. If the password is lost, hand out
+                    a new one below.
+                </p>
+            </div>
+        </section>
+    }
+    else if (account.State == AccountState.TooManyAttempts)
+    {
+        <section class="sc-section">
+            <div class="sc-notice sc-notice--warn" role="status">
+                <p>
+                    Too many wrong passwords were tried, and the account is closed for a few
+                    minutes. It opens again by itself. A new temporary password opens it now.
+                </p>
+            </div>
+        </section>
+    }
+
+    @if (account.Player is { } player)
+    {
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>The player</h2>
+            <p class="sc-lead">
+                This is the account of <span class="sc-code">@player.Name</span> (@player.TeamName).
+                It shows that player their own answers, and nobody else's.
+                <a asp-action="PlayerDetails" asp-route-id="@player.PlayerId">Name and photo</a>
+            </p>
+        </section>
+    }
+
+    @if (Model.IsGuardian)
+    {
+        <section class="sc-section">
+            <div class="sc-rule"></div>
+            <h2>Guardian of</h2>
+
+            @if (account.GuardianOf.Count == 0)
+            {
+                <div class="sc-notice sc-notice--warn" role="status">
+                    <p>Nobody. This account can sign in, and sees nothing.</p>
+                </div>
+            }
+            else
+            {
+                <div class="sc-table-wrap">
+                    <table class="sc-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Player</th>
+                                <th scope="col">Team</th>
+                                <th scope="col"><span class="visually-hidden">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var child in account.GuardianOf)
+                            {
+                                <tr>
+                                    <td class="sc-code">@child.Name</td>
+                                    <td class="sc-small">@child.TeamName</td>
+                                    <td>
+                                        <form asp-action="RemoveGuardianLink" asp-route-id="@account.UserId" method="post">
+                                            <input type="hidden" name="playerId" value="@child.PlayerId" />
+                                            <button type="submit" class="sc-btn sc-btn--secondary">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @if (Model.OtherPlayers.Count > 0)
+            {
+                <div class="sc-card sc-card--top sc-mt">
+                    <form asp-action="AddGuardianLink" asp-route-id="@account.UserId" method="post">
+                        <div class="sc-form-row">
+                            <div class="sc-form-field">
+                                <label class="sc-label" for="add-player">Also guardian of</label>
+                                <select class="sc-select" id="add-player" name="playerId" required>
+                                    <option value="">Choose a player</option>
+                                    @foreach (var other in Model.OtherPlayers)
+                                    {
+                                        <option value="@other.PlayerId">@other.TeamName · @other.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="sc-form-field">
+                                <button type="submit" class="sc-btn sc-btn--secondary">Add</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            }
+        </section>
+    }
+
+    <section class="sc-section">
+        <div class="sc-rule"></div>
+        <h2>Password</h2>
+
+        @if (Model.IsOwnAccount)
+        {
+            <p class="sc-lead">
+                Change your own password under
+                <a asp-area="Identity" asp-page="/Account/Manage/ChangePassword">My account</a>.
+            </p>
+        }
+        else
+        {
+            <p class="sc-lead">
+                A new temporary password replaces the one the account has now, and signs it out
+                wherever it is signed in. You are shown it once, and the person has to choose
+                their own the next time they sign in. This is also what to do when somebody has
+                forgotten their password.
+            </p>
+
+            <form asp-action="IssuePassword" asp-route-id="@account.UserId" method="post">
+                <button type="submit" class="sc-btn sc-btn--secondary">New temporary password</button>
+            </form>
+        }
+    </section>
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>@(isLocked ? "Unlock" : "Lock")</h2>
+
+        @if (isLocked)
+        {
+            <p class="sc-lead">The account is locked and cannot sign in. Unlocking it does not change its password.</p>
+
+            <form asp-action="UnlockAccount" asp-route-id="@account.UserId" method="post">
+                <button type="submit" class="sc-btn sc-btn--secondary">Unlock the account</button>
+            </form>
+        }
+        else if (Model.IsOwnAccount)
+        {
+            <p class="sc-lead">You cannot lock the account you are signed in with.</p>
+        }
+        else
+        {
+            <p class="sc-lead">
+                For somebody who has left the club, or an account that should not be used for
+                now. Nothing is deleted: what the account did stays in the logs, and it can be
+                unlocked again.
+            </p>
+
+            <form asp-action="LockAccount" asp-route-id="@account.UserId" method="post">
+                <button type="submit" class="sc-btn sc-btn--secondary">Lock the account</button>
+            </form>
+        }
+    </section>
+</div>

@@ -309,7 +309,11 @@ Kommandoen kan kjøres flere ganger. Den legger til og oppdaterer, og sletter al
 Logg inn som administratoren, se at spillerne står med bilde på `/Admin/Players`, og lag den
 første perioden på `/Admin/Periods`. Uten en periode har ingen noe skjema å svare på.
 
-Slett så eksportmappa fra appserveren.
+Opprett så kontoene på `/Admin/Users`: trenerne først, deretter foresatte og spillere når
+klubben har e-postadressene. Hver konto får et midlertidig passord som vises én gang og må
+byttes ved første innlogging. Se [`docs/user-administration.md`](user-administration.md).
+
+Slett til slutt eksportmappa fra appserveren.
 
 ### Til Start har serveren klar
 
@@ -452,7 +456,8 @@ Når hoveddatabasen er opprettet, spillerne importert (steg 7 over) og tallene s
 
 - *Databaseeieren* (`startcompass_owner`): migrasjoner og backup. Få personer.
 - *App-rollen* (`startcompass_app`): bare appen.
-- *Administratorene i appen*: ser alle spillere. Oppslag på enkeltspillere logges.
+- *Administratorene i appen*: ser alle spillere, og oppretter og låser kontoer. Oppslag på
+  enkeltspillere logges.
 
 Utviklere trenger ikke tilgang til hoveddatabasen for å utvikle, og skal ikke ha den.
 
@@ -462,9 +467,10 @@ kommandoen. En spiller som finnes fra før (samme navn), får lag, posisjon og f
 fila. Importen sletter aldri. **En spiller fjernes bare med `/Admin/Delete/{id}`**, som også
 sletter alt som er lagret om spilleren og logger slettingen.
 
-**Kontoer for spillerne og ekte foresatte mangler.** De krever brukeradministrasjonen
-(`AdminController.Users`, ikke bygget) og kontaktopplysninger fra klubben. Til da kan bare
-administratoren logge inn.
+**Kontoer** opprettes av en administrator på `/Admin/Users`, for trenere, spillere og
+foresatte. Importen lager ingen. Spillernes og de foresattes kontoer krever e-postadresser
+fra klubben, og en spiller under 19 får ikke konto før en foresatt er registrert. Se
+[`docs/user-administration.md`](user-administration.md).
 
 **Ny migrasjon.** Lag skriptet fra samme commit som appversjonen som skal ut, og kjør det før
 den nye versjonen startes. Se [«Kjøre migrasjonene»](#kjøre-migrasjonene).

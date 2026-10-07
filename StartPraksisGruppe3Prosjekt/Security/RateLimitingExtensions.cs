@@ -94,8 +94,15 @@ public static class RateLimitingExtensions
     /// <summary>
     /// Alt som postes mot Identity: innlogging, registrering, glemt passord,
     /// tofaktor. Vanlige GET-visninger av de samme sidene rammes ikke.
+    ///
+    /// Kontosidene under /Identity/Account/Manage er ikke med. De krever at man allerede er
+    /// innlogget, så en POST dit er ikke et forsøk på å komme inn. Det gjelder også
+    /// passordbyttet en ny konto må gjennom ved første innlogging: talte det med her, kostet
+    /// hver ny bruker to av de ti forsøkene, og et lag som logger inn fra samme nett, stoppet
+    /// etter fem. Passordbyttet har sin egen grense (RateLimitPolicies.Sensitive).
     /// </summary>
     private static bool IsAuthenticationAttempt(HttpContext context)
         => HttpMethods.IsPost(context.Request.Method)
-           && context.Request.Path.StartsWithSegments("/Identity/Account");
+           && context.Request.Path.StartsWithSegments("/Identity/Account")
+           && !context.Request.Path.StartsWithSegments("/Identity/Account/Manage");
 }
