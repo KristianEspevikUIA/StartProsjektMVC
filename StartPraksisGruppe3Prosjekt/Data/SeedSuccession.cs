@@ -12,7 +12,8 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///
 /// ALT ER OPPDIKTET, som resten av seedingen. Arbeidsboka trenerne leverte har ekte navn på
 /// ekte spillere, de fleste mindreårige, og ingenting fra den er her -- bare formen på den.
-/// Spillerne er de oppdiktede fra SeedData, tekstene er skrevet for denne fila og nevner ingen.
+/// Spillerne er de oppdiktede fra SeedData, og BARE dem: en ekte spiller i basen får ingen
+/// vurdering herfra. Tekstene er skrevet for denne fila og nevner ingen.
 ///
 /// Hva dataene er laget for å vise:
 ///   * Sammenligning. Tre trenere, og de er ikke enige: én er rausere, én strengere, og noen
@@ -62,11 +63,16 @@ internal static class SeedSuccession
             raters.Add(await SeedData.EnsureUserAsync(userManager, email, password, Roles.Coach));
         }
 
-        var players = await db.Players
-            .AsNoTracking()
-            .Include(p => p.Team)
-            .OrderBy(p => p.Id)
-            .ToListAsync();
+        // Bare de oppdiktede spillerne får oppdiktede vurderinger og kontraktsopplysninger. En
+        // ekte spiller i basen -- fra Data/Squads eller import-players -- står uten til en trener
+        // har vurdert hen.
+        var players = (await db.Players
+                .AsNoTracking()
+                .Include(p => p.Team)
+                .OrderBy(p => p.Id)
+                .ToListAsync())
+            .Where(p => SeedData.IsFictional(p.Name))
+            .ToList();
 
         await SeedProfilesAsync(db, players, mainCoach.Id);
 

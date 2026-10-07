@@ -136,9 +136,10 @@ Meldingen står sist i loggen og sier hva som mangler.
 ### De ekte troppene i utvikling
 
 `Data/Squads/` (git-ignorert) kan holde en `squads.json` med bilder. Finnes den, legger
-seedingen spillerne derfra inn i stedet for de oppdiktede. Se
-[`docs/player-welcome.md`](player-welcome.md). Mappa følger aldri med i git, og heller ikke i
-`dotnet publish`.
+seedingen spillerne derfra inn i stedet for de oppdiktede, med fornavn og bilde og ikke noe
+mer. Det lages aldri oppdiktede kontoer, foresatte, samtykker, svar eller vurderinger for en
+ekte spiller. Se [`docs/player-welcome.md`](player-welcome.md). Mappa følger aldri med i git,
+og heller ikke i `dotnet publish`.
 
 ---
 

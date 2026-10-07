@@ -93,9 +93,14 @@ Forhåndsvisningen for admin sendes med `no-store`.
 - **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
   bilde for G14, G15, G17 og G19 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert
   og heller ikke følger med i `dotnet publish`.
-  Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
-  fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
-  som en opplasting på admin-siden.
+  Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med fornavn og bilde i Development, og
+  sletter de oppdiktede. Bildene går gjennom samme kontroll som en opplasting på admin-siden.
+- **Ingen oppdiktede opplysninger om ekte spillere.** En ekte spiller i en utviklingsbase er en
+  spillerrad med fornavn og bilde, og ikke noe mer: ingen konto, ingen foresatt, ikke noe
+  samtykke, og ingen svar eller vurderinger fra seedingen. Det er det samme som
+  `import-players` gir i hoveddatabasen. Demodataene lages bare om de oppdiktede spillerne, og
+  forsvinner sammen med dem når de ekte troppene legges inn. Skal en ekte spiller kunne logge
+  inn og se velkomsten, lager en administrator kontoen på `/Admin/Users`.
 - **Demodata:** uten den fila gir `Data/SeedWelcome.cs` de oppdiktede spillerkontoene fornavn,
   og ingen bilder.
 

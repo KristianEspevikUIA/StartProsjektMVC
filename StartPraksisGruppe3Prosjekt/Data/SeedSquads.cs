@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Services;
 
@@ -18,13 +17,16 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// som før.
 ///
 /// Når fila finnes, ERSTATTER troppene de oppdiktede:
-///   * Hver spiller i fila får en spillerrad, en konto utledet av navnet
-///     (spiller.leon.enger@ikstart.example), og fornavn og bilde til velkomsten. Spillere under
-///     PlayerRules.GuardianRequiredBelowAge får en foresatt, oppdiktet som før; de eldste på
-///     G19 er over grensen og får ingen.
+///   * Hver spiller i fila får en spillerrad, og fornavn og bilde til velkomsten. IKKE NOE MER.
+///     Ingen konto, ingen foresatt, ikke noe samtykke, og ingen svar eller vurderinger: alt
+///     slikt ville vært oppdiktede opplysninger om en virkelig person. De ekte spillerne ser
+///     derfor ut i utvikling som de gjør i hoveddatabasen rett etter import-players. Trenger
+///     en av dem en konto, lager en administrator den på Admin/Users.
 ///   * De oppdiktede spillerne i SeedData.Squads slettes, med alt som henger på dem, og
 ///     kontoene deres. Det skjer etter at de ekte er lagt inn, så en oppstart som stopper
-///     halvveis aldri etterlater et lag uten spillere.
+///     halvveis aldri etterlater et lag uten spillere. Demodataene (svar, vurderinger,
+///     spillerkontoer) hører til de oppdiktede spillerne og går med dem; demokontoene for
+///     administrator og trenere blir stående.
 ///
 /// Idempotent per spiller, som resten av seedingen. En spiller som finnes, får lag, posisjon og
 /// fødselsdato fra fila -- en spiller som har rykket opp, flytter med. Fornavn og bilde legges
@@ -176,7 +178,6 @@ internal static class SeedSquads
         IHostEnvironment environment,
         IReadOnlyDictionary<string, Team> teams,
         SquadFile squads,
-        string password,
         ILogger logger)
     {
         var admin = await userManager.FindByEmailAsync("admin@ikstart.example")
@@ -188,7 +189,6 @@ internal static class SeedSquads
             squads,
             FolderIn(environment),
             admin.Id,
-            (teamId, member) => AddPlayerAsync(db, userManager, teamId, member, password),
             logger);
 
         if (changes.Created + changes.Updated + changes.Photos > 0)
@@ -208,13 +208,12 @@ internal static class SeedSquads
     }
 
     /// <summary>
-    /// Legger spillerne i fila inn i databasen: en spiller som mangler, legges til med
-    /// <paramref name="addPlayer"/>; en som finnes, får lag, posisjon og fødselsdato fra fila; og
-    /// fornavn og bilde legges inn der de mangler. Ingenting slettes, og et fornavn eller bilde som
-    /// finnes fra før, blir stående.
+    /// Legger spillerne i fila inn i databasen: en spiller som mangler, legges til; en som
+    /// finnes, får lag, posisjon og fødselsdato fra fila; og fornavn og bilde legges inn der de
+    /// mangler. Ingenting slettes, og et fornavn eller bilde som finnes fra før, blir stående.
     ///
-    /// Hvordan en ny spiller legges til, er det eneste som skiller de to som kaller: seedingen
-    /// lager konto, foresatt og samtykke rundt spilleren, import-players bare spillerraden.
+    /// Seedingen og import-players gjør nøyaktig det samme her. En ny spiller er en spillerrad
+    /// og ikke noe mer -- se <see cref="AddPlayerAsync"/>.
     /// </summary>
     /// <param name="folder">Mappa fila ble lest fra. Bildene ligger relativt til den.</param>
     /// <param name="updatedBy">Hva som står som «endret av» på fornavn og bilde.</param>
@@ -224,7 +223,6 @@ internal static class SeedSquads
         SquadFile squads,
         string folder,
         string updatedBy,
-        Func<int, SquadFilePlayer, Task<Player>> addPlayer,
         ILogger logger)
     {
         var photoSource = PhotoSourceOf(squads);
@@ -263,7 +261,7 @@ internal static class SeedSquads
                 }
                 else
                 {
-                    player = await addPlayer(teamId, member);
+                    player = await AddPlayerAsync(db, teamId, member);
                     byCode[member.Name] = player;
                     created++;
                 }
@@ -296,54 +294,22 @@ internal static class SeedSquads
     private static string PhotoSourceOf(SquadFile squads) => $"{squads.Source}, {squads.FetchedOn:yyyy-MM-dd}";
 
     /// <summary>
-    /// Spilleren, kontoen, den oppdiktede foresatte og samtykket -- det samme en oppdiktet spiller
-    /// fikk i SeedData. En foresatt bare under aldersgrensen, som regelen i
-    /// <see cref="PlayerRules.GuardianRequiredBelowAge"/>: en foresatt med innsyn i en voksen
-    /// spillers svar er like galt som en mindreårig uten. Uten foresatt setter spilleren samtykket selv.
+    /// Bare spillerraden. Ingen konto, ingen foresatt og ikke noe samtykke: de finnes ikke for de
+    /// ekte spillerne før noen har opprettet dem på ordentlig, og verken seedingen eller importen
+    /// dikter opp noen.
     /// </summary>
-    private static async Task<Player> AddPlayerAsync(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        int teamId,
-        SquadFilePlayer member,
-        string password)
+    private static async Task<Player> AddPlayerAsync(AppDbContext db, int teamId, SquadFilePlayer member)
     {
-        var userId = await SeedData.EnsureUserAsync(
-            userManager, SeedData.PlayerEmail(member.Name), password, Roles.Player);
-
         var player = new Player
         {
             Name = member.Name,
             TeamId = teamId,
             BirthDate = member.BirthDate,
-            Position = member.Position,
-            UserId = userId
+            Position = member.Position
         };
 
         db.Players.Add(player);
         await db.SaveChangesAsync();
-
-        string? guardianUserId = null;
-
-        if (player.AgeAt(DateOnly.FromDateTime(DateTime.UtcNow)) < PlayerRules.GuardianRequiredBelowAge)
-        {
-            guardianUserId = await SeedData.EnsureUserAsync(
-                userManager, SeedData.GuardianEmail(member.Name), password, Roles.Guardian);
-
-            db.Guardianships.Add(new Guardianship
-            {
-                PlayerId = player.Id,
-                GuardianUserId = guardianUserId
-            });
-        }
-
-        db.ConsentEvents.Add(new ConsentEvent
-        {
-            PlayerId = player.Id,
-            Level = ConsentLevel.Full,
-            ChangedByUserId = guardianUserId ?? userId,
-            OccurredAt = DateTimeOffset.UtcNow.AddDays(-30)
-        });
 
         return player;
     }

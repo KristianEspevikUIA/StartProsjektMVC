@@ -290,30 +290,9 @@ internal static class PlayerTransfer
 
         await db.SaveChangesAsync();
 
-        var changes = await SeedSquads.ApplyAsync(
-            db,
-            teams,
-            squads,
-            folder,
-            ImportedBy,
-            async (teamId, member) =>
-            {
-                // Bare spillerraden. Ingen konto, ingen foresatt og ikke noe samtykke: de finnes
-                // ikke ennå for de ekte spillerne, og importen dikter ikke opp noen.
-                var player = new Player
-                {
-                    Name = member.Name,
-                    TeamId = teamId,
-                    BirthDate = member.BirthDate,
-                    Position = member.Position
-                };
-
-                db.Players.Add(player);
-                await db.SaveChangesAsync();
-
-                return player;
-            },
-            logger);
+        // Bare spillerraden, fornavnet og bildet. Ingen konto, ingen foresatt og ikke noe samtykke:
+        // de finnes ikke ennå for de ekte spillerne, og importen dikter ikke opp noen.
+        var changes = await SeedSquads.ApplyAsync(db, teams, squads, folder, ImportedBy, logger);
 
         await transaction.CommitAsync();
 

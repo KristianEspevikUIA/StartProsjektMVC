@@ -142,7 +142,11 @@ To spillere har med vilje **ingen** konto (Tobias Moe og Kasper Solberg). Det er
 tilstand fra «har ikke svart», og begge skal virke.
 
 Finnes `Data/Squads/squads.json` (git-ignorert), legges troppene derfra inn i stedet for de
-oppdiktede. Se [`docs/player-welcome.md`](docs/player-welcome.md).
+oppdiktede: spilleren med fornavn og bilde, og ikke noe mer. Seedingen lager aldri en konto, en
+foresatt, et samtykke, et svar eller en vurdering for en ekte spiller. Demokontoene for
+spillere og foresatte, og alle demosvarene, hører til de oppdiktede spillerne og forsvinner
+med dem. Administrator- og trenerkontoene blir stående. Se
+[`docs/player-welcome.md`](docs/player-welcome.md).
 
 ---
 

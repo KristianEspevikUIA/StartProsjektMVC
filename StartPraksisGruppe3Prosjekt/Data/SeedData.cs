@@ -19,6 +19,11 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// De ekte troppene fra ikstart.no ligger utenfor repoet, i den git-ignorerte Data/Squads/, og
 /// erstatter de oppdiktede når de er hentet. Se <see cref="SeedSquads"/>.
 ///
+/// DEMODATA LAGES BARE OM DE OPPDIKTEDE SPILLERNE. En ekte spiller i en utviklingsbase -- fra
+/// Data/Squads eller import-players -- får aldri en oppdiktet konto, foresatt, et samtykke, et
+/// svar eller en vurdering herfra. Stegene under som går gjennom spillerne, tar derfor bare
+/// dem <see cref="IsFictional"/> kjenner igjen.
+///
 /// Seedingen er idempotent: hvert steg hopper over seg selv hvis dataene finnes.
 ///
 /// BARE I DEVELOPMENT, og bare mot en database som er markert som utvikling. Skjemaet,
@@ -86,7 +91,7 @@ public static class SeedData
 
         if (squads is not null)
         {
-            await SeedSquads.SeedAsync(db, userManager, environment, teams, squads, password, logger);
+            await SeedSquads.SeedAsync(db, userManager, environment, teams, squads, logger);
         }
 
         await AssertGuardianRuleAsync(db, logger);
@@ -650,7 +655,10 @@ public static class SeedData
             .AsNoTracking()
             .ToListAsync();
 
+        // Bare de oppdiktede: dette er en kontroll av seed-dataene. De ekte spillerne har ingen
+        // foresatt før en administrator har opprettet en, og det er ikke seedingens feil.
         var missing = players
+            .Where(p => IsFictional(p.Name))
             .Where(p => p.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge)
             .Where(p => p.Guardianships.Count == 0)
             .Select(p => p.Name)
@@ -752,10 +760,13 @@ public static class SeedData
             .Select(s => (s.RoundId, s.PlayerId, s.RespondentUserId))
             .ToHashSet();
 
-        var players = await db.Players
-            .AsNoTracking()
-            .Include(p => p.Guardianships)
-            .ToListAsync();
+        // Bare de oppdiktede spillerne får oppdiktede svar. Se klassekommentaren.
+        var players = (await db.Players
+                .AsNoTracking()
+                .Include(p => p.Guardianships)
+                .ToListAsync())
+            .Where(p => IsFictional(p.Name))
+            .ToList();
 
         // The one coach answers about every team. See SeedUsersAndPlayersAsync.
         var normalizedCoachEmail = CoachEmail.ToUpperInvariant();

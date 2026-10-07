@@ -29,11 +29,15 @@ internal static class SeedWelcome
 
         var have = (await db.PlayerPersonalDetails.Select(d => d.PlayerId).ToListAsync()).ToHashSet();
 
-        var players = await db.Players
-            .AsNoTracking()
-            .Where(p => p.UserId != null)
-            .OrderBy(p => p.Id)
-            .ToListAsync();
+        // Bare de oppdiktede spillerne. En ekte spiller får fornavnet sitt fra Data/Squads,
+        // import-players eller en administrator -- ikke herfra.
+        var players = (await db.Players
+                .AsNoTracking()
+                .Where(p => p.UserId != null)
+                .OrderBy(p => p.Id)
+                .ToListAsync())
+            .Where(p => SeedData.IsFictional(p.Name))
+            .ToList();
 
         var added = 0;
 
