@@ -1,8 +1,8 @@
 # StartPraksisGruppe3Prosjekt
 
-Verktøy for IK Start. Spillere, trenere og foresatte svarer på de samme ti påstandene
-om rolleforståelse, trygghet og mestring. Systemet viser avviket mellom hva treneren
-*tror* spilleren svarer og hva spilleren *faktisk* svarer.
+StartCompass, et internt verktøy for IK Start. Spillere, foresatte og trenere svarer på de
+samme 25 påstandene om de fem C-ene, og systemet viser hvor bildene deres av samme spiller
+skiller seg. Trenerne har i tillegg Identity Benchmarking og succession planning.
 
 **Systemet behandler personopplysninger om mindreårige.** Det er premisset bak alle
 valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på til slutt.
@@ -20,9 +20,9 @@ filtre, treneroversikten med sammenligning og oppfølgingsvarsel, lagoversikten 
 kategori og påstand, utvikling over tid for både spiller og lag, søk i troppen, samtaleflyten
 mellom spiller og trener, spiller- og foresattsiden, revisjonsloggen, admin-siden for
 perioder, GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
-`/Admin/Delete/{id}`, begge per spiller — siden som lar admin plukke spiller er en del av
-brukeradministrasjonen og er ikke bygget ennå), Identity Benchmarking, og **succession
-planning** — trenernes Excel-ark som sider i appen (se under).
+`/Admin/Delete/{id}`, begge per spiller, med lenker fra spillerlista på `/Admin/Players`),
+Identity Benchmarking, og **succession planning** — trenernes Excel-ark som sider i appen
+(se under).
 
 **Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
 `Search` og `ScoringService`), samtykkeskjemaet for foresatte, og brukeradministrasjon i
@@ -62,10 +62,9 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-wes
 Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper
 appen med en melding som forklarer akkurat dette — det er ikke en bug.
 
-> **Satte du secreten før 09.09.2026, må du sette den på nytt.** User-secrets overstyrer
-> `appsettings.json` fullstendig, så en gammel secret kjører videre med `SSL Mode=Require` og
-> `Trust Server Certificate=true` uansett hva som står i repoet. Å starte appen tester derfor
-> ikke denne endringen — kommandoen over er det som gjør det.
+User-secrets erstatter hele strengen fra `appsettings.json`, den legges ikke oppå. Derfor skal
+hele strengen med, også `SSL Mode=VerifyFull`: en secret uten den kobler til uten å verifisere
+sertifikatet, uansett hva som står i repoet.
 
 **Stien må være full og bokstavelig.** Npgsql utvider ikke miljøvariabler, så
 `Root Certificate=%APPDATA%\Supabase\prod-ca-2021.crt` blir lest som en mappe som heter
@@ -133,19 +132,16 @@ inn som seg selv. Troppene står i `SeedData.Squads`.
 
 **Lagene er U14, U15 og U17**, de tre prosjektet gjelder, med fødselsdatoer etter årsklassene
 (U17 født 2009–2010, U15 2011, U14 2012). Alle spillerne er dermed mindreårige og har en
-foresatt. Demolagene het før Senior, G19 og G16; en base som ble seedet da, får lagene omdøpt
-og fødselsdatoene flyttet ved neste oppstart, og en foresatt der det mangler
-(`SeedData.SeedTeamsAsync`, `SeedUsersAndPlayersAsync`).
+foresatt.
 
 Spillerkontoen utledes av navnet: `Brage Kristoffersen` blir
 `spiller.brage.kristoffersen@ikstart.example`, med æ, ø og å skrevet ae, o og aa. Foresatte
 følger samme regel — `foresatt.isak.ronning@example.test` — bortsett fra de sju nummererte over,
 som er navngitt i troppen og beholdes som de er.
 
-Før het spillerne koder (`TS-08-16`, innlogging `spiller.ts0816@ikstart.example`). En base som
-ble seedet med kodene, døpes om på stedet ved neste oppstart
-(`SeedData.RenameCodedPlayersAsync`): spillerne får navnene, kontoene flyttes til de nye
-adressene, og svar og vurderinger blir der de var.
+En base som ble seedet før lagene og spillerne fikk disse navnene, rettes på stedet ved neste
+oppstart (`SeedData.SeedTeamsAsync`, `SeedUsersAndPlayersAsync` og `RenameCodedPlayersAsync`).
+Svar og vurderinger blir der de var.
 
 To spillere har med vilje **ingen** konto (Tobias Moe og Kasper Solberg). Det er en egen
 tilstand fra «har ikke svart», og begge skal virke.
@@ -161,15 +157,13 @@ og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen førs
 - EF Core 8, code-first, **Postgres i Supabase** (Npgsql)
 - ASP.NET Core Identity med roller
 
-Om rammeverkversjonen: maskinen som satte opp prosjektet har SDK 9.0.308 installert,
-men .NET 9 er STS. Nyeste LTS som faktisk kan bygges og kjøres her er .NET 8 (runtime
-8.0.22 er installert), og prosjektet står derfor på `net8.0`. Skal dere opp på .NET 10
-LTS senere, er det `<TargetFramework>` i csproj-filen pluss pakkeversjonene — men gjør
-det som en egen, samlet endring, ikke midt i en feature.
+Om rammeverkversjonen: prosjektet står på `net8.0` fordi .NET 8 er en LTS-utgave. Skal dere
+opp på .NET 10 LTS, er det `<TargetFramework>` i csproj-filen, pakkeversjonene og
+`dotnet-version` i `.github/workflows/ci.yml`. Gjør det som en egen, samlet endring, ikke
+midt i en feature.
 
 **Kode og identifikatorer på engelsk. Brukergrensesnittet er også på engelsk**, i tråd med
-StartCompass-nettstedet og wireframene. (Dette er en endring: tidligere sto det at all
-brukertekst skulle være på norsk. Views som ennå ikke er rørt, kan fortsatt være norske.)
+StartCompass-nettstedet og wireframene. README og dokumentasjonen i `docs/` skrives på norsk.
 
 ---
 
@@ -585,38 +579,52 @@ Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle s
 
 ```
 StartPraksisGruppe3Prosjekt/
+├─ Program.cs                   tjenester, pipeline og sjekkene som kjører ved oppstart
 ├─ Controllers/
+│  ├─ HomeController.cs         forside, personvern og feilsider (åpne uten innlogging)
+│  ├─ SurveyController.cs       skjemaliste, utfylling, lagring
 │  ├─ CoachController.cs        lagoversikt, søk, spillerdetalj
-│  ├─ GuardianController.cs     foresatt ser eget barn
 │  ├─ PlayerController.cs       spiller ser egne svar
-│  ├─ SurveyController.cs       runder, utfylling, lagring
-│  ├─ AdminController.cs        brukere, lag, GDPR
+│  ├─ GuardianController.cs     foresatt ser eget barn
+│  ├─ AdminController.cs        perioder, spillere, innsyn og sletting
 │  ├─ IdentityController.cs     Identity Benchmarking
-│  └─ SuccessionController.cs   succession planning
+│  ├─ SuccessionController.cs   succession planning
+│  └─ HelpController.cs         hjelpesiden: hvordan tallene skal leses
+├─ Areas/Identity/Pages/        vår egen innloggingsside; resten er Identity UI-pakkens
+├─ Authorization/               policyer, krav og handlere
+├─ Security/                    sikkerhetshoder og CSP, rate limiting, stengt registrering
+├─ Contracts/FiveC/             det 5C-skjemaet sender inn, i C# og TypeScript
 ├─ Models/                      entiteter, enums og PlayerRules
 ├─ Data/
 │  ├─ AppDbContext.cs
-│  ├─ Identity/                gold-standard.json (+ Matches/, git-ignorert)
-│  ├─ Succession/              succession-planning.json (lister, terskler, formasjoner)
 │  ├─ Migrations/
-│  ├─ SeedData.cs
-│  └─ SeedSuccession.cs         oppdiktede succession-vurderinger
+│  ├─ Questions/                five-c-questions.json (påstander og refleksjon)
+│  ├─ Identity/                 gold-standard.json (+ Matches/, git-ignorert)
+│  ├─ Succession/               succession-planning.json (lister, terskler, formasjoner)
+│  ├─ SeedData.cs               roller, lag, perioder og oppdiktede demodata
+│  ├─ SeedSuccession.cs         oppdiktede succession-vurderinger
+│  └─ SeedWelcome.cs            fornavn til velkomsten i demodataene
 ├─ Services/
 │  ├─ IScoringService.cs + ScoringService.cs
 │  ├─ IConsentService.cs + ConsentService.cs
 │  ├─ IPeriodService.cs + PeriodService.cs          perioder, én vei inn
+│  ├─ IPeriodSelection.cs + PeriodSelection.cs      valgt periode, husket i en cookie
 │  ├─ IFeedbackReleaseService.cs + …                trenerens frigivelse
 │  ├─ IPlayerAccessLog.cs + PlayerAccessLog.cs      revisjonsloggen
+│  ├─ PlayerWelcomeService.cs + PlayerPhotoRules.cs velkomsten: fornavn og bilde
 │  ├─ FiveC/                                        spørsmålskatalog, lagring, analyse
 │  ├─ Identity/                                     Gold Standard, status, snitt, innsikter
 │  └─ Succession/                                   lister, utregninger, lagring
-├─ Authorization/               policyer, krav og handlere
 ├─ ViewModels/
-├─ Views/                       Coach/ Guardian/ Player/ Survey/ Admin/ Succession/ Shared/
-└─ Program.cs
+├─ Views/                       én mappe per controller, pluss Shared/
+└─ wwwroot/
+   ├─ css/startcompass.css      all stil (CSP-en tillater ingen inline)
+   ├─ js/                       survey.js (skjema, faner, søk), lineup.js, site.js
+   └─ lib/                      Bootstrap, jQuery og jquery-validation, lokalt
 
-scripts/identity/extract_stats.py    StatsBomb-PDF → kampdata for Identity Benchmarking
-.github/workflows/ci.yml             build på push og pull request
+docs/                           én fil per funksjon, pluss utkastet til Sikt-melding
+scripts/identity/               StatsBomb-PDF → kampdata og foreløpige målområder
+.github/workflows/ci.yml        build på push og pull request
 ```
 
 ---
@@ -631,20 +639,6 @@ scripts/identity/extract_stats.py    StatsBomb-PDF → kampdata for Identity Ben
 | **Brage** | `GuardianController`, `PlayerController`, `ConsentService`, `SeedData` |
 
 Views-mappene følger controlleren: eier du `CoachController`, eier du `Views/Coach/`.
-
-**Rørt på tvers av eierskapet** under 5C-arbeidet, så ingen blir overrasket i en merge:
-`ConsentService.GetCurrentLevelsAsync` (Brage), `CoachController` og `Views/Coach/` (Taavi),
-`PlayerController` og `GuardianController` (Brage), `SurveyController` (Victor),
-`Views/Shared/_Layout.cshtml` (Taavi). De eldre ti-påstands-TODO-ene er urørt.
-
-**Rørt på tvers av eierskapet** under succession planning: menypunktet i
-`Views/Shared/_Layout.cshtml` (Taavi), `SeedData` (Brage: ett kall og tre hjelpere gjort
-`internal`), `IPlayerAccessLog` med `RecordManyAsync`, søkefilteret i `wwwroot/js/survey.js`
-(teller spillere og ikke rader), og en seksjon i `Views/Help/Index.cshtml` som bare vises for
-trenere og administratorer.
-
-**Rørt på tvers av eierskapet** under velkomsten: `PlayerController.Photo` (Brage),
-`HomeController` og `Views/Home/Index.cshtml`, og ett kall i `SeedData` (Brage).
 
 ### Migrations: bare én person genererer dem
 
@@ -679,16 +673,23 @@ sletter nettopp den dokumentasjonen.
 `AppDbContext.SaveChanges` kaster hvis noen prøver å endre eller slette en
 `ConsentEvent`. Det er ikke en bug. Bruk `IConsentService.RecordAsync`.
 
-### 2. Avviket (D) lagres aldri
+### 2. Avviket lagres aldri
 
-Avviket regnes ut fra råsvarene i `ScoringService`, hver gang. Det finnes ingen kolonne
-for det, og det skal ikke komme en heller.
+Avstanden mellom to respondenters svar regnes ut fra råsvarene hver gang en side vises. Det
+finnes ingen kolonne for den, og det skal ikke komme en heller. Det gjelder differanseskårene
+i 5C (`Services/FiveC/FiveCDifference.cs`) og avviket (D) i den eldre ti-påstandsvisningen
+(`ScoringService`, der utregningen fortsatt er TODO).
 
 Grunnen: et lagret avvik er en påstand om en mindreårig som blir liggende igjen etter at
 svarene er rettet, samtykket er trukket eller runden er over.
 
-Påstand nummer 5 er negativt formulert (`IsReversed = true`) og skåres som `6 - verdi`.
-Regelen bor i `ScoringService.ScoreOf` — bruk den, ikke skriv `6 -` andre steder.
+Negativt formulerte påstander skåres som `6 - verdi`, slik at høyt alltid betyr bra. Regelen
+bor ett sted per skjema, og `6 -` skal ikke skrives andre steder:
+
+- **5C:** `FiveCRules.Score`. Påstanden merkes `reversed: true` i `five-c-questions.json`.
+  Ingen av de 25 er merket i dag.
+- **De ti eldre påstandene:** `ScoringService.ScoreOf`. Nummer 5 er reversert
+  (`IsReversed = true`).
 
 ---
 
@@ -769,7 +770,8 @@ Svarene har en Content-Security-Policy uten `unsafe-inline`. I praksis:
 
 - `<script>alert(1)</script>` rett i en view kjører **ikke**. Legg JavaScript i en fil
   under `wwwroot/js/` og referer til den.
-- `<style>`-blokker og `style="..."`-attributter i markup blokkeres. Bruk `wwwroot/css/site.css`.
+- `<style>`-blokker og `style="..."`-attributter i markup blokkeres. All stil ligger i
+  `wwwroot/css/startcompass.css`.
   (JavaScript som setter `element.style.x` er fortsatt greit — det er Bootstrap avhengig av.)
 - Må du absolutt ha et inline-skript, gi det nonce-en for forespørselen:
 
@@ -818,10 +820,22 @@ Avviste forespørsler får `429` med `Retry-After` og logges med IP, metode og s
 `FallbackPolicy` i `Program.cs` krever innlogging på alle endepunkter som ikke sier noe
 annet. En ny controller uten `[Authorize]` er altså ikke åpen — den krever innlogging.
 Det som faktisk skal være åpent, må merkes `[AllowAnonymous]`, og i dag er det bare
-`HomeController` (forside, personvern, feilside).
+`HomeController` (forside, personvern og de to feilsidene).
 
 Fallbacken erstatter ikke `[Authorize(Roles = ...)]` og slett ikke de ressursbaserte
 policyene. Den sier bare «innlogget», ikke «innlogget som riktig person».
+
+### 404 og 403 har egen side
+
+Et tomt 4xx- eller 5xx-svar kjøres om igjen som `HomeController.Status`
+(`UseStatusCodePagesWithReExecute` i `Program.cs`), som viser `Views/Home/Status.cshtml` og
+beholder statuskoden. `Forbid()` svarer 403 på adressen det ble spurt etter, i stedet for å
+sende brukeren til Identity-pakkens `AccessDenied`-side.
+
+Fallbacken gjelder også adresser uten noe endepunkt bak. En ukjent adresse sender derfor en
+uinnlogget bruker til innlogging, og 404-siden kommer først etterpå. Uinnlogget ser man den
+bare på de stengte registreringsadressene. En følge er at svaret ikke røper hvilke adresser
+som finnes.
 
 ### Innloggingssiden er vår egen
 
@@ -830,8 +844,9 @@ grunner, og ingen av dem lot seg løse utenfra:
 
 - Pakkesiden er et bart Bootstrap-skjema som ikke ligner resten av appen, og markupen lar
   seg ikke restyle langt nok med CSS alene.
-- Den tilbyr «Register as a new user», som her er en lenke til 404 — selvregistrering er
-  stengt i middleware. En død lenke på innloggingssiden er det første nye brukere møter.
+- Pakkesiden tilbyr «Register as a new user», som her er en lenke til 404 — selvregistrering
+  er stengt i middleware. En død lenke på innloggingssiden er det første nye brukere møter.
+  Vår side har ikke lenken.
 
 `Areas/Identity/Pages/_ViewStart.cshtml` peker resten av Identity-sidene på vårt eget
 layout, så de arver header, footer og palett selv om de fortsatt er pakkens versjoner.
@@ -849,8 +864,8 @@ autorisasjonen bak er.
 
 Sidene stenges i middleware og ikke med en policy, fordi Identity UI-sidene har
 `[AllowAnonymous]` i selve pakken, og AllowAnonymous slår enhver policy vi legger på
-utenfra. Lenken «Register as a new user» står fortsatt på innloggingssiden og fører nå
-til 404; skal den bort, må siden scaffoldes.
+utenfra. Ingenting i appen lenker dit: innloggingssiden er vår egen og har ingen
+registreringslenke (se over).
 
 ### Cookies og hoder ellers
 
@@ -862,8 +877,11 @@ I tillegg: `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
 `Permissions-Policy` uten kamera/mikrofon/posisjon, COOP/CORP `same-origin`, og HSTS i ett
 år utenfor utvikling. Serverhodet er fjernet.
 
-Kjøres appen bak en proxy må `ForwardedHeaders` settes opp, ellers ser rate limiteren
-bare proxyens IP-adresse.
+Kjøres appen bak en proxy, må proxyens IP-adresse inn i `ForwardedHeaders:KnownProxies`
+(`appsettings.json` eller miljøet). `Program.cs` leser `X-Forwarded-For` og
+`X-Forwarded-Proto`, men bare fra adressene som står der, og ellers bare fra en proxy på
+samme maskin. Mangler oppføringen, ser rate limiteren bare proxyens IP-adresse, og
+HTTPS-omdirigeringen ser en http-forespørsel.
 
 ### Databasetilkoblingen verifiseres, ikke bare krypteres
 
