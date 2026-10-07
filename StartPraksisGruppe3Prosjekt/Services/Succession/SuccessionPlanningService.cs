@@ -115,7 +115,7 @@ public sealed class SuccessionPlanningService : ISuccessionPlanningService
             .AsNoTracking()
             .Include(p => p.Team)
             .Where(p => teamId == null || p.TeamId == teamId)
-            .OrderBy(p => p.Code)
+            .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
         var playerIds = players.Select(p => p.Id).ToList();

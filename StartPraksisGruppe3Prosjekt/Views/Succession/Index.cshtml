@@ -137,7 +137,7 @@
                 @if (Model.ContractsEnding.Count > 0)
                 {
                     <p class="sc-stat__note">
-                        <span class="sc-summary__codes">@string.Join(", ", Model.ContractsEnding.Take(6).Select(r => r.Player.Code))</span>@(Model.ContractsEnding.Count > 6 ? $" and {Model.ContractsEnding.Count - 6} more" : "")
+                        <span class="sc-summary__codes">@string.Join(", ", Model.ContractsEnding.Take(6).Select(r => r.Player.Name))</span>@(Model.ContractsEnding.Count > 6 ? $" and {Model.ContractsEnding.Count - 6} more" : "")
                     </p>
                 }
                 else
@@ -207,8 +207,8 @@
                             var c = row.Consensus;
                             <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
-                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                data-player-search="@row.Player.Name @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Name</a></td>
                                 <td class="sc-small">@row.Player.Team?.Name</td>
                                 @if (c is null)
                                 {
@@ -309,8 +309,8 @@
                             var widest = c?.Ratings.Max(r => r.Spread);
                             <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
-                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                data-player-search="@row.Player.Name @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Name</a></td>
                                 <td class="sc-small">@row.Player.Team?.Name</td>
                                 @foreach (var rating in settings.Ratings)
                                 {
@@ -366,8 +366,8 @@
                             var ending = Model.ContractsEnding.Contains(row);
                             <tr class="@(ending ? "sc-row--alert" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
-                                data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                data-player-search="@row.Player.Name @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
+                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Name</a></td>
                                 <td class="sc-small">@row.Player.Team?.Name</td>
                                 <td class="sc-small">@row.Player.BirthDate.Year</td>
                                 <td>
@@ -436,8 +436,8 @@
                             @foreach (var row in Model.Disagreements)
                             {
                                 var c = row.Consensus!;
-                                <tr data-player-row data-player-key="@row.Player.Id" data-player-search="@row.Player.Code @row.Player.Team?.Name">
-                                    <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
+                                <tr data-player-row data-player-key="@row.Player.Id" data-player-search="@row.Player.Name @row.Player.Team?.Name">
+                                    <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Name</a></td>
                                     <td class="sc-small">@row.Player.Team?.Name</td>
                                     <td class="sc-small"><partial name="_SuccessionRaters" model="Model.RatersOf(row)" /></td>
                                     <td>

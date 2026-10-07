@@ -51,9 +51,9 @@ public sealed class PeriodService : IPeriodService
         // is where 5C answers live -- and it may not be the database. See docs/five-c.md.
         //
         // One call for every period. This used to read every submission for every player,
-        // one period at a time: with the Supabase store that was two HTTP requests per
-        // period, dragging back twenty-five answers per respondent only to call .Count on
-        // the list. The store counts now, and nothing but the numbers comes back.
+        // one period at a time, dragging back twenty-five answers per respondent only to
+        // call .Count on the list. The store counts now, and nothing but the numbers comes
+        // back.
         return await _store.CountByRoundAsync(roundIds, cancellationToken);
     }
 

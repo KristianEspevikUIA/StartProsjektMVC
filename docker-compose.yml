@@ -1,0 +1,32 @@
+# Den lokale utviklingsdatabasen: PostgreSQL 17, samme hovedversjon som hoveddatabasen.
+#
+#     copy .env.example .env        (cp på macOS og Linux), og sett et passord i .env
+#     docker compose up -d
+#
+# Bare til utvikling, og bare oppdiktede data. Appen migrerer og fyller databasen selv første
+# gang den starter. Begynne på nytt:  docker compose down -v
+#
+# Se docs/database.md.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      # Brukeren og databasen appsettings.Development.json peker på.
+      POSTGRES_USER: startcompass
+      POSTGRES_DB: startcompass_dev
+      # Fra .env, som er git-ignorert. Uten den stopper compose her, med denne meldingen.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Sett POSTGRES_PASSWORD i .env. Se .env.example.}
+    ports:
+      # Bare fra denne maskinen. Uten 127.0.0.1 foran lytter databasen på hele nettet du er på.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - startcompass_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U startcompass -d startcompass_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  startcompass_dev_data:

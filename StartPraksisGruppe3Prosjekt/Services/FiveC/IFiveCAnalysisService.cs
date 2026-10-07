@@ -4,10 +4,9 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// Turns raw 5C answers into the per-category picture the coach overview draws: what the
 /// player, the guardian and the coach each said, and which categories need following up.
 ///
-/// Nothing here is stored. Every number is recalculated from the raw answers on request --
-/// the same rule <see cref="Services.IScoringService"/> follows for the ten-statement form,
-/// and for the same reason: a stored judgement about a minor stays behind after the answers
-/// are corrected, the consent is withdrawn or the round is over.
+/// Nothing here is stored. Every number is recalculated from the raw answers on request,
+/// and for a reason: a stored judgement about a minor stays behind after the answers are
+/// corrected, the consent is withdrawn or the round is over.
 ///
 /// This service does not check who is allowed to see anything. The caller runs CanViewPlayer
 /// per player first, exactly as CoachController.PlayerDetail does.

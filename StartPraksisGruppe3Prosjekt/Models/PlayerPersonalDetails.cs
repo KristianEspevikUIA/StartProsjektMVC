@@ -8,7 +8,7 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 ///
 /// Kept apart from <see cref="Player"/> on purpose. Everywhere else in the system -- the coach
 /// pages, the team lists, the succession board -- a player goes by the full name in
-/// <see cref="Player.Code"/>. The one other use of the first name is the coaches' best eleven,
+/// <see cref="Player.Name"/>. The one other use of the first name is the coaches' best eleven,
 /// which puts it on each shirt because the coaches asked for it (see SuccessionController's
 /// DisplayNamesAsync). Nothing reads this table except through IPlayerWelcomeService, so the
 /// photo cannot turn up on a page by accident.

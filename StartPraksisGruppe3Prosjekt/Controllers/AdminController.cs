@@ -158,7 +158,7 @@ public class AdminController : Controller
             User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
             cancellationToken);
 
-        TempData["AdminMessage"] = $"Name and photo for {player.Code} are saved.";
+        TempData["AdminMessage"] = $"Name and photo for {player.Name} are saved.";
 
         return RedirectToAction(nameof(PlayerDetails), new { id });
     }
@@ -276,8 +276,8 @@ public class AdminController : Controller
     }
 
     /// <summary>
-    /// Lag, trenerkoblinger og spillerlister.
-    /// TODO (Kristian): CRUD på Team og CoachTeam.
+    /// Lag og spillerlister.
+    /// TODO (Kristian): CRUD på Team.
     /// </summary>
     public IActionResult Teams()
     {
@@ -287,11 +287,11 @@ public class AdminController : Controller
     /// <summary>
     /// Innsyn: alt systemet har registrert om én spiller, som en nedlastbar JSON-fil.
     ///
-    /// Samler Player, Guardianships, Responses med Answers, FiveCSubmissions med sine svar
-    /// og sin refleksjon, hele ConsentEvent-historikken, revisjonsloggen, frigivelsene,
-    /// trenernes succession-vurderinger med kontraktsopplysningene, og fornavn og bilde til
-    /// velkomsten. Avviket er ikke med — det er ikke lagret, det regnes ut hver gang (se
-    /// ScoringService).
+    /// Samler Player, Guardianships, FiveCSubmissions med sine svar og sin refleksjon, hele
+    /// ConsentEvent-historikken, revisjonsloggen, frigivelsene, trenernes
+    /// succession-vurderinger med kontraktsopplysningene, og fornavn og bilde til velkomsten.
+    /// Avviket er ikke med — det er ikke lagret, det regnes ut hver gang (se
+    /// Services/FiveC/FiveCDifference).
     ///
     /// Oppslaget logges før dokumentet bygges. Et innsyn er nettopp den typen oppslag
     /// revisjonsloggen finnes for, og raden skal stå der også om nedlastingen ryker etterpå.
@@ -324,24 +324,6 @@ public class AdminController : Controller
             .Select(g => new { g.Id, g.GuardianUserId })
             .ToListAsync(cancellationToken);
 
-        var responses = await _db.Responses
-            .AsNoTracking()
-            .Where(r => r.PlayerId == id)
-            .OrderBy(r => r.Id)
-            .Select(r => new
-            {
-                r.Id,
-                r.RoundId,
-                r.Respondent,
-                r.RespondentUserId,
-                r.SubmittedAt,
-                Answers = r.Answers
-                    .OrderBy(a => a.Id)
-                    .Select(a => new { a.Id, a.ItemId, a.Value })
-                    .ToList()
-            })
-            .ToListAsync(cancellationToken);
-
         var submissions = await _db.FiveCSubmissions
             .AsNoTracking()
             .Where(s => s.PlayerId == id)
@@ -350,7 +332,6 @@ public class AdminController : Controller
             {
                 s.Id,
                 s.RoundId,
-                s.PlayerCode,
                 s.RespondentRole,
                 s.RespondentUserId,
                 s.QuestionSetVersion,
@@ -491,7 +472,6 @@ public class AdminController : Controller
         // endret et samtykke blir «Guardian 1» begge steder — ConsentEvent lagrer ingen rolle
         // og ville ellers gitt den samme personen to navn.
         foreach (var g in guardianships) people.For(g.GuardianUserId, Roles.Guardian);
-        foreach (var r in responses) people.For(r.RespondentUserId, r.Respondent.ToString());
         foreach (var s in submissions) people.For(s.RespondentUserId, RoleOfSubmission(s.RespondentRole));
         foreach (var f in feedbackReleases) people.For(f.CoachUserId, Roles.Coach);
         foreach (var a in successionAssessments) people.For(a.RaterUserId, Roles.Coach);
@@ -507,7 +487,7 @@ public class AdminController : Controller
             Player = new
             {
                 player.Id,
-                player.Code,
+                player.Name,
                 player.UserId,
                 player.TeamId,
                 player.BirthDate,
@@ -516,23 +496,11 @@ public class AdminController : Controller
             Guardianships = guardianships
                 .Select(g => new { g.Id, Guardian = people.For(g.GuardianUserId, Roles.Guardian) })
                 .ToList(),
-            Responses = responses
-                .Select(r => new
-                {
-                    r.Id,
-                    r.RoundId,
-                    r.Respondent,
-                    AnsweredBy = people.For(r.RespondentUserId, r.Respondent.ToString()),
-                    r.SubmittedAt,
-                    r.Answers
-                })
-                .ToList(),
             FiveCSubmissions = submissions
                 .Select(s => new
                 {
                     s.Id,
                     s.RoundId,
-                    s.PlayerCode,
                     s.RespondentRole,
                     AnsweredBy = people.For(s.RespondentUserId, RoleOfSubmission(s.RespondentRole)),
                     s.QuestionSetVersion,
@@ -627,7 +595,7 @@ public class AdminController : Controller
             WriteIndented = true
         });
 
-        return File(json, "application/json", $"player-{player.Code}-export.json");
+        return File(json, "application/json", $"player-{player.Name}-export.json");
     }
 
     /// <summary>
@@ -650,11 +618,11 @@ public class AdminController : Controller
     /// <summary>
     /// Sletting av en spiller og alt som hører til.
     ///
-    /// Cascade i databasen tar svar, 5C-innsendinger, samtykkelogg, foresattkoblinger,
-    /// revisjonslogg, frigivelser, succession-vurderingene med kontraktsopplysningene, og
-    /// fornavn og bilde til velkomsten.
-    /// Identity-brukeren håndteres for seg, i samme transaksjon, fordi den ligger utenfor
-    /// spillerens fremmednøkler.
+    /// Cascade i databasen tar 5C-innsendingene med svar og refleksjon, samtykkelogg,
+    /// foresattkoblinger, revisjonslogg, frigivelser, succession-vurderingene med
+    /// kontraktsopplysningene, og fornavn og bilde til velkomsten.
+    /// Identity-brukeren slettes for seg, i samme transaksjon: fremmednøkkelen fra spilleren
+    /// til kontoen går den andre veien, så kontoen blir ikke med i cascaden.
     ///
     /// Sporet av selve slettingen skrives til <see cref="PlayerDeletionEvent"/> og ikke til
     /// revisjonsloggen — se modellen for hvorfor.
@@ -680,7 +648,7 @@ public class AdminController : Controller
         // av for hånd fra siden foran, og en Caps Lock-tast skal ikke koste et nytt forsøk på
         // en irreversibel handling — det som skal stanses er å treffe feil spiller, ikke å
         // skrive «viljar holm».
-        if (!string.Equals(confirmCode?.Trim(), player.Code, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(confirmCode?.Trim(), player.Name, StringComparison.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(
                 nameof(AdminDeletePlayerViewModel.ConfirmCode),
@@ -725,7 +693,7 @@ public class AdminController : Controller
         // Koden, ikke et navn: det er den spilleren het i grensesnittet, og den sier
         // ingenting om hvem det var.
         TempData["AdminMessage"] =
-            $"Player \"{player.Code}\" and everything held about them has been deleted. "
+            $"Player \"{player.Name}\" and everything held about them has been deleted. "
             + "The deletion itself is logged.";
 
         return RedirectToAction(nameof(Index));
@@ -751,14 +719,10 @@ public class AdminController : Controller
         return new AdminDeletePlayerViewModel
         {
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             HasAccount = !string.IsNullOrWhiteSpace(player.UserId),
             GuardianshipCount = await _db.Guardianships
                 .CountAsync(g => g.PlayerId == id, cancellationToken),
-            ResponseCount = await _db.Responses
-                .CountAsync(r => r.PlayerId == id, cancellationToken),
-            AnswerCount = await _db.Answers
-                .CountAsync(a => a.Response!.PlayerId == id, cancellationToken),
             FiveCSubmissionCount = await _db.FiveCSubmissions
                 .CountAsync(s => s.PlayerId == id, cancellationToken),
             ReflectionAnswerCount = await _db.FiveCReflectionAnswers

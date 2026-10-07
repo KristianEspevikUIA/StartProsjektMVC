@@ -6,21 +6,19 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// Where submitted 5C forms go, and where the coach overview reads them back from.
 ///
 /// The interface exists so that the controllers and the analysis service never mention
-/// Supabase. Two implementations ship:
+/// where the answers are kept. Two implementations ship:
 ///
-///   <see cref="SupabaseSurveySubmissionStore"/>  -- the real one, posts to Supabase.
-///   <see cref="InMemorySurveySubmissionStore"/>  -- development fallback, used when
-///                                                   Supabase is not configured yet.
+///   <see cref="EfSurveySubmissionStore"/>        -- the real one: the application database.
+///   <see cref="InMemorySurveySubmissionStore"/>  -- writes nothing; for a demo.
 ///
-/// Which one is live is decided in Program.cs from configuration, not by a flag passed
-/// around in code. See appsettings.json, section "FiveC".
+/// Which one is live is decided in Program.cs from configuration (FiveC:Store), not by a
+/// flag passed around in code.
 /// </summary>
 public interface ISurveySubmissionStore
 {
     /// <summary>
-    /// A short name for whichever store is live, e.g. "Supabase". Shown to admins and
-    /// written to the log at startup, so nobody has to guess whether answers are actually
-    /// leaving the machine.
+    /// A short name for whichever store is live. Written to the log at startup, so nobody
+    /// has to guess whether answers are actually being kept.
     /// </summary>
     string Description { get; }
 

@@ -50,7 +50,7 @@ public class AdminPlayerDetailsViewModel
     public static AdminPlayerDetailsViewModel For(Player player, PersonalDetailsSummary? summary) => new()
     {
         PlayerId = player.Id,
-        Code = player.Code,
+        Code = player.Name,
         TeamName = player.Team?.Name,
         HasAccount = !string.IsNullOrWhiteSpace(player.UserId),
         FirstName = summary?.FirstName,

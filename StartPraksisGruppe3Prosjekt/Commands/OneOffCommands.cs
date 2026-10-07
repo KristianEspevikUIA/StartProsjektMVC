@@ -6,17 +6,25 @@ namespace StartPraksisGruppe3Prosjekt.Commands;
 /// <summary>
 /// Engangskommandoer: ting som gjøres mot databasen fra kommandolinja, og ikke fra en side.
 ///
-///     dotnet run --project StartPraksisGruppe3Prosjekt -- export-players --out &lt;mappe&gt;
-///     dotnet run --project StartPraksisGruppe3Prosjekt -- import-players --from &lt;mappe&gt;
+///     dotnet StartPraksisGruppe3Prosjekt.dll create-admin --email navn@klubben.no
+///     dotnet StartPraksisGruppe3Prosjekt.dll import-players --from &lt;mappe&gt;
+///     dotnet StartPraksisGruppe3Prosjekt.dll export-players --out &lt;mappe&gt;
+///
+/// (Fra kildekoden: dotnet run --project StartPraksisGruppe3Prosjekt -- create-admin ...)
 ///
 /// En kommando er det første argumentet som er et av navnene under. Program.cs spør her før
 /// oppstartssteget: en kommando verken migrerer eller seeder, gjør det ene den er til for, og
 /// avslutter uten at webserveren starter.
+///
+/// De to som skriver -- create-admin og import-players -- kjører bare mot en database som er
+/// tatt i bruk og markert for miljøet de kjøres i (se <see cref="DatabaseGuard"/>). Eksporten
+/// leser bare, og kan kjøres mot hvilken som helst database med denne versjonens tabeller.
 /// </summary>
 internal static class OneOffCommands
 {
     private static readonly string[] Names =
     {
+        CreateAdmin.Command,
         PlayerTransfer.ExportCommand,
         PlayerTransfer.ImportCommand
     };
@@ -41,16 +49,21 @@ internal static class OneOffCommands
 
         try
         {
-            return command.ToLowerInvariant() switch
+            switch (command.ToLowerInvariant())
             {
-                PlayerTransfer.ExportCommand =>
-                    await PlayerTransfer.ExportAsync(db, app.Environment, Option(args, "--out"), logger),
+                case CreateAdmin.Command:
+                    return await CreateAdmin.RunAsync(scope.ServiceProvider, app.Environment, Option(args, "--email"), logger);
 
-                PlayerTransfer.ImportCommand =>
-                    await PlayerTransfer.ImportAsync(db, app.Environment, Option(args, "--from"), logger),
+                case PlayerTransfer.ExportCommand:
+                    return await PlayerTransfer.ExportAsync(db, app.Environment, Option(args, "--out"), logger);
 
-                _ => throw new InvalidOperationException($"Ukjent kommando: {command}.")
-            };
+                case PlayerTransfer.ImportCommand:
+                    await DatabaseGuard.RequireMarkedAsAsync(db, DatabaseGuard.KindOf(app.Environment));
+                    return await PlayerTransfer.ImportAsync(db, app.Environment, Option(args, "--from"), logger);
+
+                default:
+                    throw new InvalidOperationException($"Ukjent kommando: {command}.");
+            }
         }
         catch (InvalidOperationException ex)
         {
@@ -64,8 +77,10 @@ internal static class OneOffCommands
         catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
         {
             logger.LogCritical(
-                "{Command} er stoppet: databasen har ikke tabellene appen trenger. Kommandoen migrerer " +
-                "ikke selv. Kjør migrasjonene først (dotnet ef database update), og prøv igjen.",
+                "{Command} er stoppet: databasen har ikke tabellene denne versjonen av appen bruker. " +
+                "Kommandoen migrerer ikke selv. Er dette en ny database, kjør migrasjonene først (se " +
+                "docs/database.md). Er det den gamle Supabase-databasen, har den en annen struktur: " +
+                "export-players mot den kjøres med versjonen av appen fra før den nye databasen.",
                 command);
 
             return 1;

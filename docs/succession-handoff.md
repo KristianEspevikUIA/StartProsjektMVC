@@ -167,10 +167,12 @@ spillerens eget bilde. Admin legger inn fornavn og bilde på `/Admin/Players`. T
 - **.NET i skycontaineren:** SDK-en er ikke installert på forhånd, og `dot.net`-skriptet blokkeres
   av proxyen. `apt-get install -y dotnet-sdk-8.0` virker. `dotnet-ef` installeres med
   `dotnet tool install --global dotnet-ef --version 8.0.11`.
-- **Kjøre appen uten Supabase:** `apt-get install -y postgresql`, start klyngen, sett et passord,
-  og kjør med
-  `ConnectionStrings__DefaultConnection="Host=localhost;Database=startcompass;Username=postgres;Password=…"`
-  og `ASPNETCORE_ENVIRONMENT=Development`. Migrasjoner og demodata kjører ved oppstart.
+- **Databasen:** `apt-get install -y postgresql`, start klyngen, sett et passord, lag en tom
+  database, og kjør med
+  `ConnectionStrings__DefaultConnection="Host=localhost;Database=startcompass_dev;Username=postgres;Password=…"`
+  og `ASPNETCORE_ENVIRONMENT=Development`. Migrasjoner og demodata kjører ved oppstart. Appen
+  starter bare mot en tom database eller en som er markert som utvikling — se
+  [`docs/database.md`](database.md).
 - **Skjermbilder:** Playwright og Chromium ligger i containeren (`npm root -g`/playwright).
 
 ## Feller vi gikk i

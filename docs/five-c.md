@@ -364,61 +364,38 @@ en ny side eller en glemt partial ikke kan lekke dem. Ikke flytt den avgjørelse
 
 ## Lagring av svar
 
-Svarene lagres i appens egen database, som er Postgres i Supabase: tabellene
-`FiveCSubmissions` og `FiveCAnswers`, med unik indeks på (periode, spiller, respondent), slik
-at et nytt svar er en retting og ikke en ny mening. Refleksjonen ligger i sin egen tabell,
-`FiveCReflectionAnswers`.
+Svarene lagres i appens egen PostgreSQL-database: tabellene `five_c_submissions` og
+`five_c_answers`, med unik indeks på (periode, spiller, respondent), slik at et nytt svar er en
+retting og ikke en ny mening. Refleksjonen ligger i sin egen tabell,
+`five_c_reflection_answers`. Hvor databasen ligger, og hvordan den settes opp, står i
+[`docs/database.md`](database.md).
 
-`ISurveySubmissionStore` har tre implementasjoner, og konfigurasjonen velger én:
+`ISurveySubmissionStore` har to implementasjoner, og konfigurasjonen velger én:
 
 - **`EfSurveySubmissionStore`** — **standarden**, og det som kjører med mindre noe er
-  konfigurert. Svarene havner i appens egen database, som etter overgangen til Npgsql *er*
-  Supabase: `FiveCSubmissions`, `FiveCAnswers` og `FiveCReflectionAnswers`, med ekte
-  fremmednøkler til `Players` og `SurveyRounds`. Én nøkkel, én tilkobling, én transaksjon.
-- **`SupabaseSurveySubmissionStore`** — brukes når både `FiveC:Supabase:Url` og `:ApiKey` er
-  satt, for et *genuint separat* Supabase-prosjekt. Snakker direkte med PostgREST; ikke noe
-  klientbibliotek.
+  konfigurert. Ekte fremmednøkler til `players` og `survey_rounds`. Én tilkobling, én
+  transaksjon.
 - **`InMemorySurveySubmissionStore`** — bare når `FiveC:Store` er satt til `"InMemory"`.
   Svarene ligger i minnet og er borte når prosessen stopper, og det er det som gjør den
   nyttig til en demo og ubrukelig til alt annet. I Development seeder den seg selv med
   oppdiktede innsendinger, så treneroversikten har noe å tegne.
 
-En tom `Url` eller `ApiKey` betyr derfor databasen, ikke minnet.
+Det fantes et tredje lager, `SupabaseSurveySubmissionStore`, som skrev til et separat
+Supabase-prosjekt over PostgREST. Det er fjernet: det ble aldri kjørt mot et ekte prosjekt, og
+innsyn og sletting nådde ikke svar som lå der.
 
-De to siste er unntak, ikke alternativer. `SupabaseSurveySubmissionStore` går ut over
-PostgREST med en egen nøkkel, uten felles transaksjon og uten fremmednøkler til `Players`
-eller `SurveyRounds`, og har bare noe for seg når svarene faktisk skal til et annet prosjekt
-enn det appen er koblet til.
+Hvilket lager som er i bruk, skrives til loggen ved oppstart og vises for admin på `/Survey`.
 
-Hvilken som er i bruk, skrives til loggen ved oppstart og vises for admin på `/Survey`.
-
-Alle tre implementerer `CountByRoundAsync`, som svarer på «hvor mange innsendinger har hver
+Begge implementerer `CountByRoundAsync`, som svarer på «hvor mange innsendinger har hver
 av disse periodene» i én rundtur. Periodelista for admin er den eneste som kaller den, og den
 spurte tidligere per periode — og leste hver innsending med alle tjuefem svarene bare for å
 kalle `.Count` på lista.
 
-### Konfigurasjon
-
-`appsettings.json` har URL-en og tabellnavnene. Nøkkelen står ikke der:
-
-```bash
-dotnet user-secrets set "FiveC:Supabase:ApiKey" "..." --project StartPraksisGruppe3Prosjekt
-```
-
-Bruk service role-nøkkelen. Respondenten er innlogget *her*, ikke i Supabase, så det finnes
-ingen bruker-JWT å sende videre, og row level security kan ikke vite hvem som svarer. Det
-betyr også at nøkkelen aldri må nå nettleseren — og det gjør den ikke: hver forespørsel til
-Supabase gjøres på serveren.
-
-**Ikke bruk anon-/publishable-nøkkelen (`sb_publishable_…`) til dette.** Den er laget for å
-være offentlig, og den er underlagt row level security. Svar om mindreårige bak en nøkkel
-som sendes til nettlesere, er feil form uansett hva policyene sier.
-
 ### Kontrakten
 
 `Contracts/FiveC/SurveySubmission.cs` er det skjemaet leverer fra seg. `survey-submission.ts`
-er det samme i TypeScript, for Supabase-siden; C#-fila er den som faktisk kjører, og er de to
-uenige, vinner C#-fila.
+er det samme i TypeScript; C#-fila er den som faktisk kjører, og er de to uenige, vinner
+C#-fila.
 
 ```json
 {
@@ -439,19 +416,22 @@ uenige, vinner C#-fila.
 }
 ```
 
-**Databaseskjemaet er Victors.** De to tingene denne siden er avhengig av:
+`player_code` er spillerens navn. Det er med i kontrakten, så en innsending kan leses for seg,
+men databasen har ingen kopi av det: lageret leser navnet fra spilleren.
+
+De to tingene denne siden er avhengig av, og som skjemaet håndhever:
 
 1. **Én innsending per `(round_id, player_id, respondent_user_id)`.** Å sende inn på nytt er
-   en retting, ikke en rad til. Lageret gjør upsert på de tre kolonnene, så de trenger en
-   unik indeks — ellers blir et rettet skjema stille til to meninger.
-2. **`value` må kunne være null.** Null betyr «ikke besvart», og null er ikke 3. En
-   `NOT NULL`-kolonne gjør hvert blanke svar til en middels mening, og det er umulig å se
-   forskjellen etterpå.
+   en retting, ikke en rad til. De tre kolonnene har en unik indeks — ellers blir et rettet
+   skjema stille til to meninger.
+2. **`value` kan være null.** Null betyr «ikke besvart», og null er ikke 3. En
+   `NOT NULL`-kolonne ville gjort hvert blanke svar til en middels mening, og det er umulig å
+   se forskjellen etterpå.
 
-I et separat Supabase-prosjekt er det ventede landingsstedet tre tabeller:
+Tabellene (`Models/FiveCSubmission.cs`):
 
 ```
-five_c_submissions (id, round_id, player_id, player_code, respondent_role,
+five_c_submissions (id, round_id -> survey_rounds, player_id -> players, respondent_role,
                     respondent_user_id, question_set_version, submitted_at)
 five_c_answers     (submission_id -> five_c_submissions, question_key, category_key, value)
 five_c_reflection_answers
@@ -463,12 +443,8 @@ fordi den er fritekst om et barn — se «Refleksjonen som avslutter perioden» 
 svar etterlater ingen rad: ikke besvart er fraværet av en rad, ikke en rad som holder
 ingenting.
 
-Tabell- og kolonnenavn er konfigurasjon, ikke konstanter, så å gi en av dem nytt navn er en
-endring i `appsettings.json` og ikke i koden.
-
-**Ikke verifisert mot et ekte prosjekt ennå.** Tabellene fantes ikke da dette ble skrevet, så
-forespørslene følger PostgREST-dokumentasjonen og ikke en faktisk kjøring. De to POST-ene i
-`SupabaseSurveySubmissionStore` er det første å sjekke når tabellene er oppe.
+`respondent_user_id` har ingen fremmednøkkel til brukertabellen, med vilje: innsendingen skal
+bli stående om kontoen slettes. Se `Data/AppDbContext.cs`.
 
 ---
 
@@ -533,9 +509,8 @@ Spillere med flagg får et rødt merke i lagtabellen, en rød rad, en rød stolp
 et banner på detaljsiden.
 
 Ingenting på disse sidene lagres. Hvert tall regnes ut på nytt fra råsvarene ved hver
-forespørsel — samme regel som avviket i ti-påstandsskjemaet følger, og av samme grunn: en
-lagret vurdering av en mindreårig overlever svarene bak den, samtykket som tillot den, og
-runden den hørte til.
+forespørsel: en lagret vurdering av en mindreårig overlever svarene bak den, samtykket som
+tillot den, og runden den hørte til.
 
 ### Lagoversikten
 
@@ -714,19 +689,18 @@ Navn og posisjon, fordi det er det som står i tabellen.
 
 - **Ingenting begrenser hvilke spillere en trener kan nå.** En trener er en trener: hver
   trener ser hvert lag, får et skjema for hver spiller i klubben, og `CanViewTeam` /
-  `CanViewTeamAggregate` ser ikke lenger på `CoachTeam`. Samtykke var den siste gjenværende
-  grensen; klubben ba om at også den skulle bort, og det gjorde den.
+  `CanViewTeamAggregate` ser ikke på hvilket lag en trener hører til. Samtykke var den siste
+  gjenværende grensen; klubben ba om at også den skulle bort, og det gjorde den.
 
   Det som står i stedet, er `PlayerAccessEvent` — en append-only logg over hvem som åpnet
   hvilken spiller, fra hvilken side, når. Den hindrer ingenting; den gjør hvert oppslag
   etterprøvbart. **Slutter den å skrives, har regelen i `CanViewPlayerHandler` ingen motvekt
   i det hele tatt**, så enhver ny side som viser én spillers svar, må kalle
   `IPlayerAccessLog.RecordAsync`.
-- **`CoachTeam` er fortsatt i modellen, men gir eller begrenser ingenting lenger.** Tabellen,
-  entiteten og de seedede radene er urørt — å fjerne dem er en skjemamigrasjon på en delt
-  database, og ingen har bedt om det. Den eneste som fortsatt leser den, er seedingen av
-  demodata i utvikling, som bruker den til å velge en plausibel trener. Skal den ikke
-  tilbake, bør den fjernes bevisst, i en egen endring.
+- **`CoachTeam` er fjernet.** Tabellen koblet trenere til lag, men ingen policy leste den, og
+  bare demodataene brukte den. Den gikk ut da skjemaet ble laget på nytt 07.10.2026. Skal
+  tilgangen en dag avgrenses per lag igjen, er det en ny tabell og en ny policy i
+  `Authorization/`.
 - **`/Survey` lister hver spiller i klubben for en trener**, og derfor har den siden filtre:
   periode, lag, rolle, status og navn. Blir den ubrukelig igjen ved noen hundre spillere, er
   svaret et bedre filter — ikke en stille retur til lagavgrenset tilgang, som er en
@@ -738,14 +712,13 @@ Navn og posisjon, fordi det er det som står i tabellen.
 - **`ConsentService.GetCurrentLevelsAsync` ble implementert her** (det var en av Brages
   TODO-er) fordi lagoversikten lister en hel tropp og ellers ville gjort én spørring per
   spiller. Samme regel som versjonen for én spiller. Resten av den tjenesten er urørt.
-- **Ti-påstandsskjemaet har fortsatt ikke noe lagaggregat.** `CoachController.Team` er
-  fortsatt en TODO. 5C-siden går nå gjennom `CanViewTeamAggregate` og grensen på tre svar, så
-  det eldre skjemaet har et ferdig eksempel å følge i stedet for en policy ingen kaller.
+- **Ti-påstandsskjemaet er fjernet:** tabellene `Items`, `Responses` og `Answers`,
+  `ScoringService`, og `CoachController.Team`, `PlayerDetail` og `Search`. Ingenting lenket
+  dit, og 5C har sin egen skåring (`FiveCRules` og `FiveCAnalysisService`).
 - **Et lagsnitt kan ikke sammenlignes med et annet lags.** Hver tropp leses for seg, og det
   er bevisst inntil videre: en tabell som rangerer tropper av mindreårige, er en annen
   produktbeslutning, og ingen har bedt om den.
-- **`Coach/Index` ble implementert** for å gjøre 5C-sidene tilgjengelige. Den rikere
-  versjonen, med avvikstall for ti-påstandsskjemaet, er fortsatt Taavis.
+- **`Coach/Index` ble implementert** for å gjøre 5C-sidene tilgjengelige.
 - **Kladden i nettleseren overlever utlogging.** Kopien `survey.js` holder i `localStorage`
   mens et skjema fylles ut, slettes ved innsending, men ikke ved utlogging, og den har ingen
   utløpstid. Forlates et halvferdig skjema på en delt maskin, blir svarene — også fritekst

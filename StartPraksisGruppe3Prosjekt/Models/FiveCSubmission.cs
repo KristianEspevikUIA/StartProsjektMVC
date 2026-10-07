@@ -5,9 +5,8 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// <summary>
 /// One submitted 5C form, stored in the database.
 ///
-/// The app talks to the Supabase Postgres database directly through EF Core, so the answers
-/// live in the same database and the same transaction as everything else. The PostgREST
-/// store is only for a genuinely separate Supabase project; see docs/five-c.md.
+/// The answers live in the application's own database, in the same transaction as
+/// everything else. See docs/five-c.md.
 ///
 /// Two rules the schema enforces rather than trusting callers to remember:
 ///
@@ -32,19 +31,9 @@ public class FiveCSubmission
     public Player? Player { get; set; }
 
     /// <summary>
-    /// The player's name, e.g. "Brage Kristoffersen" -- a copy of <see cref="Models.Player.Code"/>.
-    /// Denormalised so a row is readable without joining back to the players table. As long as
-    /// the name it copies.
-    /// </summary>
-    [Required]
-    [StringLength(50)]
-    [Display(Name = "Player")]
-    public string PlayerCode { get; set; } = string.Empty;
-
-    /// <summary>
     /// Who answered: "player", "coach" or "guardian". Stored as the wire value from
     /// <see cref="Contracts.FiveC.SurveySubmission.Roles"/> rather than as an enum number,
-    /// so the table reads plainly to anyone looking at it in Supabase.
+    /// so the table reads plainly to anyone looking at it in the database.
     /// </summary>
     [Required]
     [StringLength(20)]

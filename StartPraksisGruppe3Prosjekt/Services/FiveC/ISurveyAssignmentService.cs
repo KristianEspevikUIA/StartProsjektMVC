@@ -42,7 +42,7 @@ public interface ISurveyAssignmentService
 /// <summary>One form a user is expected to fill in.</summary>
 /// <param name="PlayerId">The player the form is about.</param>
 /// <param name="PlayerCode">
-/// The player's name, e.g. "Brage Kristoffersen" (Player.Code). What identifies a player in
+/// The player's name, e.g. "Brage Kristoffersen" (Player.Name). What identifies a player in
 /// every list in the application.
 /// </param>
 /// <param name="TeamName">The player's team.</param>

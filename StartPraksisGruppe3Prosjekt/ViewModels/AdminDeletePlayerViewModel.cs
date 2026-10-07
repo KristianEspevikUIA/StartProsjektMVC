@@ -25,10 +25,6 @@ public class AdminDeletePlayerViewModel
 
     public int GuardianshipCount { get; set; }
 
-    public int ResponseCount { get; set; }
-
-    public int AnswerCount { get; set; }
-
     public int FiveCSubmissionCount { get; set; }
 
     /// <summary>

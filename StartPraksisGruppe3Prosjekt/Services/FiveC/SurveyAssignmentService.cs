@@ -89,8 +89,8 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
             return Array.Empty<SurveyAssignment>();
         }
 
-        // One read for every player at once. One call per player would be N+1 requests
-        // against Supabase, which is a network round trip each.
+        // One read for every player at once. One call per player would be N+1 round trips
+        // to the database.
         var playerIds = assignments.Keys.Select(k => k.PlayerId).Distinct().ToList();
 
         var submissions = await _store.GetForPlayersAsync(roundId, playerIds, cancellationToken);
@@ -108,7 +108,7 @@ public sealed class SurveyAssignmentService : ISurveyAssignmentService
 
                 return new SurveyAssignment(
                     PlayerId: player.Id,
-                    PlayerCode: player.Code,
+                    PlayerCode: player.Name,
                     TeamName: player.Team?.Name ?? string.Empty,
                     Position: player.Position,
                     BirthDate: player.BirthDate,

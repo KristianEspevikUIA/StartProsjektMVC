@@ -32,7 +32,7 @@
     },
     {
       "label": "ef: database update",
-      "detail": "Kjører migrasjonene mot Supabase-basen uten å slette dataene. Krever at ConnectionStrings:DefaultConnection med passord ligger i user-secrets — se README.",
+      "detail": "Kjører migrasjonene mot den lokale utviklingsdatabasen uten å slette dataene. Krever Database:Password i user-secrets — se docs/database.md. (dotnet run gjør det samme ved oppstart.)",
       "command": "dotnet",
       "type": "process",
       "args": [

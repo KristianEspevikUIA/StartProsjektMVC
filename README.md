@@ -7,8 +7,9 @@ skiller seg. Trenerne har i tillegg Identity Benchmarking og succession planning
 **Systemet behandler personopplysninger om mindreårige.** Det er premisset bak alle
 valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på til slutt.
 
-> Bare oppdiktede data i dette repoet. Ekte spillerdata skal ikke inn før prosjektet
-> er meldt til Sikt.
+> Bare oppdiktede data i dette repoet, og i de lokale utviklingsdatabasene. De ekte spillerne
+> skal bare ligge i hoveddatabasen, se [`docs/database.md`](docs/database.md). Ekte spillerdata
+> skal ikke inn før prosjektet er meldt til Sikt.
 
 ---
 
@@ -24,67 +25,55 @@ perioder, GDPR-innsyn og -sletting i `AdminController` (`/Admin/Export/{id}` og
 Identity Benchmarking, og **succession planning** — trenernes Excel-ark som sider i appen
 (se under).
 
-**Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
-`Search` og `ScoringService`), samtykkeskjemaet for foresatte, og brukeradministrasjon i
+**Fortsatt TODO:** samtykkeskjemaet for foresatte, og brukeradministrasjon i
 `AdminController`. Samtykkesiden finnes på `/Guardian/Consent/{id}`, men ingenting lenker
 dit, og nivået som velges, styrer ingenting — se A1 og A2 i
 [`docs/sikt-melding.md`](docs/sikt-melding.md).
+
+**Fjernet:** det eldre ti-påstandsskjemaet (tabellene `Items`, `Responses` og `Answers`,
+`ScoringService`, og `CoachController.Team`, `PlayerDetail` og `Search`). Ingenting lenket dit,
+og 5C har sin egen skåring.
 
 Sidene som ikke er bygget, er **ikke lenket til** fra menyen eller fra admin-forsiden. De
 står på lista der som «Not built yet», og selve siden forteller hvem som eier arbeidet, hva
 den skal gjøre, og har en vei tilbake — se `Views/Shared/_NotBuiltYet.cshtml`. En lenke som
 fører til en tom side koster et klikk å oppdage, og det er verre enn ingen lenke.
 
-`dotnet build` kjører rent, og `dotnet run` migrerer databasen og legger inn seed-data.
+`dotnet build` kjører rent, og `dotnet run` migrerer den lokale databasen og legger inn
+oppdiktede data.
 
 ---
 
 ## Kom i gang
 
-Databasen er **Postgres i Supabase** (byttet fra SQLite 26.08.2026). Tilkoblingsstrengen står
-i `appsettings.json`, men **uten passord** — passordet er en hemmelighet og skal ikke i repoet.
+Hver utvikler har sin egen **lokale PostgreSQL 17** med oppdiktede data. Ingen database deles,
+og appen er ikke avhengig av Supabase. **Alt om databasen, også hoveddatabasen i drift, står i
+[`docs/database.md`](docs/database.md).**
 
-**Steg 1: hent CA-sertifikatet.** Supabase signerer databasesertifikatet med sin egen CA, og
-den ligger ikke i maskinens rotlager. Uten den kommer du ikke gjennom. Last den ned i Supabase
-under *Project Settings → Database → SSL Configuration* («Download certificate»; fila heter
-typisk `prod-ca-2021.crt`) og legg den et fast sted på egen maskin, f.eks.
-`%APPDATA%\Supabase\prod-ca-2021.crt`. Fila er offentlig og inneholder ingen hemmelighet, men
-den ligger likevel ikke i repoet: et rotsertifikat er et tillitsanker, og det skal hentes
-gjennom en innlogget kanal — ellers vet du ikke at det faktisk er Supabase sitt.
-
-**Steg 2: legg inn databasepassordet og stien til CA-en.** Hent «Database password» i Supabase
-under *Project Settings → Database* (finner du det ikke, kan det resettes samme sted — men si
-fra til de andre først, en reset gjelder alle). Deretter, med hele strengen fra
-`appsettings.json` pluss `;Root Certificate=…` og `;Password=…` på slutten:
+**Steg 1: start databasen.** Kopier `.env.example` til `.env` (git-ignorert), sett et passord
+etter `POSTGRES_PASSWORD=`, og start PostgreSQL med Docker:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=VerifyFull;Root Certificate=C:\Users\DITT_BRUKERNAVN\AppData\Roaming\Supabase\prod-ca-2021.crt;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
+docker compose up -d
+```
+
+Uten Docker: se «Uten Docker, på Windows» i [`docs/database.md`](docs/database.md).
+
+**Steg 2: gi appen passordet.** Det samme som i `.env`. Resten av tilkoblingsstrengen står i
+`appsettings.Development.json`:
+
+```bash
+dotnet user-secrets set "Database:Password" "PASSORDET_DITT" --project StartPraksisGruppe3Prosjekt
 ```
 
 Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper
 appen med en melding som forklarer akkurat dette — det er ikke en bug.
 
-User-secrets erstatter hele strengen fra `appsettings.json`, den legges ikke oppå. Derfor skal
-hele strengen med, også `SSL Mode=VerifyFull`: en secret uten den kobler til uten å verifisere
-sertifikatet, uansett hva som står i repoet.
+Har du den gamle Supabase-strengen i user-secrets, må den bort. Den overstyrer ellers fila:
 
-**Stien må være full og bokstavelig.** Npgsql utvider ikke miljøvariabler, så
-`Root Certificate=%APPDATA%\Supabase\prod-ca-2021.crt` blir lest som en mappe som heter
-`%APPDATA%` — relativt til der appen kjører. Skriv `C:\Users\<du>\AppData\Roaming\...` i sin
-helhet.
-
-Går det galt, sier feilen hvilken av de to tingene som er feil:
-
-| Feilmelding | Hva som er galt |
-| --- | --- |
-| `FileNotFoundException` / `DirectoryNotFoundException` | stien i `Root Certificate` peker ikke på en fil som finnes |
-| «The remote certificate was rejected…» | fila finnes, men er ikke Supabase-CA-en |
-
-Merk: **anon-/publishable-nøkkelen (`sb_publishable_…`) er ikke databasepassordet.** Den
-gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgres`-rollen.
-
-Bruk port **5432** (session-pooleren). Port 6543 er transaction-pooleren, og den fungerer
-ikke med EF-migrasjoner.
+```bash
+dotnet user-secrets remove "ConnectionStrings:DefaultConnection" --project StartPraksisGruppe3Prosjekt
+```
 
 **Steg 3: kjør.**
 
@@ -92,7 +81,18 @@ ikke med EF-migrasjoner.
 dotnet run --project StartPraksisGruppe3Prosjekt
 ```
 
-Første kjøring kjører migrasjonene og legger inn oppdiktede demodata.
+Første kjøring lager tabellene, markerer databasen som en utviklingsbase, og legger inn
+roller, lag og oppdiktede demodata.
+
+**Vil du begynne på nytt,** slett den lokale databasen og start igjen. Ingen andre merker det:
+
+```bash
+docker compose down -v
+```
+
+Appen starter bare mot en database som hører til miljøet den kjører i. Development nekter å
+starte mot hoveddatabasen, og appen i drift nekter å starte mot en utviklingsbase — se
+«Vernet mellom utvikling og drift» i [`docs/database.md`](docs/database.md).
 
 ### Demokontoer
 
@@ -104,16 +104,12 @@ dotnet user-secrets set "Seed:DevPassword" "ditt-passord" --project StartPraksis
 ```
 
 Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.EnsureUserAsync`
-oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
-først bestemmer passordet for alle.
+oppretter, den endrer ikke passord. Sett den før første kjøring, eller begynn på nytt.
+
+Demokontoene finnes bare i en database som er markert som utvikling. De kan ikke havne i
+hoveddatabasen: der lages den første administratoren med `create-admin`.
 
 **Det er én trenerkonto for lagene.** (Succession planning har to ekstra, se under tabellen.)
-Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
-den gjenværende: lagene ble flyttet over, og kontoen fjernet. Sammenslåingen ligger i
-`SeedData.ConsolidateCoachAsync` og kjører ved hver oppstart, ikke bare på en tom base —
-den delte basen hadde begge kontoene lenge før steget fantes. Dukker kontoen opp i en
-append-only logg, blir den låst i stedet for slettet, slik at loggen fortsatt kan si hvem
-som gjorde hva.
 
 | Konto | Rolle |
 | --- | --- |
@@ -135,30 +131,26 @@ inn som seg selv. Troppene står i `SeedData.Squads`.
 **Lagene er G14, G15 og G17**, de tre prosjektet gjelder, med fødselsdatoer etter årsklassene
 (G17 født 2009–2010, G15 2011, G14 2012). Alle spillerne er dermed mindreårige og har en
 foresatt. G19 finnes også, men har bare spillere når de ekte troppene er hentet (se
-`docs/player-welcome.md`). Lagene het U14, U15, U17 og U19 til 07.10.2026, og døpes om på
-stedet ved neste oppstart (`SeedData.SeedTeamsAsync`).
+`docs/player-welcome.md`).
 
 Spillerkontoen utledes av navnet: `Brage Kristoffersen` blir
 `spiller.brage.kristoffersen@ikstart.example`, med æ, ø og å skrevet ae, o og aa. Foresatte
 følger samme regel — `foresatt.isak.ronning@example.test` — bortsett fra de sju nummererte over,
 som er navngitt i troppen og beholdes som de er.
 
-En base som ble seedet før lagene og spillerne fikk disse navnene, rettes på stedet ved neste
-oppstart (`SeedData.SeedTeamsAsync`, `SeedUsersAndPlayersAsync` og `RenameCodedPlayersAsync`).
-Svar og vurderinger blir der de var.
-
 To spillere har med vilje **ingen** konto (Tobias Moe og Kasper Solberg). Det er en egen
 tilstand fra «har ikke svart», og begge skal virke.
 
-Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
-og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
+Finnes `Data/Squads/squads.json` (git-ignorert), legges troppene derfra inn i stedet for de
+oppdiktede. Se [`docs/player-welcome.md`](docs/player-welcome.md).
 
 ---
 
 ## Stack
 
 - ASP.NET Core MVC, **.NET 8 (LTS)**
-- EF Core 8, code-first, **Postgres i Supabase** (Npgsql)
+- EF Core 8, code-first, **PostgreSQL 17** (Npgsql). Tabeller og kolonner har små bokstaver
+  og understrek (`EFCore.NamingConventions`)
 - ASP.NET Core Identity med roller
 
 Om rammeverkversjonen: prosjektet står på `net8.0` fordi .NET 8 er en LTS-utgave. Skal dere
@@ -189,8 +181,8 @@ kort refleksjon med egne ord, som avslutter perioden.
   revisjonsloggen, som spilleren selv kan se.
 - **Trenersidene:** per spiller (differanser, de fem C-ene, påstand for påstand, utvikling
   over tid) og per lag (snitt av spillere, spredning, og minst tre svar bak hvert tall).
-- **Lagring:** appens egen database (`FiveCSubmissions`, `FiveCAnswers` og
-  `FiveCReflectionAnswers`). Avvik og snitt regnes ut ved hver visning og lagres aldri.
+- **Lagring:** appens egen database (`five_c_submissions`, `five_c_answers` og
+  `five_c_reflection_answers`). Avvik og snitt regnes ut ved hver visning og lagres aldri.
 - **Deling:** `/Survey/Fill?roundId=2&playerId=14&role=Coach` forhåndsvelger skjemaet. Lenken
   gir ingen tilgang i seg selv; begge sjekkene kjøres på nytt på serveren.
 
@@ -245,8 +237,9 @@ Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle s
   `/Player/Photo` har ingen ID, så den gir bare ditt eget bilde.
 - **Bildet kontrolleres og renses:** bare JPEG, PNG og WebP (lest av filens bytes), høyst 2 MB,
   og GPS, bildetekst og annen metadata tas ut før det lagres.
-- **Fornavn og bilde** ligger i egen tabell (`PlayerPersonalDetails`). Ingen bilder ligger i
+- **Fornavn og bilde** ligger i egen tabell (`player_personal_details`). Ingen bilder ligger i
   repoet, og navnene i demodataene er oppdiktet — bortsett fra prosjektgruppas egne.
+- **De ekte spillerne flyttes** mellom to databaser med `export-players` og `import-players`.
 - **Må avklares:** Sikt-meldingen beskriver fortsatt spillerkoder i stedet for navn. Den må
   oppdateres og sendes før ekte navn og bilder legges inn.
 
@@ -260,13 +253,14 @@ StartPraksisGruppe3Prosjekt/
 ├─ Controllers/
 │  ├─ HomeController.cs         forside, personvern og feilsider (åpne uten innlogging)
 │  ├─ SurveyController.cs       skjemaliste, utfylling, lagring
-│  ├─ CoachController.cs        lagoversikt, søk, spillerdetalj
+│  ├─ CoachController.cs        5C for treneren: alle lag, ett lag, én spiller
 │  ├─ PlayerController.cs       spiller ser egne svar
 │  ├─ GuardianController.cs     foresatt ser eget barn
 │  ├─ AdminController.cs        perioder, spillere, innsyn og sletting
 │  ├─ IdentityController.cs     Identity Benchmarking
 │  ├─ SuccessionController.cs   succession planning
 │  └─ HelpController.cs         hjelpesiden: hvordan tallene skal leses
+├─ Commands/                    engangskommandoene: create-admin, export- og import-players
 ├─ Areas/Identity/Pages/        vår egen innloggingsside; resten er Identity UI-pakkens
 ├─ Authorization/               policyer, krav og handlere
 ├─ Security/                    sikkerhetshoder og CSP, rate limiting, stengt registrering
@@ -274,15 +268,20 @@ StartPraksisGruppe3Prosjekt/
 ├─ Models/                      entiteter, enums og PlayerRules
 ├─ Data/
 │  ├─ AppDbContext.cs
-│  ├─ Migrations/
+│  ├─ Migrations/               én migrasjon: InitialCreate
+│  ├─ DatabaseConnection.cs     hvor tilkoblingsstrengen kommer fra, og kravet om TLS i drift
+│  ├─ DatabaseGuard.cs          vernet mellom utvikling og drift
+│  ├─ BaseSetup.cs              roller og lag, i alle miljøer
+│  ├─ PlayerTransfer.cs         export-players og import-players
 │  ├─ Questions/                five-c-questions.json (påstander og refleksjon)
 │  ├─ Identity/                 gold-standard.json (+ Matches/, git-ignorert)
 │  ├─ Succession/               succession-planning.json (lister, terskler, formasjoner)
-│  ├─ SeedData.cs               roller, lag, perioder og oppdiktede demodata
+│  ├─ Squads/                   de ekte troppene, git-ignorert (bare i utvikling)
+│  ├─ SeedData.cs               oppdiktede demodata, bare i Development
+│  ├─ SeedSquads.cs             troppene fra Data/Squads, i stedet for de oppdiktede
 │  ├─ SeedSuccession.cs         oppdiktede succession-vurderinger
 │  └─ SeedWelcome.cs            fornavn til velkomsten i demodataene
 ├─ Services/
-│  ├─ IScoringService.cs + ScoringService.cs
 │  ├─ IConsentService.cs + ConsentService.cs
 │  ├─ IPeriodService.cs + PeriodService.cs          perioder, én vei inn
 │  ├─ IPeriodSelection.cs + PeriodSelection.cs      valgt periode, husket i en cookie
@@ -299,8 +298,11 @@ StartPraksisGruppe3Prosjekt/
    ├─ js/                       survey.js (skjema, faner, søk), lineup.js, site.js
    └─ lib/                      Bootstrap, jQuery og jquery-validation, lokalt
 
-docs/                           én fil per funksjon, pluss utkastet til Sikt-melding
+docs/                           én fil per funksjon, database.md, og utkastet til Sikt-melding
+scripts/database/               SQL for hoveddatabasen: rollene, og rettighetene til app-rollen
 scripts/identity/               StatsBomb-PDF → kampdata og foreløpige målområder
+scripts/squads/                 troppene fra ikstart.no til Data/Squads
+docker-compose.yml              den lokale utviklingsdatabasen (+ .env.example)
 .github/workflows/ci.yml        build på push og pull request
 ```
 
@@ -311,28 +313,29 @@ scripts/identity/               StatsBomb-PDF → kampdata og foreløpige målom
 | Person | Mapper og filer |
 | --- | --- |
 | **Kristian** | `Models/`, `Data/`, `Authorization/`, `Program.cs`, `AdminController` |
-| **Victor** | `SurveyController`, `ScoringService` |
+| **Victor** | `SurveyController` |
 | **Taavi** | `CoachController`, `Views/Shared/_Layout.cshtml` |
 | **Brage** | `GuardianController`, `PlayerController`, `ConsentService`, `SeedData` |
 
 Views-mappene følger controlleren: eier du `CoachController`, eier du `Views/Coach/`.
 
-### Migrations: bare én person genererer dem
+### Migrasjoner
 
-**Bare Kristian kjører `dotnet ef migrations add`.** To personer som genererer
-migrasjoner mot samme modell gir konflikter i `AppDbContextModelSnapshot.cs` som er
-vonde å rydde opp i — snapshotten er én stor generert fil, og git klarer ikke å flette
-den fornuftig.
-
-Trenger du en modellendring: si ifra, så lages migrasjonen én gang. Resten kjører bare
+**Alle kan lage en migrasjon. Si fra i kanalen før du gjør det.** To migrasjoner laget hver
+for seg mot samme modell gir en konflikt i `AppDbContextModelSnapshot.cs` som er vond å rydde
+opp i — snapshotten er én stor generert fil, og git klarer ikke å flette den fornuftig.
 
 ```bash
-dotnet ef database update --project StartPraksisGruppe3Prosjekt
+dotnet ef migrations add <Navn> --project StartPraksisGruppe3Prosjekt --output-dir Data/Migrations
 ```
 
-Migrasjonene ble generert på nytt for Postgres 26.08.2026. Den gamle
-`InitialCreate` var laget for SQLite og ville ikke ha gitt et brukbart skjema på
-Postgres — identity-kolonnene mangler, og `DateTimeOffset` ville havnet i `text`.
+I utvikling kjører appen migrasjonen selv ved neste `dotnet run`. I drift gjør den det ikke:
+der kjører databaseeieren et migrasjonsskript. Se «Kjøre migrasjonene» i
+[`docs/database.md`](docs/database.md).
+
+Skjemaet ble laget på nytt 07.10.2026, som én `InitialCreate`, da databasen ble flyttet bort
+fra Supabase. De åtte migrasjonene fra før er slettet, så en lokal database fra før den datoen
+må lages på nytt.
 
 ---
 
@@ -354,19 +357,14 @@ sletter nettopp den dokumentasjonen.
 
 Avstanden mellom to respondenters svar regnes ut fra råsvarene hver gang en side vises. Det
 finnes ingen kolonne for den, og det skal ikke komme en heller. Det gjelder differanseskårene
-i 5C (`Services/FiveC/FiveCDifference.cs`) og avviket (D) i den eldre ti-påstandsvisningen
-(`ScoringService`, der utregningen fortsatt er TODO).
+i 5C (`Services/FiveC/FiveCDifference.cs`).
 
 Grunnen: et lagret avvik er en påstand om en mindreårig som blir liggende igjen etter at
 svarene er rettet, samtykket er trukket eller runden er over.
 
 Negativt formulerte påstander skåres som `6 - verdi`, slik at høyt alltid betyr bra. Regelen
-bor ett sted per skjema, og `6 -` skal ikke skrives andre steder:
-
-- **5C:** `FiveCRules.Score`. Påstanden merkes `reversed: true` i `five-c-questions.json`.
-  Ingen av de 25 er merket i dag.
-- **De ti eldre påstandene:** `ScoringService.ScoreOf`. Nummer 5 er reversert
-  (`IsReversed = true`).
+bor ett sted, `FiveCRules.Score`, og `6 -` skal ikke skrives andre steder. Påstanden merkes
+`reversed: true` i `five-c-questions.json`. Ingen av de 25 er merket i dag.
 
 ---
 
@@ -405,8 +403,8 @@ kalle `IPlayerAccessLog.RecordAsync`.
 trener. Et lag er i seg selv bare et navn og en liste med spillere; enkeltsvarene er
 vernet av `CanViewPlayer` og loggen over.
 
-**`CanViewTeamAggregate`** — trener eller admin, uten lagavgrensning: `CoachTeam` ligger
-fortsatt i modellen, men ingen policy ser på den lenger. I tillegg:
+**`CanViewTeamAggregate`** — trener eller admin, uten lagavgrensning: trenere er ikke
+knyttet til lag. I tillegg:
 snittet vises ikke hvis færre enn **3** besvarelser ligger bak det, ellers kan tallet
 regnes tilbake til enkeltpersoner. Grensen er `CanViewTeamAggregateRequirement.MinimumResponses`,
 og den er en del av ressursen (`TeamAggregateResource`) nettopp for at ingen skal kunne
@@ -424,15 +422,14 @@ var authorized = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlaye
 if (!authorized.Succeeded) return Forbid();
 ```
 
-Ferdig eksempel: `CoachController.PlayerDetail`.
+Ferdig eksempel: `CoachController.FiveCPlayer`.
 
 `[Authorize(Roles = ...)]` slipper deg inn i controlleren og sier ingenting om hvilke
 spillere du får se. Ikke skriv rolle- eller lagsjekker for hånd i controlleren — reglene
 skal bo ett sted, i `Authorization/`.
 
-To småting som er ferdig implementert med vilje, fordi autorisasjonen faller uten dem:
-`ConsentService.GetCurrentLevelAsync` og `ScoringService.ScoreOf`. Ikke gjør dem om til
-stubs. `ConsentService.GetCurrentLevelsAsync` (flertall) er også implementert — lagoversikten
+`ConsentService.GetCurrentLevelAsync` er ferdig implementert med vilje. Ikke gjør den om til
+en stub. `ConsentService.GetCurrentLevelsAsync` (flertall) er også implementert — lagoversikten
 lister en hel tropp og ville ellers gjort ett oppslag per spiller.
 
 ---
@@ -563,26 +560,53 @@ HTTPS-omdirigeringen ser en http-forespørsel.
 
 ### Databasetilkoblingen verifiseres, ikke bare krypteres
 
-Strengen i `appsettings.json` bruker `SSL Mode=VerifyFull`, og hver enkelt legger til
-`Root Certificate=<sti til Supabase-CA-en>` i sin egen user-secret. Se «Kom i gang», steg 1–2.
+I drift kobler appen til hoveddatabasen med `SSL Mode=VerifyFull`. **Utenfor Development
+nekter appen å starte med en tilkobling som ikke verifiserer sertifikatet**, med mindre
+databasen står på samme maskin (`localhost`, en loopback-adresse eller en Unix-socket).
+Regelen ligger i `Data/DatabaseConnection.cs`.
 
 Grunnen er at `Require` ikke betyr det navnet antyder. Fra og med Npgsql 8 følger `Require`
 libpq: den *krever kryptering* og **verifiserer ikke** sertifikatet. `Trust Server Certificate`
-er i samme slengen merket obsolete med «no longer needed and does nothing» — flagget vi hadde
-stående gjorde altså ingenting, og å fjerne det endret heller ingenting. Det som faktisk
+er i samme slengen merket obsolete med «no longer needed and does nothing». Det som faktisk
 verifiserer, er `VerifyCA` (signatur) og `VerifyFull` (signatur + vertsnavn).
 
-Målt mot pooleren med Npgsql 8.0.6, som er versjonen prosjektet drar inn:
+Målt 07.10.2026 mot en lokal PostgreSQL som bare tar imot TLS (TLS 1.3), med et
+serversertifikat utstedt til `localhost` av en egen test-CA som ikke ligger i maskinens
+rotlager, og Npgsql 8.0.6, som er versjonen prosjektet drar inn:
 
-| `SSL Mode` | Resultat |
+| Tilkobling | Resultat |
 | --- | --- |
-| `Require` | kobler til, TLS 1.3, **ingen** verifisering |
-| `VerifyCA` / `VerifyFull` uten CA | avvist — Supabase-kjeden ender i deres egen rot |
-| `VerifyFull` + `Root Certificate` | kobler til, TLS 1.3, verifisert |
+| `Require` | kobler til, kryptert, **ingen** verifisering |
+| `VerifyCA` / `VerifyFull` uten `Root Certificate` | avvist — kjeden ender i en rot maskinen ikke kjenner |
+| `VerifyFull` + `Root Certificate` | kobler til, verifisert |
+| `VerifyFull` + `Root Certificate` til en annen CA | avvist |
+| `VerifyCA` + `Root Certificate`, feil vertsnavn (`127.0.0.1`) | kobler til — `VerifyCA` ser ikke på vertsnavnet |
+| `VerifyFull` + `Root Certificate`, feil vertsnavn (`127.0.0.1`) | avvist |
 
-Kjeden er `*.pooler.supabase.com` → `Supabase Intermediate 2021 CA` → `Supabase Root 2021 CA`,
-og rota er selvsignert og ligger ikke i noe rotlager. Derfor CA-fila: uten den er det ingen
-forskjell på Supabase og en som står i veien.
+`Root Certificate=<sti til CA-fila>` trengs bare når serverens CA ikke ligger i maskinens
+rotlager, for eksempel en CA klubben har laget selv. Med et sertifikat fra en offentlig CA er
+`SSL Mode=VerifyFull` nok. Stien må være full og bokstavelig: Npgsql utvider ikke
+miljøvariabler.
+
+I utvikling går tilkoblingen til `localhost`, uten TLS. Det er bare oppdiktede data på den.
+
+### Engangskommandoene
+
+Tre ting gjøres fra kommandolinja og ikke fra en side: `create-admin` (første administrator i
+en ny database), `import-players` og `export-players` (de ekte spillerne mellom to
+databaser). De kjører før appen migrerer eller seeder, og starter ikke webserveren. Se
+[`docs/database.md`](docs/database.md).
+
+`create-admin` leser passordet fra standard input og aldri fra argumentlista, følger de samme
+passordreglene som resten av appen, og nekter hvis det finnes en administrator fra før: den
+er en vei inn i en tom database, ikke en bakdør forbi appens egen brukeradministrasjon.
+
+### Data Protection-nøklene har et fast sted
+
+Nøklene som krypterer innloggingscookien og antiforgery-tokenene, lagres i mappa
+`DataProtection:KeysPath`. Utenfor Development er den påkrevd, og appen starter ikke uten.
+Uten et fast sted lages nøklene på nytt når appen flyttes eller starter under en annen
+bruker, og da logges alle ut.
 
 ---
 
@@ -591,15 +615,23 @@ forskjell på Supabase og en som står i veien.
 - [~] Melding til Sikt — utkast i [`docs/sikt-melding.md`](docs/sikt-melding.md). Sju punkter
       gjenstår, og fire av dem er klubbens å svare på
 - [ ] Personvernerklæring (`Views/Home/Privacy.cshtml`)
-- [x] Selvregistrering stengt — kontoer opprettes av klubben. Admin-siden som faktisk
-      oppretter dem er fortsatt TODO i `AdminController.Users`
+- [ ] **Hoveddatabasen er ikke opprettet.** Koden og oppskriften er klare
+      ([`docs/database.md`](docs/database.md)); serveren, databehandleravtalen og backupen
+      er klubbens
+- [ ] De ekte spillerne ligger fortsatt i den gamle Supabase-databasen. De flyttes med
+      `export-players` og `import-players`, og Supabase slås av etterpå
+- [x] Selvregistrering stengt — kontoer opprettes av klubben. Den første administratoren i en
+      ny database lages med `create-admin`. Admin-siden som oppretter resten er fortsatt TODO
+      i `AdminController.Users`, og til den finnes har verken spillere, foresatte eller
+      trenere kontoer i hoveddatabasen
 - [x] `AllowedHosts` er ikke lenger `*`. `appsettings.json` slipper bare gjennom lokale navn,
       `appsettings.Development.json` beholder `*` for utvikling, og produksjon setter det
       faktiske vertsnavnet i miljøet (`AllowedHosts=…`). Står den likevel på `*` utenfor
       utvikling, sier `Program.cs` fra i loggen ved oppstart
 - [ ] Identity UI lar en bruker slette sin egen konto på
       `/Identity/Account/Manage/DeletePersonalData`. Det går utenom sletterutinen i
-      `AdminController.Delete` og etterlater `Player.UserId` uten bruker. Avklar om siden
+      `AdminController.Delete`: kontoen forsvinner, men spilleren og alt som er lagret om
+      hen, blir stående (fremmednøkkelen setter `players.user_id` til null). Avklar om siden
       skal stenges eller om sletting skal gå gjennom den
 - [x] Revisjonslogg for oppslag på enkeltspillere — `PlayerAccessEvent` og
       `IPlayerAccessLog`. Admin-visningen av loggen er fortsatt TODO

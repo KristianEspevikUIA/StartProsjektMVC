@@ -182,10 +182,10 @@ public sealed class PlayerWelcomeService : IPlayerWelcomeService
         await _db.Players
             .AsNoTracking()
             .OrderBy(p => p.Team!.Name)
-            .ThenBy(p => p.Code)
+            .ThenBy(p => p.Name)
             .Select(p => new PersonalDetailsRow(
                 p.Id,
-                p.Code,
+                p.Name,
                 p.Team!.Name,
                 p.UserId != null,
                 _db.PlayerPersonalDetails.Where(d => d.PlayerId == p.Id).Select(d => d.FirstName).FirstOrDefault(),

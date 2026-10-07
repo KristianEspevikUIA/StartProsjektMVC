@@ -57,9 +57,8 @@ public static class FiveCRules
 
     /// <summary>
     /// Turns a raw 1-5 answer into a score where a high number always means "good".
-    /// Negatively worded statements are flipped, (6 - value), exactly as
-    /// <see cref="Services.ScoringService.ScoreOf"/> does it for the ten-statement form.
-    /// Do not write "6 -" anywhere else.
+    /// Negatively worded statements are flipped, (6 - value). This is the one place that
+    /// rule lives: do not write "6 -" anywhere else.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is outside 1-5.</exception>
     public static int Score(int rawValue, bool reversed)

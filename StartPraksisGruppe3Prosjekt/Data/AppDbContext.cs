@@ -9,6 +9,22 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// <summary>
 /// Databasekonteksten. Arver fra IdentityDbContext slik at brukere og roller ligger
 /// i samme base som domenemodellen.
+///
+/// Tabeller og kolonner heter det samme som i koden, med små bokstaver og understrek
+/// (players.birth_date, asp_net_users.user_name). Det settes ett sted, med
+/// UseSnakeCaseNamingConvention i Program.cs, og gjelder Identity-tabellene også.
+///
+/// BRUKER-ID-ER: TO FREMMEDNØKLER, OG ELLERS INGEN -- MED VILJE.
+/// players.user_id og guardianships.guardian_user_id peker på brukertabellen med fremmednøkkel:
+/// de sier hvem som ER spilleren og hvem som ER foresatt, og skal ikke kunne peke på en konto
+/// som ikke finnes. Alle andre kolonner som bærer en bruker-ID, er logg og historikk -- hvem
+/// som endret et samtykke (consent_events.changed_by_user_id), så på en spiller
+/// (player_access_events.viewed_by_user_id), slettet en (player_deletion_events.deleted_by_user_id),
+/// frigav svar (feedback_releases.coach_user_id), sendte inn et skjema
+/// (five_c_submissions.respondent_user_id), vurderte (succession_assessments.rater_user_id),
+/// og «endret av» (player_succession_profiles.updated_by_user_id,
+/// player_personal_details.updated_by_user_id). De har INGEN fremmednøkkel: raden skal overleve at
+/// kontoen slettes. En fremmednøkkel ville enten nektet slettingen, eller tatt loggen med seg.
 /// </summary>
 public class AppDbContext : IdentityDbContext<IdentityUser>
 {
@@ -19,11 +35,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<Player> Players => Set<Player>();
     public DbSet<Guardianship> Guardianships => Set<Guardianship>();
-    public DbSet<CoachTeam> CoachTeams => Set<CoachTeam>();
     public DbSet<SurveyRound> SurveyRounds => Set<SurveyRound>();
-    public DbSet<Item> Items => Set<Item>();
-    public DbSet<Response> Responses => Set<Response>();
-    public DbSet<Answer> Answers => Set<Answer>();
     public DbSet<ConsentEvent> ConsentEvents => Set<ConsentEvent>();
 
     /// <summary>Append-only. Hvem som har sett hvilken spiller. Se PlayerAccessEvent.</summary>
@@ -68,9 +80,35 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     /// </summary>
     public DbSet<PlayerPersonalDetails> PlayerPersonalDetails => Set<PlayerPersonalDetails>();
 
+    /// <summary>Én rad: om databasen er til utvikling eller drift. Se DatabaseMarker og DatabaseGuard.</summary>
+    public DbSet<DatabaseMarker> DatabaseMarker => Set<DatabaseMarker>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        // Identity setter tabellnavnene (AspNetUsers ...) og navnene på tre indekser
+        // (UserNameIndex, EmailIndex, RoleNameIndex) selv, og et navn som er satt eksplisitt, lar
+        // navnekonvensjonen stå. De får derfor navn her, så ingenting i skjemaet må skrives i
+        // anførselstegn. Kolonnene, nøklene og resten av indeksene tar konvensjonen.
+        builder.Entity<IdentityUser>(e =>
+        {
+            e.ToTable("asp_net_users");
+            e.HasIndex(u => u.NormalizedUserName).HasDatabaseName("ix_asp_net_users_normalized_user_name");
+            e.HasIndex(u => u.NormalizedEmail).HasDatabaseName("ix_asp_net_users_normalized_email");
+        });
+
+        builder.Entity<IdentityRole>(e =>
+        {
+            e.ToTable("asp_net_roles");
+            e.HasIndex(r => r.NormalizedName).HasDatabaseName("ix_asp_net_roles_normalized_name");
+        });
+
+        builder.Entity<IdentityUserRole<string>>().ToTable("asp_net_user_roles");
+        builder.Entity<IdentityUserClaim<string>>().ToTable("asp_net_user_claims");
+        builder.Entity<IdentityUserLogin<string>>().ToTable("asp_net_user_logins");
+        builder.Entity<IdentityUserToken<string>>().ToTable("asp_net_user_tokens");
+        builder.Entity<IdentityRoleClaim<string>>().ToTable("asp_net_role_claims");
 
         builder.Entity<Team>(e =>
         {
@@ -79,12 +117,18 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
 
         builder.Entity<Player>(e =>
         {
-            e.HasIndex(p => p.Code).IsUnique();
+            e.HasIndex(p => p.Name).IsUnique();
             e.HasIndex(p => p.UserId);
             e.HasOne(p => p.Team)
              .WithMany(t => t.Players)
              .HasForeignKey(p => p.TeamId)
              .OnDelete(DeleteBehavior.Restrict); // et lag med spillere skal ikke kunne slettes bort
+
+            // Spilleren blir stående når kontoen slettes; det er bare koblingen som går.
+            e.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(p => p.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         builder.Entity<Guardianship>(e =>
@@ -95,47 +139,12 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .WithMany(p => p.Guardianships)
              .HasForeignKey(g => g.PlayerId)
              .OnDelete(DeleteBehavior.Cascade);
-        });
 
-        builder.Entity<CoachTeam>(e =>
-        {
-            e.HasIndex(ct => new { ct.CoachUserId, ct.TeamId }).IsUnique();
-            e.HasOne(ct => ct.Team)
-             .WithMany(t => t.CoachTeams)
-             .HasForeignKey(ct => ct.TeamId)
+            // En foresattkobling uten foresatt er ingenting: den går med kontoen.
+            e.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(g => g.GuardianUserId)
              .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        builder.Entity<Item>(e =>
-        {
-            e.HasIndex(i => i.Number).IsUnique();
-        });
-
-        builder.Entity<Response>(e =>
-        {
-            // Én besvarelse per person, per spiller, per runde. Retting = oppdater raden.
-            e.HasIndex(r => new { r.RoundId, r.PlayerId, r.RespondentUserId }).IsUnique();
-            e.HasOne(r => r.Round)
-             .WithMany(sr => sr.Responses)
-             .HasForeignKey(r => r.RoundId)
-             .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(r => r.Player)
-             .WithMany(p => p.Responses)
-             .HasForeignKey(r => r.PlayerId)
-             .OnDelete(DeleteBehavior.Cascade); // sletting av spiller fjerner svarene (GDPR)
-        });
-
-        builder.Entity<Answer>(e =>
-        {
-            e.HasIndex(a => new { a.ResponseId, a.ItemId }).IsUnique();
-            e.HasOne(a => a.Response)
-             .WithMany(r => r.Answers)
-             .HasForeignKey(a => a.ResponseId)
-             .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(a => a.Item)
-             .WithMany(i => i.Answers)
-             .HasForeignKey(a => a.ItemId)
-             .OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<ConsentEvent>(e =>
@@ -282,6 +291,25 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
              .WithMany()
              .HasForeignKey(f => f.RoundId)
              .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<DatabaseMarker>(e =>
+        {
+            // Entall: tabellen har én rad, og den raden er markeringen.
+            e.ToTable("database_marker", table =>
+            {
+                // Én rad, og bare de to verdiene vernet kjenner. Håndhevet av databasen, så
+                // markeringen ikke kan bli tvetydig av noe som skrives utenom appen.
+                table.HasCheckConstraint(
+                    "ck_database_marker_single_row",
+                    $"id = {Models.DatabaseMarker.SingleRowId}");
+
+                table.HasCheckConstraint(
+                    "ck_database_marker_environment",
+                    $"environment in ('{Models.DatabaseMarker.Development}', '{Models.DatabaseMarker.Production}')");
+            });
+
+            e.Property(m => m.Id).ValueGeneratedNever();
         });
     }
 

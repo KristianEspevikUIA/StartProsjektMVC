@@ -32,7 +32,7 @@
                 @foreach (var child in Model)
                 {
                     <article class="sc-card sc-card--top">
-                        <h3>@child.Code</h3>
+                        <h3>@child.Name</h3>
                         <p class="sc-card__meta">@(child.Team?.Name ?? "")</p>
                         <div class="sc-actions">
                             <a class="sc-btn" asp-action="Player" asp-route-id="@child.Id">Open</a>

@@ -45,8 +45,9 @@ public class SurveyIndexViewModel
     public FilterInput Filter { get; set; } = new();
 
     /// <summary>
-    /// Where submitted answers are being sent, e.g. "Supabase". Admins only, so "did that
-    /// actually save anywhere" has an answer on the page rather than in a log file.
+    /// Where submitted answers are being kept, e.g. "The application database (PostgreSQL)".
+    /// Admins only, so "did that actually save anywhere" has an answer on the page rather
+    /// than in a log file.
     /// </summary>
     public string? StoreDescription { get; set; }
 

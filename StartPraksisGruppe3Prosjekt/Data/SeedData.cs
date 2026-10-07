@@ -20,7 +20,11 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// erstatter de oppdiktede når de er hentet. Se <see cref="SeedSquads"/>.
 ///
 /// Seedingen er idempotent: hvert steg hopper over seg selv hvis dataene finnes.
-/// Brukerkontoer opprettes bare i Development.
+///
+/// BARE I DEVELOPMENT, og bare mot en database som er markert som utvikling. Skjemaet,
+/// markeringen og grunnoppsettet (roller og lag, se <see cref="BaseSetup"/>) er på plass før
+/// denne klassen kalles; alt her er demodata. Kontoene får et passord som står i denne fila,
+/// og skal aldri finnes i en database med ekte spillerdata -- se <see cref="DatabaseGuard"/>.
 /// </summary>
 public static class SeedData
 {
@@ -29,9 +33,6 @@ public static class SeedData
 
     /// <summary>The one coach account. Kept as-is so nobody has to relearn a login.</summary>
     internal const string CoachEmail = "trener.senior@ikstart.example";
-
-    /// <summary>The second coach account, folded into <see cref="CoachEmail"/>.</summary>
-    private const string RetiredCoachEmail = "trener.ungdom@ikstart.example";
 
     /// <summary>Dato all alder regnes ut fra i seedingen.</summary>
     private static readonly DateOnly Today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -54,21 +55,21 @@ public static class SeedData
         var configuration = services.GetRequiredService<IConfiguration>();
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(SeedData));
 
-        await db.Database.MigrateAsync();
-
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        await SeedRolesAsync(roleManager);
-
-        await SeedItemsAsync(db);
-        var teams = await SeedTeamsAsync(db);
-        await SeedRoundsAsync(db, logger);
-
+        // Program.cs kaller bare hit i Development, og vernet har alt sjekket markeringen. Den
+        // sjekkes en gang til her, fordi det er DENNE koden som lager kontoer med et kjent
+        // passord: den skal ikke kunne gjøre det i en driftsdatabase, uansett hvem som kaller.
         if (!environment.IsDevelopment())
         {
-            logger.LogInformation(
-                "Hopper over demobrukere og oppdiktede spillere: miljøet er ikke Development.");
-            return;
+            throw new InvalidOperationException(
+                "SeedData.InitializeAsync lager demokontoer og oppdiktede data, og kjøres bare i Development.");
         }
+
+        await DatabaseGuard.RequireMarkedAsAsync(db, DatabaseMarker.Development);
+
+        // Lagene er grunnoppsett og finnes fra før. Se BaseSetup.
+        var teams = await db.Teams.ToDictionaryAsync(t => t.Name, t => t);
+
+        await SeedRoundsAsync(db, logger);
 
         var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
         var password = configuration["Seed:DevPassword"] ?? DefaultDevPassword;
@@ -76,21 +77,12 @@ public static class SeedData
         // De ekte troppene, når de er hentet. Null uten fila -- se SeedSquads.
         var squads = SeedSquads.Load(environment);
 
-        // Before the squads are seeded: a player still under the old code would otherwise
-        // not be found by name, and would get a second row next to it.
-        await RenameCodedPlayersAsync(db, userManager, logger);
-
         // De oppdiktede troppene bare i en base som ikke har andre spillere. Med de ekte troppene
-        // i fila erstattes de; uten fila, men med ekte spillere i den delte basen -- lagt inn
-        // av en annen på prosjektet -- ville de ellers kommet tilbake ved siden av dem.
+        // i fila erstattes de; uten fila, men med andre spillere i basen -- lagt inn med
+        // import-players -- ville de ellers kommet tilbake ved siden av dem.
         var seedFictionalSquads = squads is null && !await HasOtherPlayersAsync(db);
 
         await SeedUsersAndPlayersAsync(db, userManager, teams, password, seedFictionalSquads, logger);
-
-        // Runs every start, and deliberately outside SeedUsersAndPlayersAsync: that method
-        // used to return early once players existed, and the two coach accounts it needs to
-        // fold together were seeded long before this step existed.
-        await ConsolidateCoachAsync(db, userManager, logger);
 
         if (squads is not null)
         {
@@ -99,9 +91,8 @@ public static class SeedData
 
         await AssertGuardianRuleAsync(db, logger);
 
-        // The demo history. Development only, and separate from SeedRoundsAsync above --
-        // that step keeps exactly one placeholder period in every environment, and these
-        // two exist so that "over time" has something to draw.
+        // The demo history: two closed periods behind the open one, so that "over time" has
+        // something to draw.
         var demoPeriods = await SeedDemoPeriodsAsync(db);
 
         await SeedFiveCAnswersAsync(
@@ -124,160 +115,18 @@ public static class SeedData
             logger);
     }
 
-    private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
-    {
-        foreach (var role in Roles.All)
-        {
-            if (!await roleManager.RoleExistsAsync(role))
-            {
-                await roleManager.CreateAsync(new IdentityRole(role));
-            }
-        }
-    }
-
     /// <summary>
-    /// De ti påstandene. Påstand 5 er negativt formulert og er den eneste med
-    /// IsReversed = true — den skåres som (6 - verdi).
-    /// Spilleren svarer på disse om seg selv; treneren svarer på hva hen tror
-    /// spilleren har svart. Ordlyden i skjemaet snus i visningen, ikke i basen.
-    /// </summary>
-    private static async Task SeedItemsAsync(AppDbContext db)
-    {
-        if (await db.Items.AnyAsync())
-        {
-            return;
-        }
-
-        const string roleClarity = "Rolleforståelse";
-        const string safety = "Trygghet";
-        const string mastery = "Mestring";
-
-        db.Items.AddRange(
-            new Item { Number = 1, Construct = roleClarity, Text = "Jeg vet hva som forventes av meg i rollen min på laget." },
-            new Item { Number = 2, Construct = roleClarity, Text = "Jeg forstår hvorfor jeg får de oppgavene jeg får på trening og i kamp." },
-            new Item { Number = 3, Construct = roleClarity, Text = "Jeg vet hva jeg må jobbe med for å bli bedre." },
-            new Item { Number = 4, Construct = safety, Text = "Jeg tør å prøve nye ting på trening selv om jeg kan mislykkes." },
-            new Item { Number = 5, Construct = safety, IsReversed = true, Text = "Jeg er redd for å gjøre feil foran de andre på laget." },
-            new Item { Number = 6, Construct = safety, Text = "Jeg kan si ifra til treneren hvis noe er vanskelig." },
-            new Item { Number = 7, Construct = safety, Text = "Jeg føler meg som en del av laget." },
-            new Item { Number = 8, Construct = mastery, Text = "Jeg opplever at jeg mestrer oppgavene jeg får på trening." },
-            new Item { Number = 9, Construct = mastery, Text = "Jeg får tilbakemeldinger som hjelper meg å bli bedre." },
-            new Item { Number = 10, Construct = mastery, Text = "Jeg har blitt bedre som fotballspiller de siste månedene." });
-
-        await db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// The three teams the project is about: G14, G15 and G17 -- the club's academy age groups,
-    /// the same three the identity benchmarking has match data for (where they are still called
-    /// U14, U15 and U17, as in the StatsBomb reports). And G19, which came with the real squads
-    /// from ikstart.no (SeedSquads); the made-up squads have nobody on it.
+    /// The demo period that is open: "Autumn" of this year. Development only, like everything
+    /// else here -- a database in operation gets its periods from an administrator, on
+    /// Admin/Periods, and from nowhere else.
     ///
-    /// Existing rows are renamed in place rather than re-created: a new "G17" next to the old
-    /// "U17" would leave every player on the old one, and the coach looking at an empty squad.
-    /// The teams are named as the club names them, G for gutter; they were U14, U15, U17 and U19
-    /// until 07.10.2026. Before that the demo teams were Senior, G19 and G16, until the club
-    /// pointed out that they are not the teams this is for; strongest first, they became U17, U15
-    /// and U14. That G19 was the made-up one, and is not renamed: G19 is now the club's real
-    /// G19. "A-laget" is older still, from before the interface was English.
+    /// Added if it is missing and otherwise left alone. Nothing here renames or removes a
+    /// period: a period somebody created on Admin/Periods is theirs, empty or not.
     /// </summary>
-    private static async Task<IReadOnlyDictionary<string, Team>> SeedTeamsAsync(AppDbContext db)
-    {
-        // One rename each, straight to the current name: the renames are saved together below,
-        // so a chain (A-laget to Senior to U17 to G17) would find nothing to rename after its
-        // first step.
-        await RenameTeamAsync(db, "A-laget", "G17");
-        await RenameTeamAsync(db, "Senior", "G17");
-        await RenameTeamAsync(db, "U17", "G17");
-        await RenameTeamAsync(db, "U15", "G15");
-        await RenameTeamAsync(db, "U14", "G14");
-        await RenameTeamAsync(db, "G16", "G14");
-        await RenameTeamAsync(db, "U19", "G19");
-        await TranslatePositionsAsync(db);
-        await db.SaveChangesAsync();
-
-        // G19 kom til med de ekte troppene (SeedSquads). Uten dem står laget tomt.
-        var names = new[] { "G14", "G15", "G17", "G19" };
-
-        foreach (var name in names)
-        {
-            if (!await db.Teams.AnyAsync(t => t.Name == name))
-            {
-                db.Teams.Add(new Team { Name = name });
-            }
-        }
-
-        await db.SaveChangesAsync();
-
-        return await db.Teams.ToDictionaryAsync(t => t.Name, t => t);
-    }
-
-    private static async Task RenameTeamAsync(AppDbContext db, string oldName, string newName)
-    {
-        if (await db.Teams.AnyAsync(t => t.Name == newName))
-        {
-            return;
-        }
-
-        var team = await db.Teams.FirstOrDefaultAsync(t => t.Name == oldName);
-        if (team is not null)
-        {
-            team.Name = newName;
-        }
-    }
-
-    /// <summary>
-    /// Norwegian positions on players seeded before the interface moved to English.
-    /// Idempotent: a position already in English matches nothing and is left alone.
-    /// </summary>
-    private static async Task TranslatePositionsAsync(AppDbContext db)
-    {
-        var translations = new Dictionary<string, string>
-        {
-            ["Keeper"] = "Goalkeeper",
-            ["Midtstopper"] = "Centre-back",
-            ["Kantspiller"] = "Winger",
-            ["Spiss"] = "Striker",
-            ["Midtbane"] = "Midfielder",
-            ["Back"] = "Full-back"
-        };
-
-        var players = await db.Players
-            .Where(p => p.Position != null)
-            .ToListAsync();
-
-        foreach (var player in players)
-        {
-            if (player.Position is { } position && translations.TryGetValue(position, out var english))
-            {
-                player.Position = english;
-            }
-        }
-    }
-
-    /// <summary>
-    /// The measurement periods. Idempotent PER ROUND rather than "skip everything if any
-    /// round exists" -- otherwise a new period can never be added to a database that has
-    /// already been seeded, which is exactly the situation a new period arrives in.
-    ///
-    /// Adding a period here is one of two supported ways. The other is the admin page,
-    /// Admin/Periods, which does the same thing through <see cref="Services.IPeriodService"/>.
-    /// Both go through the same validation, so neither is a special case.
-    /// </summary>
-    internal static async Task SeedRoundsAsync(AppDbContext db, ILogger logger)
+    private static async Task SeedRoundsAsync(AppDbContext db, ILogger logger)
     {
         var now = DateTimeOffset.UtcNow;
 
-        // Rounds seeded before the interface moved to English carry Norwegian names, and a
-        // round name is text a player reads. Renamed rather than re-added: adding would put
-        // "Spring 2026" next to "Vår 2026" and split the answers across two periods.
-        await RenameRoundAsync(db, $"Vår {now.Year}", $"Spring {now.Year}");
-        await RenameRoundAsync(db, $"Høst {now.Year}", $"Autumn {now.Year}");
-        await db.SaveChangesAsync();
-
-        // ONE placeholder period while the club settles on what the real ones are. Autumn
-        // is the one that stays; Spring and Winter were seeded earlier and are removed
-        // below. Add more through Admin/Periods -- that is what it is for.
         await EnsureRoundAsync(
             db,
             $"Autumn {now.Year}",
@@ -286,10 +135,6 @@ public static class SeedData
 
         await db.SaveChangesAsync();
 
-        await RemoveEmptyRoundsExceptAsync(db, $"Autumn {now.Year}");
-
-        // Last, so it sees the list as it will actually be: the step above can take a
-        // period away, and whether anything is left open is the whole question here.
         await KeepPlaceholderOpenAsync(db, $"Autumn {now.Year}", now, logger);
     }
 
@@ -304,7 +149,7 @@ public static class SeedData
     /// had no open period in September, a form nobody could answer, and no way back short
     /// of the admin page or SQL.
     ///
-    /// ONLY WHEN NOTHING ELSE IS OPEN. A club that has defined its own periods has
+    /// ONLY WHEN NOTHING ELSE IS OPEN. Somebody who has defined their own periods has
     /// finished with the placeholder, and a period closed from Admin/Periods was closed on
     /// purpose -- reopening it on the next start would undo that decision silently. With
     /// nothing open at all there is no decision to undo; there is only a form nobody can
@@ -349,158 +194,6 @@ public static class SeedData
             placeholder.ClosesAt);
     }
 
-    /// <summary>
-    /// Removes every period except the one named, and only where it holds no answers.
-    ///
-    /// A period with submissions is left alone and logged. Deleting one cascades to the
-    /// answers inside it, and quietly throwing away somebody's answers because a seed step
-    /// wanted a tidier list is not a trade this should make on its own.
-    /// </summary>
-    private static async Task RemoveEmptyRoundsExceptAsync(AppDbContext db, string keepName)
-    {
-        var others = await db.SurveyRounds
-            .Where(r => r.Name != keepName)
-            .ToListAsync();
-
-        foreach (var round in others)
-        {
-            var hasFiveCAnswers = await db.FiveCSubmissions.AnyAsync(s => s.RoundId == round.Id);
-            var hasLegacyAnswers = await db.Responses.AnyAsync(r => r.RoundId == round.Id);
-
-            if (hasFiveCAnswers || hasLegacyAnswers)
-            {
-                continue;
-            }
-
-            db.SurveyRounds.Remove(round);
-        }
-
-        await db.SaveChangesAsync();
-    }
-
-    /// <summary>
-    /// Folds the second coach account into the first.
-    ///
-    /// Runs on every start, not only on a fresh database: the shared Supabase database was
-    /// seeded with two coaches long before this ran, and the ordinary seeding steps skip
-    /// themselves once players exist. A consolidation that only worked on an empty database
-    /// would never have consolidated anything.
-    ///
-    /// Its teams move across before it goes, so no team is left without a coach.
-    /// </summary>
-    private static async Task ConsolidateCoachAsync(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        ILogger logger)
-    {
-        var retired = await userManager.FindByEmailAsync(RetiredCoachEmail);
-        if (retired is null)
-        {
-            return;
-        }
-
-        var survivor = await userManager.FindByEmailAsync(CoachEmail);
-        if (survivor is null)
-        {
-            logger.LogWarning(
-                "Skipping coach consolidation: {Survivor} does not exist, so removing {Retired} " +
-                "would leave the club without a coach account.",
-                CoachEmail,
-                RetiredCoachEmail);
-            return;
-        }
-
-        // Move the teams over, skipping any the surviving coach already has.
-        var retiredTeams = await db.CoachTeams
-            .Where(ct => ct.CoachUserId == retired.Id)
-            .ToListAsync();
-
-        var survivorTeamIds = await db.CoachTeams
-            .Where(ct => ct.CoachUserId == survivor.Id)
-            .Select(ct => ct.TeamId)
-            .ToListAsync();
-
-        foreach (var link in retiredTeams)
-        {
-            if (!survivorTeamIds.Contains(link.TeamId))
-            {
-                db.CoachTeams.Add(new CoachTeam
-                {
-                    CoachUserId = survivor.Id,
-                    TeamId = link.TeamId
-                });
-
-                survivorTeamIds.Add(link.TeamId);
-            }
-
-            db.CoachTeams.Remove(link);
-        }
-
-        await db.SaveChangesAsync();
-
-        // The append-only logs record user ids as plain strings, with no foreign key to
-        // Identity. Deleting the account would not fail -- it would quietly turn every row
-        // that names it into an id nobody can resolve. An audit log that cannot say who did
-        // something is not an audit log, so in that case the account stays and is only
-        // stripped of what it can do.
-        var appearsInAuditTrail =
-            await db.ConsentEvents.AnyAsync(c => c.ChangedByUserId == retired.Id)
-            || await db.PlayerAccessEvents.AnyAsync(a => a.ViewedByUserId == retired.Id)
-            || await db.FeedbackReleases.AnyAsync(f => f.CoachUserId == retired.Id);
-
-        if (appearsInAuditTrail)
-        {
-            await userManager.RemoveFromRoleAsync(retired, Roles.Coach);
-            await userManager.SetLockoutEnabledAsync(retired, true);
-            await userManager.SetLockoutEndDateAsync(retired, DateTimeOffset.MaxValue);
-
-            logger.LogInformation(
-                "Coach {Retired} appears in the audit trail, so the account was disabled " +
-                "rather than deleted. Its teams moved to {Survivor}.",
-                RetiredCoachEmail,
-                CoachEmail);
-
-            return;
-        }
-
-        // Nothing references it. Its answers to the older ten-statement form go with it --
-        // they were fabricated demo data and mean nothing without the account.
-        var orphanedResponses = await db.Responses
-            .Where(r => r.RespondentUserId == retired.Id)
-            .ToListAsync();
-
-        if (orphanedResponses.Count > 0)
-        {
-            db.Responses.RemoveRange(orphanedResponses);
-            await db.SaveChangesAsync();
-        }
-
-        await userManager.DeleteAsync(retired);
-
-        logger.LogInformation(
-            "Coach {Retired} removed; its teams and duties are now {Survivor}'s.",
-            RetiredCoachEmail,
-            CoachEmail);
-    }
-
-    /// <summary>
-    /// Renames a round in place, keeping its id and therefore every answer attached to it.
-    /// Does nothing if the old name is gone, or if the new name is already taken.
-    /// </summary>
-    private static async Task RenameRoundAsync(AppDbContext db, string oldName, string newName)
-    {
-        if (await db.SurveyRounds.AnyAsync(r => r.Name == newName))
-        {
-            return;
-        }
-
-        var round = await db.SurveyRounds.FirstOrDefaultAsync(r => r.Name == oldName);
-        if (round is not null)
-        {
-            round.Name = newName;
-        }
-    }
-
     /// <summary>Adds a round if no round by that name exists. Never edits an existing one.</summary>
     private static async Task EnsureRoundAsync(
         AppDbContext db,
@@ -522,117 +215,10 @@ public static class SeedData
     }
 
     /// <summary>
-    /// Gives the players seeded while they were codes ("TS-08-16") their names.
-    ///
-    /// Renamed in place, like the teams and periods above: the player keeps its id, and with
-    /// it every answer, rating and consent event. A new row next to the old one would give
-    /// every team two squads, and the shared database was seeded long before the names.
-    ///
-    /// Three things follow the name, and none of them is saved after the code. The code is
-    /// what marks a player as done, so a start that stops halfway leaves the rest to the next.
-    ///   * The copy of the code on each 5C submission (FiveCSubmission.PlayerCode).
-    ///   * The accounts derived from the code -- the player's own and a derived guardian's --
-    ///     move to the address derived from the name. Any other address, foresatt1..7 for
-    ///     one, was never derived from anything and stays.
-    ///   * The seeded first name was drawn at random, and a player called Brage should not be
-    ///     welcomed as Amund.
-    /// </summary>
-    private static async Task RenameCodedPlayersAsync(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        ILogger logger)
-    {
-        var renamed = 0;
-
-        foreach (var member in Squads.SelectMany(team => team.Squad))
-        {
-            var player = await db.Players
-                .Include(p => p.Guardianships)
-                .FirstOrDefaultAsync(p => p.Code == member.FormerCode);
-
-            if (player is null || await db.Players.AnyAsync(p => p.Code == member.Name))
-            {
-                continue;
-            }
-
-            await db.FiveCSubmissions
-                .Where(s => s.PlayerId == player.Id)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.PlayerCode, member.Name));
-
-            var formerEmailPart = member.FormerCode.Replace("-", string.Empty).ToLowerInvariant();
-
-            await MoveAccountAsync(
-                userManager,
-                player.UserId,
-                $"spiller.{formerEmailPart}@ikstart.example",
-                PlayerEmail(member.Name));
-
-            foreach (var guardianship in player.Guardianships)
-            {
-                await MoveAccountAsync(
-                    userManager,
-                    guardianship.GuardianUserId,
-                    $"foresatt.{formerEmailPart}@example.test",
-                    GuardianEmail(member.Name));
-            }
-
-            var details = await db.PlayerPersonalDetails.FirstOrDefaultAsync(d => d.PlayerId == player.Id);
-            if (details is not null)
-            {
-                details.FirstName = FirstNameOf(member.Name);
-            }
-
-            player.Code = member.Name;
-            await db.SaveChangesAsync();
-
-            renamed++;
-        }
-
-        if (renamed > 0)
-        {
-            logger.LogInformation("Gave {Count} players their names in place of their codes.", renamed);
-        }
-    }
-
-    /// <summary>
-    /// Moves an account from one address to another. Only an account that still has the old
-    /// address, and only when the new one is free.
-    /// </summary>
-    private static async Task MoveAccountAsync(
-        UserManager<IdentityUser> userManager,
-        string? userId,
-        string from,
-        string to)
-    {
-        if (userId is null
-            || await userManager.FindByIdAsync(userId) is not { } user
-            || !string.Equals(user.Email, from, StringComparison.OrdinalIgnoreCase)
-            || await userManager.FindByEmailAsync(to) is not null)
-        {
-            return;
-        }
-
-        // Set directly rather than with SetEmailAsync, which also marks the address as
-        // unconfirmed. UpdateAsync normalises both for the lookups.
-        user.Email = to;
-        user.UserName = to;
-
-        var result = await userManager.UpdateAsync(user);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(
-                $"Klarte ikke å flytte demobrukeren {from} til {to}: " +
-                string.Join("; ", result.Errors.Select(e => e.Description)));
-        }
-    }
-
-    /// <summary>
     /// Oppdiktede brukere, spillere, koblinger og samtykkehendelser.
     ///
-    /// IDEMPOTENT PER SPILLER, ikke "hopp over alt hvis det finnes spillere". Den gamle
-    /// vakten gjorde at en tropp aldri kunne fylles ut i en base som allerede var seedet --
-    /// og den delte basen ER allerede seedet. Å tømme public-skjemaet i Supabase for å få se
-    /// nye demospillere rammer alle på prosjektet; å legge til dem som mangler gjør det ikke.
+    /// IDEMPOTENT PER SPILLER, ikke "hopp over alt hvis det finnes spillere". En tropp skal
+    /// kunne fylles ut i en base som allerede er seedet, uten at den må slettes først.
     ///
     /// Regelen som håndheves til slutt: hver spiller under
     /// <see cref="PlayerRules.GuardianRequiredBelowAge"/> år må ha minst én foresatt.
@@ -647,19 +233,9 @@ public static class SeedData
     {
         var adminId = await EnsureUserAsync(userManager, "admin@ikstart.example", password, Roles.Admin);
 
-        // One coach, on every team. The coach role is not team-scoped any more -- CanViewPlayer
-        // lets any coach see any player -- so a second account only added a login to remember.
-        var coachId = await EnsureUserAsync(userManager, CoachEmail, password, Roles.Coach);
-
-        foreach (var team in teams.Values)
-        {
-            if (!await db.CoachTeams.AnyAsync(ct => ct.CoachUserId == coachId && ct.TeamId == team.Id))
-            {
-                db.CoachTeams.Add(new CoachTeam { CoachUserId = coachId, TeamId = team.Id });
-            }
-        }
-
-        await db.SaveChangesAsync();
+        // One coach, for every team. The coach role is not team-scoped -- CanViewPlayer lets
+        // any coach see any player -- so a second account would only add a login to remember.
+        await EnsureUserAsync(userManager, CoachEmail, password, Roles.Coach);
 
         if (!seedFictionalSquads)
         {
@@ -669,7 +245,7 @@ public static class SeedData
 
         // Tracked, and read once: the loop both looks players up and edits the ones it finds.
         var byCode = (await db.Players.ToListAsync())
-            .ToDictionary(p => p.Code, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
         var created = 0;
 
@@ -718,7 +294,7 @@ public static class SeedData
 
                 player = new Player
                 {
-                    Code = member.Name,
+                    Name = member.Name,
                     TeamId = team.Id,
                     BirthDate = member.BirthDate,
                     Position = position,
@@ -768,7 +344,7 @@ public static class SeedData
     {
         var fictional = FictionalNames.Concat(FormerCodeByName.Values).ToList();
 
-        return await db.Players.AnyAsync(p => !fictional.Contains(p.Code));
+        return await db.Players.AnyAsync(p => !fictional.Contains(p.Name));
     }
 
     /// <summary>
@@ -841,8 +417,8 @@ public static class SeedData
     /// Fødselsdatoene følger årsklassene slik NFF regner dem, etter året spilleren fyller:
     /// G17 er født 2009 og 2010, G15 2011 og G14 2012, med et par som er et år yngre og spiller
     /// opp. Alle er dermed mindreårige, og alle har en foresatt -- som i virkeligheten for disse
-    /// lagene. Koden en spiller het før navnene (TS-98-07) sier ingenting om alderen lenger; den
-    /// er bare frøet til demodataene.
+    /// lagene. Koden ved siden av navnet (TS-98-07) er det spilleren het før navnene; i dag er
+    /// den bare frøet til demodataene.
     /// </summary>
     private static readonly IReadOnlyList<(string TeamName, IReadOnlyList<SquadMember> Squad)> Squads =
         new (string, IReadOnlyList<SquadMember>)[]
@@ -949,7 +525,7 @@ public static class SeedData
     /// seedet før, får ikke nye svar fra et annet frø ved siden av de gamle.
     /// </summary>
     internal static string SeedKey(Player player) =>
-        FormerCodeByName.TryGetValue(player.Code, out var former) ? former : player.Code;
+        FormerCodeByName.TryGetValue(player.Name, out var former) ? former : player.Name;
 
     /// <summary>"Taavi-Topias Henell" blir "Taavi-Topias". Til velkomsten og draktene på beste elleve.</summary>
     internal static string FirstNameOf(string name) => name.Trim().Split(' ')[0];
@@ -996,13 +572,12 @@ public static class SeedData
     /// Én spiller i en tropp. Posisjonen kommer fra plassen i <see cref="Formation"/>.
     /// </summary>
     /// <param name="Name">
-    /// Fornavn og etternavn, slik spilleren står i appen. Lagres i <see cref="Player.Code"/>,
-    /// og er derfor høyst 20 tegn.
+    /// Fornavn og etternavn, slik spilleren står i appen. Lagres i <see cref="Player.Name"/>,
+    /// og er derfor høyst 50 tegn.
     /// </param>
     /// <param name="FormerCode">
-    /// Koden spilleren het før navnene, f.eks. "TS-08-16". Den finner spilleren igjen i en base
-    /// som ble seedet før (se <see cref="RenameCodedPlayersAsync"/>), og den er frøet
-    /// demodataene trekkes fra (se <see cref="SeedKey"/>).
+    /// Koden spilleren het før navnene, f.eks. "TS-08-16". Den er frøet demodataene trekkes
+    /// fra (se <see cref="SeedKey"/>), så samme spiller får de samme svarene og vurderingene.
     /// </param>
     /// <param name="BirthDate">Fødselsdato. Avgjør om det kreves foresatt.</param>
     /// <param name="Consent">Samtykkenivå, eller null for "ingen hendelse i det hele tatt".</param>
@@ -1029,7 +604,7 @@ public static class SeedData
     /// </summary>
     private static async Task SeedWithdrawnConsentAsync(AppDbContext db)
     {
-        var player = await db.Players.FirstOrDefaultAsync(p => p.Code == "Viljar Holm");
+        var player = await db.Players.FirstOrDefaultAsync(p => p.Name == "Viljar Holm");
         if (player is null)
         {
             return;
@@ -1078,7 +653,7 @@ public static class SeedData
         var missing = players
             .Where(p => p.AgeAt(Today) < PlayerRules.GuardianRequiredBelowAge)
             .Where(p => p.Guardianships.Count == 0)
-            .Select(p => p.Code)
+            .Select(p => p.Name)
             .ToList();
 
         if (missing.Count > 0)
@@ -1100,12 +675,8 @@ public static class SeedData
     // ---------------------------------------------------------------------------------
 
     /// <summary>
-    /// De to avsluttede periodene demodataene ligger i, pluss den åpne som allerede finnes.
-    ///
-    /// Ligger her og ikke i <see cref="SeedRoundsAsync"/> med vilje. Det steget kjører i alle
-    /// miljøer og holder på én plassholderperiode; disse to er demodata og skal ikke finnes
-    /// utenfor Development. At de likevel overlever <c>RemoveEmptyRoundsExceptAsync</c> ved
-    /// neste oppstart, er fordi de har svar i seg -- en periode med svar blir stående.
+    /// De to avsluttede periodene demodataene ligger i, pluss den åpne fra
+    /// <see cref="SeedRoundsAsync"/>.
     ///
     /// Datoene er relative, ikke faste: seedingen skal gi det samme bildet uansett når den
     /// kjøres, og en historikk som stopper i fjor er ikke en historikk.
@@ -1143,9 +714,9 @@ public static class SeedData
     /// Radene skrives rett på <see cref="AppDbContext"/> og ikke gjennom
     /// <see cref="ISurveySubmissionStore"/>. Formen er den samme
     /// <see cref="Services.FiveC.EfSurveySubmissionStore"/> skriver, men lageret gjør ett
-    /// oppslag og én lagring per besvarelse, og det er noen hundre rundturer til en database
-    /// som ikke ligger på denne maskinen. Derfor sjekkes det først at det ER det lageret som
-    /// er i bruk -- svar skrevet et sted ingen leser fra er verre enn ingen svar.
+    /// oppslag og én lagring per besvarelse, og det er noen hundre rundturer til databasen.
+    /// Derfor sjekkes det først at det ER det lageret som er i bruk -- svar skrevet et sted
+    /// ingen leser fra er verre enn ingen svar.
     /// </summary>
     private static async Task SeedFiveCAnswersAsync(
         AppDbContext db,
@@ -1186,9 +757,13 @@ public static class SeedData
             .Include(p => p.Guardianships)
             .ToListAsync();
 
-        var coachByTeam = (await db.CoachTeams.AsNoTracking().ToListAsync())
-            .GroupBy(ct => ct.TeamId)
-            .ToDictionary(group => group.Key, group => group.First().CoachUserId);
+        // The one coach answers about every team. See SeedUsersAndPlayersAsync.
+        var normalizedCoachEmail = CoachEmail.ToUpperInvariant();
+
+        var coachUserId = await db.Users
+            .Where(u => u.NormalizedEmail == normalizedCoachEmail)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync();
 
         var now = DateTimeOffset.UtcNow;
         var added = 0;
@@ -1201,7 +776,6 @@ public static class SeedData
             var profile = ProfileFor(new Random(StableSeed(SeedKey(player))), catalog, periods.Count);
 
             var guardianUserId = player.Guardianships.FirstOrDefault()?.GuardianUserId;
-            coachByTeam.TryGetValue(player.TeamId, out var coachUserId);
 
             var beforePlayer = added;
 
@@ -1327,7 +901,6 @@ public static class SeedData
         {
             RoundId = period.Id,
             PlayerId = player.Id,
-            PlayerCode = player.Code,
             RespondentRole = Contracts.FiveC.SurveySubmission.Roles.From(role),
             RespondentUserId = respondentUserId,
             QuestionSetVersion = catalog.Questions.Version,

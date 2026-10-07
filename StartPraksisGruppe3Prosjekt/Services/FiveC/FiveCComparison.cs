@@ -10,9 +10,9 @@ namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 /// answered and a category answered with ones are different things, and a view that only
 /// gets a number cannot tell them apart.
 ///
-/// None of this is stored. It is recalculated from the raw answers on every request, the
-/// same rule the ten-statement form follows: a saved judgement about a minor outlives the
-/// answers it was based on, the consent that allowed it, and the round it belonged to.
+/// None of this is stored. It is recalculated from the raw answers on every request: a
+/// saved judgement about a minor outlives the answers it was based on, the consent that
+/// allowed it, and the round it belonged to.
 /// </summary>
 /// <param name="CategoryKey">Category key, e.g. "commitment".</param>
 /// <param name="CategoryName">Heading, e.g. "Commitment".</param>
@@ -205,7 +205,7 @@ public sealed record ReflectionComparison(
 /// All five categories for one player in one round, plus what is missing.
 /// </summary>
 /// <param name="PlayerId">The player.</param>
-/// <param name="PlayerCode">The player's name, e.g. "Brage Kristoffersen" (Player.Code).</param>
+/// <param name="PlayerCode">The player's name, e.g. "Brage Kristoffersen" (Player.Name).</param>
 /// <param name="RoundId">The round.</param>
 /// <param name="Categories">The five C's, in the order the question set lists them.</param>
 /// <param name="PlayerSubmittedAt">When the player answered, or null.</param>

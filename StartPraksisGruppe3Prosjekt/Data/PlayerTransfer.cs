@@ -43,20 +43,6 @@ internal static class PlayerTransfer
     /// </summary>
     internal const string ImportedBy = "import-players";
 
-    /// <summary>
-    /// Lagene het U14, U15, U17 og U19 til 07.10.2026. Appen døper dem om ved oppstart
-    /// (SeedData.SeedTeamsAsync), men eksporten kjører før oppstarten og kan møte en database
-    /// der det ikke har skjedd ennå. Fila får navnet laget har i dag; databasen røres ikke.
-    /// </summary>
-    private static readonly IReadOnlyDictionary<string, string> RenamedTeams =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["U14"] = "G14",
-            ["U15"] = "G15",
-            ["U17"] = "G17",
-            ["U19"] = "G19"
-        };
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -104,9 +90,9 @@ internal static class PlayerTransfer
                 .ToListAsync();
 
             players = all
-                .Where(p => !SeedData.IsFictional(p.Code))
-                .OrderBy(TeamNameOf, StringComparer.Ordinal)
-                .ThenBy(p => p.Code, StringComparer.Ordinal)
+                .Where(p => !SeedData.IsFictional(p.Name))
+                .OrderBy(p => p.Team!.Name, StringComparer.Ordinal)
+                .ThenBy(p => p.Name, StringComparer.Ordinal)
                 .ToList();
 
             fictional = all.Count - players.Count;
@@ -120,7 +106,7 @@ internal static class PlayerTransfer
 
             // En oppdiktet spiller har aldri fått bilde av seedingen. Har en likevel det, kan det
             // være en ekte spiller som deler navn med en oppdiktet -- og da mangler hen i fila.
-            var fictionalIds = all.Where(p => SeedData.IsFictional(p.Code)).Select(p => p.Id).ToList();
+            var fictionalIds = all.Where(p => SeedData.IsFictional(p.Name)).Select(p => p.Id).ToList();
 
             var fictionalWithPhoto = await db.PlayerPersonalDetails
                 .AsNoTracking()
@@ -159,9 +145,9 @@ internal static class PlayerTransfer
 
         foreach (var player in players)
         {
-            if (!SeedSquads.TeamNames.Contains(TeamNameOf(player)))
+            if (!SeedSquads.TeamNames.Contains(player.Team!.Name))
             {
-                problems.Add($"spiller-ID {player.Id} står på laget «{player.Team!.Name}», som importen ikke kjenner");
+                problems.Add($"spiller-ID {player.Id} står på laget «{player.Team.Name}», som importen ikke kjenner");
             }
 
             if (string.IsNullOrWhiteSpace(player.Position))
@@ -198,7 +184,7 @@ internal static class PlayerTransfer
         var photos = 0;
         var teams = new List<SquadFileTeam>();
 
-        foreach (var team in players.GroupBy(TeamNameOf))
+        foreach (var team in players.GroupBy(p => p.Team!.Name))
         {
             var members = new List<SquadFilePlayer>();
 
@@ -219,7 +205,7 @@ internal static class PlayerTransfer
                 }
 
                 members.Add(new SquadFilePlayer(
-                    Name: player.Code,
+                    Name: player.Name,
                     Position: player.Position!,
                     BirthDate: player.BirthDate,
                     BirthDateEstimated: false,
@@ -257,16 +243,6 @@ internal static class PlayerTransfer
             teams.Count,
             photos,
             fictional);
-
-        var renamed = players.Count(p => RenamedTeams.ContainsKey(p.Team!.Name));
-
-        if (renamed > 0)
-        {
-            logger.LogInformation(
-                "{Renamed} av spillerne sto på et lag med det gamle navnet (U14, U15, U17 eller U19). " +
-                "I fila står laget med navnet det har i dag (G14, G15, G17 eller G19).",
-                renamed);
-        }
 
         logger.LogInformation(
             "Mappa inneholder navn, fødselsdato og bilde av mindreårige. Oppbevar den trygt, og " +
@@ -326,7 +302,7 @@ internal static class PlayerTransfer
                 // ikke ennå for de ekte spillerne, og importen dikter ikke opp noen.
                 var player = new Player
                 {
-                    Code = member.Name,
+                    Name = member.Name,
                     TeamId = teamId,
                     BirthDate = member.BirthDate,
                     Position = member.Position
@@ -434,10 +410,6 @@ internal static class PlayerTransfer
         return candidate.Equals(root, comparison)
             || candidate.StartsWith(root + Path.DirectorySeparatorChar, comparison);
     }
-
-    /// <summary>Lagets navn slik det skal stå i fila: dagens navn, også for et lag som ikke er døpt om ennå.</summary>
-    private static string TeamNameOf(Player player) =>
-        RenamedTeams.GetValueOrDefault(player.Team!.Name, player.Team.Name);
 
     /// <summary>Filendelsen for et bilde slik det er lagret. Null for en type bildekontrollen ikke slipper inn.</summary>
     private static string? ExtensionOf(string? contentType) => contentType switch

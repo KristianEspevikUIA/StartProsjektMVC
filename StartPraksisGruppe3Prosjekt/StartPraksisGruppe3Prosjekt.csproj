@@ -16,10 +16,23 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!--
+    Data/Squads (git-ignorert) har navn, fødselsdato og bilde av de ekte spillerne, til
+    Development på egen maskin. En .json-fil i et webprosjekt følger ellers med i
+    «dotnet publish», og da ville den som publiserer fra en maskin med troppene på, sendt dem
+    med ut. Mappa er derfor ikke innhold: appen leser den fra prosjektmappa i Development,
+    og en eksport til import-players ligger et sted man selv har valgt.
+  -->
+  <ItemGroup>
+    <Content Remove="Data\Squads\**" />
+    <None Remove="Data\Squads\**" />
   </ItemGroup>
 
 </Project>

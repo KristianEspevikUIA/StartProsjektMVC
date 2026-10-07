@@ -18,7 +18,5 @@ public class SurveyRound
     [Display(Name = "Closes")]
     public DateTimeOffset ClosesAt { get; set; }
 
-    public ICollection<Response> Responses { get; set; } = new List<Response>();
-
     public bool IsOpenAt(DateTimeOffset now) => now >= OpensAt && now <= ClosesAt;
 }

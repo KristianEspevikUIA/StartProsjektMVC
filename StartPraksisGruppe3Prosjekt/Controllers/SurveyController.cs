@@ -290,7 +290,7 @@ public class SurveyController : Controller
         {
             RoundId = round.Id,
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             RespondentRole = SurveySubmission.Roles.From(respondent),
             RespondentUserId = UserId,
             QuestionSetVersion = _catalog.Questions.Version,
@@ -325,7 +325,7 @@ public class SurveyController : Controller
             player.Id,
             submission.RespondentRole);
 
-        TempData["SurveyMessage"] = $"Your answers for {player.Code} are saved. Thank you!";
+        TempData["SurveyMessage"] = $"Your answers for {player.Name} are saved. Thank you!";
 
         return RedirectToAction(nameof(Index));
     }
@@ -428,7 +428,7 @@ public class SurveyController : Controller
             RoundName = round.Name,
             RoundClosesAt = round.ClosesAt,
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             TeamName = player.Team?.Name ?? string.Empty,
             Respondent = respondent,
             QuestionSetVersion = _catalog.Questions.Version,
@@ -721,7 +721,7 @@ public class SurveyController : Controller
             ClosesAt = round.ClosesAt,
             NotOpenYet = DateTimeOffset.UtcNow < round.OpensAt,
             HasAnswered = existing is not null,
-            PlayerCode = player.Code
+            PlayerCode = player.Name
         });
     }
 

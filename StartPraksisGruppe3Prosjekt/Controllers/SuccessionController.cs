@@ -100,13 +100,13 @@ public class SuccessionController : Controller
             // the default -- the same call the 5C team page makes about sorting by difference.
             "readiness" => rows
                 .OrderByDescending(r => r.Consensus?.Overall ?? double.MinValue)
-                .ThenBy(r => r.Player.Code, StringComparer.Ordinal)
+                .ThenBy(r => r.Player.Name, StringComparer.Ordinal)
                 .ToList(),
             "team" => rows
                 .OrderBy(r => r.Player.Team?.Name, StringComparer.Ordinal)
-                .ThenBy(r => r.Player.Code, StringComparer.Ordinal)
+                .ThenBy(r => r.Player.Name, StringComparer.Ordinal)
                 .ToList(),
-            _ => rows.OrderBy(r => r.Player.Code, StringComparer.Ordinal).ToList()
+            _ => rows.OrderBy(r => r.Player.Name, StringComparer.Ordinal).ToList()
         };
 
         // A row with nothing but a code on it says nothing about the player; a row with ratings
@@ -191,7 +191,7 @@ public class SuccessionController : Controller
         var names = await DisplayNamesAsync(rows.Values, cancellationToken);
 
         var candidates = rows.Values
-            .Select(r => new ElevenCandidate(r.Player.Id, r.Player.Code, r.Consensus!.Overall!.Value, r.Consensus.Positions))
+            .Select(r => new ElevenCandidate(r.Player.Id, r.Player.Name, r.Consensus!.Overall!.Value, r.Consensus.Positions))
             .ToList();
 
         var slots = SuccessionMath.PickEleven(chosen, candidates, _catalog.Settings);
@@ -203,7 +203,7 @@ public class SuccessionController : Controller
             return new SlotPlayer
             {
                 PlayerId = row.Player.Id,
-                Code = row.Player.Code,
+                Code = row.Player.Name,
                 Name = names[row.Player.Id].Name,
                 NameTag = names[row.Player.Id].Tag,
                 PhotoUrl = names[row.Player.Id].Photo,
@@ -248,11 +248,11 @@ public class SuccessionController : Controller
         // pitch are where a coach brings players on from. Strongest first, as a squad list reads.
         var squad = rows.Values
             .OrderByDescending(r => r.Consensus!.Overall)
-            .ThenBy(r => r.Player.Code, StringComparer.Ordinal)
+            .ThenBy(r => r.Player.Name, StringComparer.Ordinal)
             .Select(r => new SquadPlayer
             {
                 PlayerId = r.Player.Id,
-                Code = r.Player.Code,
+                Code = r.Player.Name,
                 Name = names[r.Player.Id].Name,
                 NameTag = names[r.Player.Id].Tag,
                 PhotoUrl = names[r.Player.Id].Photo,
@@ -470,7 +470,7 @@ public class SuccessionController : Controller
 
         await _planning.SaveAsync(id, UserId, cycle, form.ToAssessment(_catalog.Settings), cancellationToken);
 
-        TempData["SuccessionMessage"] = $"Your assessment of {found.Code} for {cycle.Label} is saved.";
+        TempData["SuccessionMessage"] = $"Your assessment of {found.Name} for {cycle.Label} is saved.";
 
         return RedirectToAction(nameof(Player), new { id });
     }
@@ -511,7 +511,7 @@ public class SuccessionController : Controller
             UserId,
             cancellationToken);
 
-        TempData["SuccessionMessage"] = $"Club details for {found.Code} are saved.";
+        TempData["SuccessionMessage"] = $"Club details for {found.Name} are saved.";
 
         return RedirectToAction(nameof(Player), new { id });
     }
@@ -594,7 +594,7 @@ public class SuccessionController : Controller
         SuccessionCycle cycle)
     {
         model.PlayerId = player.Id;
-        model.Code = player.Code;
+        model.Code = player.Name;
         model.TeamName = player.Team?.Name;
         model.CycleLabel = cycle.Label;
         return model;
@@ -629,8 +629,8 @@ public class SuccessionController : Controller
         return players.ToDictionary(
             p => p.Id,
             p => firstNames.TryGetValue(p.Id, out var name)
-                ? new ShirtName(name, shared.Contains(name) ? p.Code : null, PhotoOf(p.Id))
-                : new ShirtName(p.Code, null, PhotoOf(p.Id)));
+                ? new ShirtName(name, shared.Contains(name) ? p.Name : null, PhotoOf(p.Id))
+                : new ShirtName(p.Name, null, PhotoOf(p.Id)));
     }
 
     /// <summary>

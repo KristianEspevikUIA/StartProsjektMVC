@@ -8,12 +8,13 @@ using StartPraksisGruppe3Prosjekt.Models.FiveC;
 namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 
 /// <summary>
-/// Development fallback for <see cref="ISurveySubmissionStore"/>, used while Supabase is
-/// not configured. Answers live in memory and are gone when the process stops.
+/// The <see cref="ISurveySubmissionStore"/> that writes nothing, used only when
+/// <c>FiveC:Store</c> is "InMemory". Answers live in memory and are gone when the process
+/// stops.
 ///
-/// It exists so the form and the coach overview can be built and demonstrated before
-/// Victor's tables are in place, not as a stepping stone to a local database. Nothing here
-/// should grow into one -- when Supabase is configured this class is not registered at all.
+/// It exists so the form and the coach overview can be demonstrated without leaving anything
+/// behind. Nothing here should grow into a store of record -- that is
+/// <see cref="EfSurveySubmissionStore"/>.
 ///
 /// In Development it seeds itself with MADE-UP submissions for the seeded players, so the
 /// coach overview has something to draw. All of it is invented, including the player who
@@ -181,6 +182,14 @@ public sealed class InMemorySurveySubmissionStore : ISurveySubmissionStore
             .Include(p => p.Guardianships)
             .ToListAsync(cancellationToken);
 
+        var coachUserId = await (
+                from userRole in db.UserRoles
+                join role in db.Roles on userRole.RoleId equals role.Id
+                where role.Name == Authorization.Roles.Coach
+                orderby userRole.UserId
+                select userRole.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         foreach (var player in players)
         {
             // The player answers about themselves, if they have an account at all.
@@ -196,18 +205,7 @@ public sealed class InMemorySurveySubmissionStore : ISurveySubmissionStore
             }
 
             // A coach, so there is something to compare against. The coach role is not tied
-            // to a team any more, so a team without a CoachTeam row is perfectly normal --
-            // fall back to any coach rather than leaving the comparison half empty.
-            var coachUserId = await db.CoachTeams
-                .AsNoTracking()
-                .Where(ct => ct.TeamId == player.TeamId)
-                .Select(ct => ct.CoachUserId)
-                .FirstOrDefaultAsync(cancellationToken)
-                ?? await db.CoachTeams
-                    .AsNoTracking()
-                    .Select(ct => ct.CoachUserId)
-                    .FirstOrDefaultAsync(cancellationToken);
-
+            // to a team, so any coach will do.
             if (coachUserId is not null)
             {
                 Add(round.Id, player, RespondentType.Coach, coachUserId);
@@ -269,7 +267,7 @@ public sealed class InMemorySurveySubmissionStore : ISurveySubmissionStore
         {
             RoundId = roundId,
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             RespondentRole = SurveySubmission.Roles.From(respondent),
             RespondentUserId = userId,
             QuestionSetVersion = _catalog.Questions.Version,

@@ -8,13 +8,12 @@ namespace StartPraksisGruppe3Prosjekt.Contracts.FiveC;
 ///
 /// This is the contract between this application and whatever stores the answers. It is
 /// deliberately flat and free of anything database-shaped: no surrogate keys, no foreign
-/// keys, no table names. Victor owns the Supabase schema; this type only says what the
-/// form has to hand over, so the two can be lined up without either side guessing.
+/// keys, no table names. The schema is AppDbContext's business; this type only says what
+/// the form has to hand over, so the two can be lined up without either side guessing.
 ///
 /// The same shape is mirrored in Contracts/FiveC/survey-submission.ts. Keep them in step.
 ///
-/// The JSON property names are snake_case because that is what a Postgres/PostgREST table
-/// will call its columns, which lets the payload be posted with no translation layer:
+/// The JSON property names are snake_case, the way the database names its columns:
 ///
 /// {
 ///   "round_id": 2,
@@ -47,8 +46,10 @@ public sealed record SurveySubmission
     public required int PlayerId { get; init; }
 
     /// <summary>
-    /// The player's name, e.g. "Brage Kristoffersen" (Player.Code). Sent so that a row is
-    /// readable without joining back to the players table.
+    /// The player's name, e.g. "Brage Kristoffersen" (Player.Name). Part of the contract so
+    /// that a submission is readable on its own; the database does not keep a copy of it --
+    /// the store reads it from the player. The field keeps the name it had when players went
+    /// by a code.
     /// </summary>
     [JsonPropertyName("player_code")]
     public required string PlayerCode { get; init; }

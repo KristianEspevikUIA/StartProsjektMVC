@@ -9,7 +9,6 @@ using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Security;
 using StartPraksisGruppe3Prosjekt.Services;
 using StartPraksisGruppe3Prosjekt.Services.FiveC;
-using StartPraksisGruppe3Prosjekt.ViewModels;
 using StartPraksisGruppe3Prosjekt.ViewModels.FiveC;
 
 namespace StartPraksisGruppe3Prosjekt.Controllers;
@@ -19,20 +18,21 @@ namespace StartPraksisGruppe3Prosjekt.Controllers;
 ///
 /// [Authorize(Roles = ...)] only gets you into the controller. It says nothing about WHICH
 /// players you are allowed to see. Every action that takes a player id has to run the
-/// resource check as well -- see <see cref="PlayerDetail"/>, which is the pattern everyone
-/// follows.
+/// resource check as well -- see <see cref="FiveCPlayer"/>, which is the pattern everyone
+/// follows: fetch the player, ask the policy, return Forbid() on no, and write the audit row.
+/// Do not check role or team by hand in the controller -- the rules live in
+/// CanViewPlayerHandler, in one place.
 ///
-/// The 5C actions (<see cref="FiveCTeam"/>, <see cref="FiveCPlayer"/>) are the coach side of
-/// the 5C questionnaire and were added with that feature. The gap views for the older
-/// ten-statement form -- <see cref="Team"/>, <see cref="PlayerDetail"/>, <see cref="Search"/>
-/// -- are still Taavi's TODOs and are left as they were.
+/// These are the coach pages of the 5C questionnaire: every team (<see cref="Index"/>), one
+/// team (<see cref="FiveCTeam"/>) and one player (<see cref="FiveCPlayer"/>). The pages for
+/// the older ten-statement form -- Team, PlayerDetail and Search -- were never finished and
+/// went out with that form's tables.
 /// </summary>
 [Authorize(Roles = Roles.Coach + "," + Roles.Admin)]
 public class CoachController : Controller
 {
     private readonly AppDbContext _db;
     private readonly IAuthorizationService _authz;
-    private readonly IScoringService _scoring;
     private readonly IConsentService _consent;
     private readonly IFiveCAnalysisService _fiveC;
     private readonly IQuestionCatalog _catalog;
@@ -44,7 +44,6 @@ public class CoachController : Controller
     public CoachController(
         AppDbContext db,
         IAuthorizationService authz,
-        IScoringService scoring,
         IConsentService consent,
         IFiveCAnalysisService fiveC,
         IQuestionCatalog catalog,
@@ -55,7 +54,6 @@ public class CoachController : Controller
     {
         _db = db;
         _authz = authz;
-        _scoring = scoring;
         _consent = consent;
         _fiveC = fiveC;
         _catalog = catalog;
@@ -109,7 +107,7 @@ public class CoachController : Controller
 
             var comparisons = await _fiveC.GetForPlayersAsync(
                 round.Id,
-                players.ToDictionary(p => p.Id, p => p.Code),
+                players.ToDictionary(p => p.Id, p => p.Name),
                 cancellationToken);
 
             var playersAnswered = 0;
@@ -169,7 +167,7 @@ public class CoachController : Controller
             return NotFound();
         }
 
-        // Same pattern as PlayerDetail: the role let you into the controller, the policy
+        // Same pattern as FiveCPlayer: the role let you into the controller, the policy
         // decides whether THIS team is yours. Without it a coach could walk team ids and
         // learn which teams exist.
         var teamAllowed = await _authz.AuthorizeAsync(User, team, Policies.CanViewTeam);
@@ -192,12 +190,12 @@ public class CoachController : Controller
         var players = await _db.Players
             .AsNoTracking()
             .Where(p => p.TeamId == team.Id)
-            .OrderBy(p => p.Code)
+            .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
         var comparisons = await _fiveC.GetForPlayersAsync(
             round.Id,
-            players.ToDictionary(p => p.Id, p => p.Code),
+            players.ToDictionary(p => p.Id, p => p.Name),
             cancellationToken);
 
         var consentLevels = await _consent.GetCurrentLevelsAsync(
@@ -232,7 +230,7 @@ public class CoachController : Controller
             model.Players.Add(new FiveCTeamViewModel.PlayerRow
             {
                 PlayerId = player.Id,
-                Code = player.Code,
+                Code = player.Name,
                 Position = player.Position,
                 CanView = canView,
                 Consent = consentLevels.TryGetValue(player.Id, out var level) ? level : ConsentLevel.None,
@@ -283,13 +281,13 @@ public class CoachController : Controller
         var comparison = await _fiveC.GetForPlayerAsync(
             round.Id,
             player.Id,
-            player.Code,
+            player.Name,
             cancellationToken);
 
         var model = new FiveCPlayerViewModel
         {
             PlayerId = player.Id,
-            Code = player.Code,
+            Code = player.Name,
             TeamId = player.TeamId,
             TeamName = player.Team?.Name ?? string.Empty,
             Position = player.Position,
@@ -303,7 +301,7 @@ public class CoachController : Controller
             ShareLinks = BuildShareLinks(round.Id, player.Id, comparison),
             Trend = await _fiveC.GetTrendAsync(
                 player.Id,
-                player.Code,
+                player.Name,
                 (await _periods.GetAllAsync(cancellationToken))
                     .Select(r => new TrendPeriod(r.Id, r.Name, r.ClosesAt))
                     .ToList(),
@@ -356,119 +354,16 @@ public class CoachController : Controller
         {
             await _releases.ReleaseAsync(roundId, id, coachUserId, cancellationToken);
             TempData["CoachMessage"] =
-                $"Your answers for {player.Code} are now visible to the player and their guardian.";
+                $"Your answers for {player.Name} are now visible to the player and their guardian.";
         }
         else
         {
             await _releases.WithdrawAsync(roundId, id, coachUserId, cancellationToken);
             TempData["CoachMessage"] =
-                $"Your answers for {player.Code} are no longer shown to the player.";
+                $"Your answers for {player.Name} are no longer shown to the player.";
         }
 
         return RedirectToAction(nameof(FiveCPlayer), new { id, roundId });
-    }
-
-    /// <summary>
-    /// Team overview for the older ten-statement form.
-    /// TODO (Taavi): build TeamOverviewViewModel. The aggregate is only shown if
-    /// CanViewTeamAggregate says yes -- and the policy requires the real number of
-    /// responses, see <see cref="TeamAggregateResource"/>.
-    /// </summary>
-    public async Task<IActionResult> Team(int id, int? roundId)
-    {
-        var team = await _db.Teams.FirstOrDefaultAsync(t => t.Id == id);
-        if (team is null)
-        {
-            return NotFound();
-        }
-
-        var teamAllowed = await _authz.AuthorizeAsync(User, team, Policies.CanViewTeam);
-        if (!teamAllowed.Succeeded)
-        {
-            return Forbid();
-        }
-
-        // TODO (Taavi): count the actual responses for the team in the round instead of 0.
-        var responseCount = 0;
-
-        var aggregateAllowed = await _authz.AuthorizeAsync(
-            User,
-            new TeamAggregateResource(team, responseCount),
-            Policies.CanViewTeamAggregate);
-
-        var model = new TeamOverviewViewModel
-        {
-            TeamId = team.Id,
-            TeamName = team.Name
-        };
-
-        if (aggregateAllowed.Succeeded)
-        {
-            // TODO (Taavi): model.Aggregate = await _scoring.GetTeamAggregateAsync(...)
-        }
-        else
-        {
-            ViewData["AggregateMessage"] =
-                "Too few responses to show a team average (at least " +
-                $"{CanViewTeamAggregateRequirement.MinimumResponses} required).";
-        }
-
-        return View(model);
-    }
-
-    /// <summary>
-    /// Player detail for the older ten-statement form.
-    ///
-    /// THIS IS THE PATTERN. Every action that takes a player id looks like this: fetch the
-    /// player, ask the policy, return Forbid() on no. Do not check role or team by hand in
-    /// the controller -- the rules live in CanViewPlayerHandler, in one place.
-    /// </summary>
-    public async Task<IActionResult> PlayerDetail(int id, int? roundId)
-    {
-        var player = await _db.Players
-            .Include(p => p.Team)
-            .FirstOrDefaultAsync(p => p.Id == id);
-
-        if (player is null)
-        {
-            return NotFound();
-        }
-
-        var authorized = await _authz.AuthorizeAsync(User, player, Policies.CanViewPlayer);
-        if (!authorized.Succeeded)
-        {
-            // Forbid, not NotFound: the user is signed in, they are just not allowed here.
-            return Forbid();
-        }
-
-        // Another page that shows one player's answers, so it leaves the same audit row.
-        // Every such page has to, or the log stops being a record of who saw what.
-        await _accessLog.RecordAsync(User, player.Id, "Coach/PlayerDetail", roundId);
-
-        var model = new PlayerDetailViewModel
-        {
-            PlayerId = player.Id,
-            Code = player.Code,
-            Position = player.Position,
-            TeamName = player.Team?.Name ?? string.Empty,
-            Consent = await _consent.GetCurrentLevelAsync(player.Id)
-        };
-
-        // TODO (Taavi): fetch the round, the statements and
-        // model.Gap = await _scoring.GetPlayerGapAsync(roundId, player.Id);
-        // The gap is calculated here and never stored.
-
-        return View(model);
-    }
-
-    /// <summary>
-    /// Search by name.
-    /// TODO (Taavi): hits have to be filtered through CanViewPlayer before they are shown --
-    /// a search that confirms a player exists is also a disclosure.
-    /// </summary>
-    public IActionResult Search(string? q)
-    {
-        return View();
     }
 
     // -----------------------------------------------------------------------------------

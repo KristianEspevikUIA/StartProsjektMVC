@@ -59,7 +59,7 @@ public class GuardianController : Controller
             .AsNoTracking()
             .Include(p => p.Team)
             .Where(p => p.Guardianships.Any(g => g.GuardianUserId == userId))
-            .OrderBy(p => p.Code)
+            .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
         if (children.Count == 1)
@@ -138,7 +138,7 @@ public class GuardianController : Controller
         var model = new ConsentViewModel
         {
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             CurrentLevel = await _consent.GetCurrentLevelAsync(player.Id, cancellationToken),
             CanChange = !string.IsNullOrEmpty(userId) &&
                 await _consent.CanRecordConsentAsync(userId, player.Id, cancellationToken),
@@ -177,7 +177,7 @@ public class GuardianController : Controller
         }
 
         await _consent.RecordAsync(player.Id, level, userId, cancellationToken);
-        TempData["ConsentMessage"] = $"Consent updated for {player.Code}.";
+        TempData["ConsentMessage"] = $"Consent updated for {player.Name}.";
 
         return RedirectToAction(nameof(Consent), new { id });
     }

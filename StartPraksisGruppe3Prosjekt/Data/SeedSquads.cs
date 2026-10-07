@@ -42,7 +42,7 @@ internal static class SeedSquads
 {
     internal const int SchemaVersion = 1;
 
-    internal static readonly string[] TeamNames = { "G14", "G15", "G17", "G19" };
+    internal static readonly string[] TeamNames = BaseSetup.TeamNames;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -231,7 +231,7 @@ internal static class SeedSquads
 
         // Sporet, og lest én gang: løkka både slår opp spillere og endrer dem den finner.
         var byCode = (await db.Players.ToListAsync())
-            .ToDictionary(p => p.Code, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
         // Hva som er lagt inn til velkomsten fra før. Om det finnes et bilde, ikke selve bildet.
         var details = (await db.PlayerPersonalDetails
@@ -313,7 +313,7 @@ internal static class SeedSquads
 
         var player = new Player
         {
-            Code = member.Name,
+            Name = member.Name,
             TeamId = teamId,
             BirthDate = member.BirthDate,
             Position = member.Position,
@@ -448,7 +448,7 @@ internal static class SeedSquads
         var names = SeedData.FictionalNames.Where(name => !keep.Contains(name)).ToList();
 
         var fictional = await db.Players
-            .Where(p => names.Contains(p.Code))
+            .Where(p => names.Contains(p.Name))
             .ToListAsync();
 
         if (fictional.Count > 0)
@@ -517,7 +517,7 @@ internal sealed record SquadFileTeam(
     string? Page,
     IReadOnlyList<SquadFilePlayer> Players);
 
-/// <param name="Name">Navnet slik klubben skriver det. Blir <see cref="Player.Code"/>.</param>
+/// <param name="Name">Navnet slik klubben skriver det. Blir <see cref="Player.Name"/>.</param>
 /// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under.</param>
 /// <param name="BirthDateEstimated">Klubben oppgir ingen dato, og 1. januar i årsklassen er brukt.</param>
 /// <param name="Photo">Bildet, relativt til mappa fila står i. Null når klubben ikke har noe.</param>

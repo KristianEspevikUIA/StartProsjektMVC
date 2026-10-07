@@ -6,6 +6,9 @@ namespace StartPraksisGruppe3Prosjekt.Models;
 /// Kobler en foresatt (Identity-bruker) til en spiller.
 /// Regel: alle spillere under <see cref="PlayerRules.GuardianRequiredBelowAge"/> år
 /// skal ha minst én Guardianship.
+///
+/// Koblingen går med kontoen: slettes foresattes konto, sletter databasen raden
+/// (fremmednøkkel med ON DELETE CASCADE, se AppDbContext).
 /// </summary>
 public class Guardianship
 {

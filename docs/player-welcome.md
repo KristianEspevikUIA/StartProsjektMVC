@@ -20,7 +20,7 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
   ved navnet. Trenerne ba om det. Har to spillere på siden samme fornavn, står hele navnet under.
   Bildet hentes fra `/Succession/Photo/{id}`, som bare gir bildet av en spiller `CanViewPlayer`
   slipper treneren til. Den logges ikke for seg: siden bildet står på, logger hver spiller den viser.
-- **Andre sider** viser spillerens fulle navn (`Player.Code`), ikke fornavnet herfra.
+- **Andre sider** viser spillerens fulle navn (`Player.Name`), ikke fornavnet herfra.
 
 Velkomsten er ikke låst til bestemte lag i koden. Alle spillere med konto kan få den. Det er
 klubben som bestemmer hvem som får navn og bilde lagt inn.
@@ -29,14 +29,14 @@ klubben som bestemmer hvem som får navn og bilde lagt inn.
 
 ## Hva som lagres, og hvorfor bare det
 
-Tabellen `PlayerPersonalDetails`, én rad per spiller:
+Tabellen `player_personal_details` (`PlayerPersonalDetails`), én rad per spiller:
 
 | Felt | Merknad |
 | --- | --- |
-| `FirstName` | Bare fornavn. «Welcome, Alex» trenger ikke mer, og mindre er mindre å miste |
-| `Photo`, `PhotoContentType` | Bildet, kontrollert og renset (se under). Høyst 2 MB |
-| `PhotoSource` | Hvor bildet kom fra, f.eks. «ikstart.no, spillerbilder 2026» |
-| `UpdatedByUserId`, `UpdatedAt`, `PhotoUpdatedAt` | Hvem som la det inn, og når |
+| `first_name` | Bare fornavn. «Welcome, Alex» trenger ikke mer, og mindre er mindre å miste |
+| `photo`, `photo_content_type` | Bildet, kontrollert og renset (se under). Høyst 2 MB |
+| `photo_source` | Hvor bildet kom fra, f.eks. «ikstart.no, spillerbilder 2026» |
+| `updated_by_user_id`, `updated_at`, `photo_updated_at` | Hvem som la det inn, og når |
 
 **Egen tabell, med vilje.** Fornavnet og bildet ligger ikke på `Player`, så en side som bare
 skal vise det fulle navnet ikke kan vise bildet ved en feil.
@@ -91,7 +91,8 @@ Forhåndsvisningen for admin sendes med `no-store`.
 - **Informasjon til spillerne og foresatte.** Bildene er publisert fra før, men dette er en ny
   bruk: i et system som også har svarene deres. Det bør stå i personvernerklæringen.
 - **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
-  bilde for G14, G15, G17 og G19 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert.
+  bilde for G14, G15, G17 og G19 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert
+  og heller ikke følger med i `dotnet publish`.
   Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
   fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
   som en opplasting på admin-siden.
@@ -103,7 +104,9 @@ Forhåndsvisningen for admin sendes med `no-store`.
 ## Flytte spillerne mellom to databaser
 
 To engangskommandoer flytter de ekte spillerne fra én database til en annen. De kjøres fra
-kommandolinja, før appen migrerer eller seeder, og avslutter uten å starte webserveren.
+kommandolinja, før appen migrerer eller seeder, og avslutter uten å starte webserveren. Hele
+oppskriften for flyttingen fra Supabase til hoveddatabasen står i
+[`docs/database.md`](database.md).
 
 ```bash
 dotnet run --project StartPraksisGruppe3Prosjekt -- export-players --out D:\spillerflytting\eksport
@@ -122,8 +125,6 @@ Begge bruker databasen appen er satt opp mot (`ConnectionStrings:DefaultConnecti
 - Den skriver aldri oppå en `squads.json` eller bilder som ligger der fra før.
 - Mangler en spiller posisjon, står hen på et annet lag enn G14, G15, G17 og G19, eller går et
   bilde ikke gjennom bildekontrollen, stopper eksporten før noe er skrevet.
-- Heter laget fortsatt U14, U15, U17 eller U19 i databasen, står det med dagens navn i fila.
-  Databasen røres ikke.
 
 **`import-players`** leser en slik mappe med samme validering og bildekontroll som seedingen
 (`SeedSquads.Load` og `SeedSquads.ApplyAsync`).
@@ -133,10 +134,11 @@ Begge bruker databasen appen er satt opp mot (`ConnectionStrings:DefaultConnecti
 - **Fornavn og bilde legges bare inn der de mangler.** Et fornavn eller bilde som finnes fra før,
   for eksempel et admin har endret på `/Admin/Players`, blir stående. Har admin fjernet et bilde,
   legger en ny import det inn igjen.
-- Den lager **ingen kontoer, foresatte, samtykker, svar eller vurderinger**. Mangler et lag fra
-  fila, opprettes det.
+- Den lager **ingen kontoer, foresatte, samtykker, svar eller vurderinger**.
 - Alt skjer i én transaksjon. Går noe galt, er ingenting lagt inn.
-- Databasen må ha tabellene fra før. Kommandoen migrerer ikke.
+- Databasen må være tatt i bruk: appen må ha startet mot den én gang, slik at den er markert
+  og har lagene. Kommandoen migrerer ikke, og kjører bare mot en database som er markert for
+  miljøet den kjøres i (se «Vernet mellom utvikling og drift» i `docs/database.md`).
 
 Hva som ikke følger med i flyttingen: spillerens konto, foresatte, samtykker, svar og
 vurderinger, og tidspunktene for når fornavn og bilde ble lagt inn. «Endret av» på fornavn og
@@ -159,6 +161,6 @@ e-post, og slettes når importen er bekreftet.
 | Velkomsten | `Controllers/HomeController.cs`, `Views/Home/Index.cshtml` |
 | Spillerens eget bilde | `PlayerController.Photo` (`/Player/Photo`) |
 | Admin | `AdminController.Players`, `PlayerDetails`, `PlayerPhoto`, `Views/Admin/Players.cshtml`, `PlayerDetails.cshtml` |
-| Migrasjon | `Data/Migrations/*_AddPlayerPersonalDetails.cs` |
+| Migrasjon | `Data/Migrations/*_InitialCreate.cs` |
 | De ekte troppene i Development | `Data/SeedSquads.cs`, `scripts/squads/fetch_squads.py` |
 | Flytting mellom databaser | `Data/PlayerTransfer.cs`, `Commands/OneOffCommands.cs` |

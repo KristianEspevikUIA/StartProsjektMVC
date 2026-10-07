@@ -49,7 +49,7 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
         var comparison = await _analysis.GetForPlayerAsync(
             round.Id,
             player.Id,
-            player.Code,
+            player.Name,
             cancellationToken);
 
         var released = await _releases.IsReleasedAsync(round.Id, player.Id, cancellationToken);
@@ -61,7 +61,7 @@ public sealed class FiveCFeedbackBuilder : IFiveCFeedbackBuilder
         return new FiveCFeedbackViewModel
         {
             PlayerId = player.Id,
-            PlayerCode = player.Code,
+            PlayerCode = player.Name,
             TeamName = player.Team?.Name ?? string.Empty,
             ViewerIsGuardian = viewerIsGuardian,
 

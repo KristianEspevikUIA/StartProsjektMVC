@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -20,14 +21,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 
 // ---------------------------------------------------------------------------
-// Database: Postgres i Supabase. Strengen står i appsettings.json uten passord; passordet
-// ligger i user-secrets. Mangler det, stopper appen med en forklaring lenger ned.
+// Database: PostgreSQL. Tilkoblingsstrengen står ikke i appsettings.json. I utvikling peker
+// appsettings.Development.json på en lokal database, og passordet ligger i user-secrets
+// (Database:Password). I drift kommer hele strengen fra miljøvariabelen
+// ConnectionStrings__DefaultConnection. Mangler noe, stopper appen med en forklaring
+// lenger ned. Se DatabaseConnection og docs/database.md.
+//
+// Tabeller og kolonner får små bokstaver og understrek (players.birth_date), så ingenting
+// må skrives i anførselstegn i SQL.
 // ---------------------------------------------------------------------------
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? string.Empty;
+var connectionString = DatabaseConnection.Resolve(builder.Configuration);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString)
+           .UseSnakeCaseNamingConvention());
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -97,6 +104,23 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.SameSite = SameSiteMode.Strict;
     options.HeaderName = "RequestVerificationToken";
 });
+
+// ---------------------------------------------------------------------------
+// Data Protection-nøklene krypterer innloggingscookien og antiforgery-tokenene. Uten et
+// fast sted å ligge lages de på nytt når appen starter i en ny container eller under en
+// annen bruker -- og da er alle logget ut, og hvert åpent skjema avvises. I drift ligger
+// de derfor i mappa DataProtection:KeysPath, som er påkrevd der (sjekkes lenger ned).
+//
+// Navnet holder nøklene gyldige selv om appen flyttes til en annen mappe; standarden er
+// å utlede det av stien appen ligger i.
+// ---------------------------------------------------------------------------
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("StartCompass");
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 builder.Services.AddHsts(options =>
 {
@@ -174,7 +198,6 @@ builder.Services.AddSpeiletRateLimiting();
 // Tjenester.
 // ---------------------------------------------------------------------------
 builder.Services.AddScoped<IConsentService, ConsentService>();
-builder.Services.AddScoped<IScoringService, ScoringService>();
 
 // Revisjonsloggen. Trenere trenger ikke lenger samtykke for å åpne en enkeltspiller, og
 // denne loggen er det som står igjen i stedet: hvem så på hvem, når. Slutter den å skrives,
@@ -242,32 +265,11 @@ builder.Services.AddSingleton<IIdentityBenchmarkBuilder, IdentityBenchmarkBuilde
 builder.Services.AddSingleton<ISuccessionCatalog, SuccessionCatalog>();
 builder.Services.AddScoped<ISuccessionPlanningService, SuccessionPlanningService>();
 
-builder.Services.Configure<SupabaseOptions>(
-    builder.Configuration.GetSection(SupabaseOptions.SectionName));
-
-// Hvor 5C-svarene lagres.
-//
-// Standard er appens egen database — som etter overgangen til Npgsql ER Supabase. Det var
-// tidligere et minnelager, fordi appen kjørte på lokal SQLite og Supabase var noe man måtte
-// nå over HTTP. Det stemmer ikke lenger, og et minnelager betydde at hvert svar forsvant
-// ved omstart.
-//
-// De to andre er unntak, ikke alternativer:
-//   FiveC:Supabase:Url + ApiKey  — et GENUINT separat Supabase-prosjekt, nådd over PostgREST.
-//   FiveC:Store = "InMemory"     — kjøring uten å skrive noe, f.eks. i en demo.
-var supabaseOptions = builder.Configuration
-    .GetSection(SupabaseOptions.SectionName)
-    .Get<SupabaseOptions>() ?? new SupabaseOptions();
-
-var storeSetting = builder.Configuration["FiveC:Store"];
-
-if (string.Equals(storeSetting, "InMemory", StringComparison.OrdinalIgnoreCase))
+// Hvor 5C-svarene lagres: i appens egen database. Unntaket er FiveC:Store = "InMemory", for
+// en kjøring som ikke skal skrive noe, f.eks. en demo. Da forsvinner svarene ved omstart.
+if (string.Equals(builder.Configuration["FiveC:Store"], "InMemory", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddSingleton<ISurveySubmissionStore, InMemorySurveySubmissionStore>();
-}
-else if (supabaseOptions.IsConfigured)
-{
-    builder.Services.AddHttpClient<ISurveySubmissionStore, SupabaseSurveySubmissionStore>();
 }
 else
 {
@@ -330,29 +332,47 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 // ---------------------------------------------------------------------------
-// Databasen: feil tidlig og forståelig.
+// Oppsettet: feil tidlig og forståelig.
 //
-// Tilkoblingsstrengen i appsettings.json peker på Supabase, men uten passord —
-// passordet er en hemmelighet og skal ikke ligge i repoet. Uten det kaster Npgsql
-// en stacktrace som ikke sier hva man skal gjøre. Denne sjekken gjør det.
-//
-// Sjekken ligger etter builder.Build() med vilje: `dotnet ef` stopper appen der,
-// så migrasjoner kan fortsatt genereres på en maskin uten passordet.
+// Uten passord kaster Npgsql en stacktrace som ikke sier hva man skal gjøre. Disse sjekkene
+// gjør det. De ligger etter builder.Build() med vilje: `dotnet ef` stopper appen der, så
+// migrasjoner kan fortsatt genereres på en maskin uten passord og uten database.
 // ---------------------------------------------------------------------------
-if (string.IsNullOrEmpty(new NpgsqlConnectionStringBuilder(connectionString).Password))
-{
-    app.Logger.LogCritical(
-        "Databasepassordet mangler. Tilkoblingsstrengen har ingen Password, og Postgres " +
-        "krever et. Hent «Database password» i Supabase (Project Settings -> Database) og " +
-        "legg det i user-secrets — ikke i appsettings.json:\n\n" +
-        "    dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" " +
-        "\"<hele strengen fra appsettings.json med ;Password=...>\" " +
-        "--project StartPraksisGruppe3Prosjekt\n\n" +
-        "Merk at «publishable key» / anon-nøkkelen IKKE er databasepassordet — den gjelder " +
-        "REST-API-et, ikke en direkte Postgres-tilkobling.");
+var setupProblems = DatabaseConnection.Problems(connectionString, app.Environment).ToList();
 
-    throw new InvalidOperationException(
-        "ConnectionStrings:DefaultConnection mangler Password. Se meldingen over.");
+if (!app.Environment.IsDevelopment())
+{
+    if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    {
+        setupProblems.Add(
+            "DataProtection:KeysPath mangler. Utenfor Development må nøklene som krypterer " +
+            "innloggingscookien ligge i en fast mappe, ellers logges alle ut når appen starter på " +
+            "nytt. Sett miljøvariabelen DataProtection__KeysPath til en mappe bare appen kan lese.");
+    }
+    else
+    {
+        try
+        {
+            // Opprettes og prøveskrives nå. En mappe appen ikke får skrive i, skal stoppe
+            // oppstarten -- ikke dukke opp som en feil første gang noen logger inn.
+            Directory.CreateDirectory(dataProtectionKeysPath);
+
+            var probe = Path.Combine(dataProtectionKeysPath, $".write-test-{Guid.NewGuid():N}");
+            await File.WriteAllTextAsync(probe, string.Empty);
+            File.Delete(probe);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            setupProblems.Add(
+                $"Appen kan ikke skrive i DataProtection:KeysPath ({dataProtectionKeysPath}): {ex.Message}");
+        }
+    }
+}
+
+if (setupProblems.Count > 0)
+{
+    await RefuseToStartAsync(setupProblems);
+    return;
 }
 
 // ---------------------------------------------------------------------------
@@ -373,9 +393,9 @@ if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
 }
 
 // ---------------------------------------------------------------------------
-// Engangskommandoer (export-players, import-players). Se Commands/OneOffCommands.
+// Engangskommandoer (create-admin, export-players, import-players). Se Commands/OneOffCommands.
 //
-// Ligger FØR migrering og seeding med vilje. Eksporten skal kunne kjøres mot en database
+// Ligger FØR oppstartssteget under med vilje. Eksporten skal kunne kjøres mot en database
 // uten at den endres av at noen leste fra den, og importen skal ikke få demodata med på
 // kjøpet. En kommando gjør det ene den er til for, og avslutter uten å starte webserveren.
 // ---------------------------------------------------------------------------
@@ -389,27 +409,63 @@ if (await OneOffCommands.TryRunAsync(app, args) is { } exitCode)
     return;
 }
 
-// Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
-if (app.Environment.IsDevelopment())
+// ---------------------------------------------------------------------------
+// Databasen ved oppstart. Rekkefølgen er hele poenget:
+//
+//   1. Vernet. Er databasen markert for et annet miljø, eller har den tabeller uten å være
+//      markert, stopper appen FØR noe er migrert eller skrevet. Se DatabaseGuard.
+//   2. Skjemaet. I utvikling migrerer appen selv. I drift gjør den det ikke: appen kobler
+//      til med en rolle som ikke får endre skjemaet, og migrasjonene kjøres av
+//      databaseeieren før en ny versjon startes. Mangler en migrasjon, stopper appen.
+//   3. Markeringen. En tom database får skrevet inn hvilket miljø den hører til.
+//   4. Grunnoppsettet, i alle miljøer: rollene og lagene. Se BaseSetup.
+//   5. Demodata, bare i utvikling. Se SeedData.
+// ---------------------------------------------------------------------------
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<AppDbContext>();
 
     try
     {
-        await SeedData.InitializeAsync(scope.ServiceProvider);
+        await DatabaseGuard.EnsureBelongsHereAsync(db, app.Environment);
+
+        if (app.Environment.IsDevelopment())
+        {
+            await db.Database.MigrateAsync();
+        }
+        else
+        {
+            await DatabaseGuard.EnsureMigratedAsync(db, app.Logger);
+        }
+
+        await DatabaseGuard.MarkIfNewAsync(db, app.Environment, app.Logger);
+
+        await BaseSetup.EnsureAsync(services, app.Logger);
+
+        if (app.Environment.IsDevelopment())
+        {
+            await SeedData.InitializeAsync(services);
+        }
+    }
+    catch (DatabaseGuardException ex)
+    {
+        // Vernet har nektet. Det er et svar, ikke en feil: meldingen sier hva som er galt og
+        // hva som skal gjøres, og en stacktrace under den ville bare gjemt den.
+        await RefuseToStartAsync(new[] { ex.Message });
+        return;
     }
     catch (NpgsqlException ex)
     {
-        // Passordet finnes, men databasen svarer ikke som forventet. De to vanlige
+        // Oppsettet er i orden, men databasen svarer ikke som forventet. De vanlige
         // årsakene er verdt å nevne ved navn, ellers blir feilsøkingen gjetting.
         app.Logger.LogCritical(
             ex,
-            "Kom ikke gjennom migrering/seeding mot Postgres. Vanlige årsaker:\n" +
-            "  * Feil passord, eller feil port. Bruk session-pooleren (5432); " +
-            "transaction-pooleren (6543) fungerer ikke med EF-migrasjoner.\n" +
-            "  * Databasen har allerede tabeller fra et tidligere forsøk. Migrasjonen ble " +
-            "generert på nytt for Postgres 2026-08-26, så et skjema laget før det stemmer " +
-            "ikke med __EFMigrationsHistory. Tøm public-skjemaet i Supabase og kjør igjen.");
+            "Kom ikke gjennom oppstarten mot PostgreSQL. Vanlige årsaker:\n" +
+            "  * Databasen kjører ikke, eller står på en annen port. I utvikling: «docker compose up -d».\n" +
+            "  * Feil passord, eller databasen i tilkoblingsstrengen finnes ikke.\n" +
+            "  * I drift: app-rollen mangler rettigheter på en tabell som kom med siste migrasjon. " +
+            "scripts/database/02-grants.sql gir dem, og kjøres etter hver migrasjon; se docs/database.md.");
 
         throw;
     }
@@ -423,8 +479,8 @@ using (var scope = app.Services.CreateScope())
     //
     // QuestionCatalog validerer fila i konstruktøren, og hele poenget er at en feil i den
     // stopper oppstarten framfor å dukke opp som et halvtomt skjema midt i en runde. Den er
-    // en singleton, så den bygges først når noen ber om den — og det gjorde minnelageret,
-    // helt til EF-lageret ble standard. Da sluttet valideringen stille å skje ved oppstart.
+    // en singleton, så den bygges først når noen ber om den — og i drift, uten seeding, er
+    // det ingen som gjør det før den første forespørselen.
     // Resultatet brukes ikke med vilje: det er selve oppslaget som er poenget, fordi
     // konstruktøren validerer og logger. Ikke fjern linjen fordi den ser ubrukt ut.
     _ = scope.ServiceProvider.GetRequiredService<IQuestionCatalog>();
@@ -449,3 +505,20 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+// Stopper oppstarten med en forklaring i stedet for en stacktrace. Meldingene er skrevet for
+// den som står med en app som ikke starter, og skal være det siste som står i loggen.
+async Task RefuseToStartAsync(IEnumerable<string> reasons)
+{
+    foreach (var reason in reasons)
+    {
+        app.Logger.LogCritical("{Reason}", reason);
+    }
+
+    app.Logger.LogCritical("Appen starter ikke. Se meldingen over, og docs/database.md.");
+
+    // Loggen skrives fra en kø; uten dette kan prosessen avslutte før meldingene er ute.
+    await app.DisposeAsync();
+
+    Environment.ExitCode = 1;
+}

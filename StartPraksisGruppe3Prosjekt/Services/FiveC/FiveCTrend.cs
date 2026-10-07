@@ -40,7 +40,7 @@ public interface IFiveCTrend
 /// raw answers each time it is asked for.
 /// </summary>
 /// <param name="PlayerId">The player.</param>
-/// <param name="PlayerCode">The player's name (Player.Code).</param>
+/// <param name="PlayerCode">The player's name (Player.Name).</param>
 /// <param name="Periods">The periods, oldest first. Every category lines up with this list.</param>
 /// <param name="Categories">One line per C.</param>
 public sealed record PlayerTrend(

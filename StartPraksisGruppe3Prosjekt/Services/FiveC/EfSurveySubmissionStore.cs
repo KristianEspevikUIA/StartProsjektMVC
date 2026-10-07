@@ -7,13 +7,11 @@ using StartPraksisGruppe3Prosjekt.Models;
 namespace StartPraksisGruppe3Prosjekt.Services.FiveC;
 
 /// <summary>
-/// Stores 5C submissions in the application's own database -- which, since the switch to
-/// Npgsql, is the Supabase Postgres database.
+/// Stores 5C submissions in the application's own PostgreSQL database.
 ///
-/// This is the default store. It replaced the in-memory one, where answers vanished on
-/// every restart, and it is preferred over the PostgREST store because the process is
-/// already connected to this database: one credential, one connection, real foreign keys to
-/// Players and SurveyRounds, and a save that either lands completely or not at all.
+/// This is the store. It replaced the in-memory one, where answers vanished on every
+/// restart: one credential, one connection, real foreign keys to players and survey_rounds,
+/// and a save that either lands completely or not at all.
 /// </summary>
 public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
 {
@@ -25,7 +23,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
     }
 
     /// <inheritdoc />
-    public string Description => "The application database (Supabase Postgres)";
+    public string Description => "The application database (PostgreSQL)";
 
     /// <inheritdoc />
     public async Task SaveAsync(
@@ -114,7 +112,6 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
         _db.FiveCReflectionAnswers.RemoveRange(row.Reflection);
         row.Reflection.Clear();
 
-        row.PlayerCode = submission.PlayerCode;
         row.RespondentRole = submission.RespondentRole;
         row.QuestionSetVersion = submission.QuestionSetVersion;
         row.SubmittedAt = submission.SubmittedAt.ToUniversalTime();
@@ -161,6 +158,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
     {
         var row = await _db.FiveCSubmissions
             .AsNoTracking()
+            .Include(s => s.Player)
             .Include(s => s.Answers)
             .Include(s => s.Reflection)
             .FirstOrDefaultAsync(
@@ -180,6 +178,7 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
     {
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
+            .Include(s => s.Player)
             .Include(s => s.Answers)
             .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && s.PlayerId == playerId)
@@ -201,10 +200,10 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             return Array.Empty<SurveySubmission>();
         }
 
-        // One query for the whole squad. One per player would be N+1 round trips to a
-        // database that is not on this machine.
+        // One query for the whole squad. One per player would be N+1 round trips.
         var rows = await _db.FiveCSubmissions
             .AsNoTracking()
+            .Include(s => s.Player)
             .Include(s => s.Answers)
             .Include(s => s.Reflection)
             .Where(s => s.RoundId == roundId && ids.Contains(s.PlayerId))
@@ -239,11 +238,15 @@ public sealed class EfSurveySubmissionStore : ISurveySubmissionStore
             id => counts.TryGetValue(id, out var count) ? count : 0);
     }
 
+    /// <summary>
+    /// The row as the contract. The player's name is read from the player, not kept as a
+    /// copy on the submission: a copy would have to be kept in step with the name it copies.
+    /// </summary>
     private static SurveySubmission ToContract(FiveCSubmission row) => new()
     {
         RoundId = row.RoundId,
         PlayerId = row.PlayerId,
-        PlayerCode = row.PlayerCode,
+        PlayerCode = row.Player?.Name ?? string.Empty,
         RespondentRole = row.RespondentRole,
         RespondentUserId = row.RespondentUserId,
         QuestionSetVersion = row.QuestionSetVersion,

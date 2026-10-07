@@ -2,8 +2,8 @@
  * WHAT THE FRONTEND SENDS WHEN A 5C FORM IS SUBMITTED.
  *
  * This file is the TypeScript mirror of Contracts/FiveC/SurveySubmission.cs. It is not
- * compiled by this project -- it is here so the Supabase side has the payload written in
- * a language it can paste straight into a client, an edge function or a type test.
+ * compiled by this project -- it is here so that a client has the payload written in a
+ * language it can paste straight into a form, a function or a type test.
  *
  * The C# record is what actually runs. If the two ever disagree, the C# file wins, and
  * whoever notices should fix this one in the same commit.
@@ -97,8 +97,8 @@ export interface SurveySubmission {
   player_id: number;
 
   /**
-   * The player's name, e.g. "Brage Kristoffersen" (Player.Code). Sent so that a row is
-   * readable without joining back to the players table.
+   * The player's name, e.g. "Brage Kristoffersen" (Player.Name). Part of the contract so
+   * that a submission is readable on its own; the database does not keep a copy of it.
    */
   player_code: string;
 

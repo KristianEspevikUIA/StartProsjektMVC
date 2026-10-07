@@ -8,7 +8,7 @@
     var settings = Catalog.Settings;
     var level = SuccessionMath.LevelOf(consensus?.Overall, settings);
 
-    ViewData["Title"] = $"Succession – {player.Code}";
+    ViewData["Title"] = $"Succession – {player.Name}";
     ViewData["FullWidth"] = true;
 
     // Each text column of the workbook, with each coach's answer to it.
@@ -43,7 +43,7 @@
 
         <div class="sc-rule"></div>
         <p class="sc-hero__eyebrow">Succession planning</p>
-        <h1>@player.Code</h1>
+        <h1>@player.Name</h1>
         <p class="sc-hero__lead">
             @player.Team?.Name · born @player.BirthDate.Year
             @if (consensus is not null && consensus.Positions.Count > 0)
@@ -118,7 +118,7 @@
             @if (Model.Raters.Count == 0)
             {
                 <div class="sc-card sc-card--left">
-                    <h3>Nobody has rated @player.Code in this cycle</h3>
+                    <h3>Nobody has rated @player.Name in this cycle</h3>
                     <p class="sc-card__meta">
                         @if (detail.History.Count > 0)
                         {
@@ -126,7 +126,7 @@
                         }
                         else
                         {
-                            <text>There are no ratings for @player.Code in any cycle yet.</text>
+                            <text>There are no ratings for @player.Name in any cycle yet.</text>
                         }
                     </p>
                 </div>
@@ -320,7 +320,7 @@
 
             <div class="sc-stats">
                 <article class="sc-stat">
-                    <p class="sc-stat__label">Where @player.Code is</p>
+                    <p class="sc-stat__label">Where @player.Name is</p>
                     <p class="sc-stat__value">
                         <span class="@SuccessionFormat.RatingClass(detail.Outlook.Current)">@SuccessionFormat.Number(detail.Outlook.Current)</span>
                     </p>
@@ -395,7 +395,7 @@
 
             @if (!anyWritten)
             {
-                <p class="sc-footnote">No coach has written anything about @player.Code in this cycle.</p>
+                <p class="sc-footnote">No coach has written anything about @player.Name in this cycle.</p>
             }
             else
             {

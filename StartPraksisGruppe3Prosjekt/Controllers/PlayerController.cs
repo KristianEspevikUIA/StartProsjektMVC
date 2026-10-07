@@ -118,7 +118,8 @@ public class PlayerController : Controller
     }
 
     /// <summary>
-    /// Kept for the older ten-statement form. The 5C picture lives on <see cref="Index"/>.
+    /// The address the older ten-statement form used. That form is gone; the address is kept
+    /// so an old link lands on the 5C picture, which lives on <see cref="Index"/>.
     /// </summary>
     public async Task<IActionResult> MyResponses(int id, int? roundId, CancellationToken cancellationToken)
     {

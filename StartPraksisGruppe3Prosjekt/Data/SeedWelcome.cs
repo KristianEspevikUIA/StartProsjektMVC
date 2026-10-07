@@ -15,9 +15,7 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// bildet i utvikling, er det én opplasting på den siden.
 ///
 /// Bare spillere med konto: velkomsten vises når man logger inn, og uten konto logger ingen inn.
-/// Idempotent per spiller -- et navn som finnes, er ikke seedingens å endre. Unntaket er
-/// omdøpingen fra kode til navn i SeedData, som bytter ut fornavnet som ble trukket tilfeldig
-/// den gang spillerne het koder.
+/// Idempotent per spiller -- et navn som finnes, er ikke seedingens å endre.
 /// </summary>
 internal static class SeedWelcome
 {
@@ -44,7 +42,7 @@ internal static class SeedWelcome
             db.PlayerPersonalDetails.Add(new PlayerPersonalDetails
             {
                 PlayerId = player.Id,
-                FirstName = SeedData.FirstNameOf(player.Code),
+                FirstName = SeedData.FirstNameOf(player.Name),
                 UpdatedByUserId = admin.Id,
                 UpdatedAt = DateTimeOffset.UtcNow
             });
