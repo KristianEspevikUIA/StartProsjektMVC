@@ -26,7 +26,9 @@ Identity Benchmarking, og **succession planning** — trenernes Excel-ark som si
 
 **Fortsatt TODO:** den eldre ti-påstandsvisningen (`CoachController.Team`, `PlayerDetail`,
 `Search` og `ScoringService`), samtykkeskjemaet for foresatte, og brukeradministrasjon i
-`AdminController`.
+`AdminController`. Samtykkesiden finnes på `/Guardian/Consent/{id}`, men ingenting lenker
+dit, og nivået som velges, styrer ingenting — se A1 og A2 i
+[`docs/sikt-melding.md`](docs/sikt-melding.md).
 
 Sidene som ikke er bygget, er **ikke lenket til** fra menyen eller fra admin-forsiden. De
 står på lista der som «Not built yet», og selve siden forteller hvem som eier arbeidet, hva
@@ -608,3 +610,13 @@ forskjell på Supabase og en som står i veien.
       det burde følge `PlayerRules.GuardianRequiredBelowAge`
 - [ ] Regelen om foresatt for spillere under 19 håndheves i seed-data, men ikke ennå
       ved registrering i `AdminController`
+- [ ] Appen sender ikke e-post: ingen `IEmailSender` er registrert, så Identity bruker en
+      avsender som ikke sender noe. «Forgotten your password?» på innloggingssiden og
+      e-postbytte under «My account» ser derfor ut til å virke, men gjør det ikke, og
+      siden der admin kunne satt nytt passord, er ikke bygget. Koble på e-post, eller fjern
+      lenken og bygg admin-siden
+- [ ] `TempData` legger en fjerde cookie, `.AspNetCore.Mvc.CookieTempDataProvider`, med
+      kvitteringsmeldinger som navngir spilleren. Den er kryptert, men har ikke fått navn
+      og herding som de to andre, og mangler i cookie-oversikten i Sikt-meldingen
+- [ ] .NET 8 går ut av støtte 10. november 2026, og pakkene står på 8.0.11 (nyeste er
+      8.0.31). Se «Stack» for hva en oppgradering til .NET 10 innebærer

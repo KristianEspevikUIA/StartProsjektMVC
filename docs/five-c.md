@@ -752,3 +752,4 @@ Navn og posisjon, fordi det er det som står i tabellen.
   om et barn — liggende i nettleseren til noen tømmer den. Neste bruker får dem ikke lagt
   inn i skjemaet sitt, fordi nøkkelen er per bruker, men de kan leses i nettleserens
   utviklerverktøy. Å tømme kladdene ved utlogging og gi dem en utløpstid ville lukket det.
+  Det samme står som avvik A5 i `docs/sikt-melding.md`.
