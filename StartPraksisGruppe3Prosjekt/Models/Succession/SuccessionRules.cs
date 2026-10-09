@@ -19,7 +19,7 @@ public static class SuccessionRules
     /// <summary>Column length for every other key: a rating, a category, a level, a risk.</summary>
     public const int OptionKeyLength = 40;
 
-    /// <summary>The three projection columns: short, e.g. "U19s starter".</summary>
+    /// <summary>The three projection columns: short, e.g. "G19 starter".</summary>
     public const int ProjectionLimit = 200;
 
     /// <summary>What now, key development focus, super strengths.</summary>

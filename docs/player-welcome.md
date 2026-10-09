@@ -18,6 +18,8 @@ som allerede er publisert på nett. IK Start har gitt tillatelse til at de bruke
 - **Trenere og admin** ser fornavnet og bildet på én side: «Best eleven» (`/Succession/Formation`),
   der hver spiller er en markør på banen med bildet i og navnet under, og innbytterne har bildet
   ved navnet. Trenerne ba om det. Har to spillere på siden samme fornavn, står hele navnet under.
+  Bildet står også på «Squad board» (`/Succession`), i en liten sirkel foran spillerens navn på
+  hver rad. Der vises hele navnet, ikke fornavnet.
   Bildet hentes fra `/Succession/Photo/{id}`, som bare gir bildet av en spiller `CanViewPlayer`
   slipper treneren til. Den logges ikke for seg: siden bildet står på, logger hver spiller den viser.
 - **Andre sider** viser spillerens fulle navn (`Player.Code`), ikke fornavnet herfra.
@@ -73,7 +75,7 @@ spillere som har bilde (`PhotoVersionsAsync`); selve bildet hentes ett og ett.
 | --- | --- |
 | Spilleren selv | Ja, på forsiden og på kontoknappen. `/Player/Photo` har ingen ID, så den kan bare gi ditt eget bilde |
 | Admin | Ja, på `/Admin/Players` og skjemaet. Å åpne skjemaet logges i revisjonsloggen |
-| Trener | Fornavn og bilde, bare på «Best eleven». Siden logges i revisjonsloggen for hver spiller den viser |
+| Trener | Fornavn og bilde på «Best eleven», og bildet på «Squad board». Ingen andre sider. Begge logges i revisjonsloggen for hver spiller de viser |
 | Foresatt | Nei |
 | Ikke innlogget | Nei |
 

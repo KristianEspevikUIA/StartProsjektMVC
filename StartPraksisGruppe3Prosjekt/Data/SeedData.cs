@@ -67,7 +67,7 @@ public static class SeedData
         await SeedRolesAsync(roleManager);
 
         await SeedItemsAsync(db);
-        var teams = await SeedTeamsAsync(db);
+        var teams = await SeedTeamsAsync(db, logger);
         await SeedRoundsAsync(db, logger);
 
         if (!environment.IsDevelopment())
@@ -186,7 +186,7 @@ public static class SeedData
     /// and U14. That G19 was the made-up one, and is not renamed: G19 is now the club's real
     /// G19. "A-laget" is older still, from before the interface was English.
     /// </summary>
-    private static async Task<IReadOnlyDictionary<string, Team>> SeedTeamsAsync(AppDbContext db)
+    private static async Task<IReadOnlyDictionary<string, Team>> SeedTeamsAsync(AppDbContext db, ILogger logger)
     {
         // One rename each, straight to the current name: the renames are saved together below,
         // so a chain (A-laget to Senior to U17 to G17) would find nothing to rename after its
@@ -200,6 +200,12 @@ public static class SeedData
         await RenameTeamAsync(db, "U19", "G19");
         await TranslatePositionsAsync(db);
         await db.SaveChangesAsync();
+
+        // The U names again, where they stand NEXT TO the G team rather than instead of it.
+        await MergeTeamAsync(db, "U17", "G17", logger);
+        await MergeTeamAsync(db, "U15", "G15", logger);
+        await MergeTeamAsync(db, "U14", "G14", logger);
+        await MergeTeamAsync(db, "U19", "G19", logger);
 
         // G19 kom til med de ekte troppene (SeedSquads). Uten dem står laget tomt.
         var names = new[] { "G14", "G15", "G17", "G19" };
@@ -229,6 +235,65 @@ public static class SeedData
         {
             team.Name = newName;
         }
+    }
+
+    /// <summary>
+    /// A team still under its old name when the new one exists as well. RenameTeamAsync leaves
+    /// that alone -- there is nothing left to rename it to -- and so the coaches had "U17" to
+    /// choose next to "G17", a second team with nobody on it: a build from before the rename,
+    /// started against the shared database, had added the old names back.
+    ///
+    /// The old row goes. Anybody on it moves to the new team first, and a coach who had the old
+    /// team has the new one, so nothing is lost if the old row was not empty after all.
+    /// Runs every start, like the renames: an older build can add the names back again.
+    /// </summary>
+    private static async Task MergeTeamAsync(AppDbContext db, string oldName, string newName, ILogger logger)
+    {
+        var old = await db.Teams.FirstOrDefaultAsync(t => t.Name == oldName);
+        var current = await db.Teams.FirstOrDefaultAsync(t => t.Name == newName);
+
+        if (old is null || current is null)
+        {
+            return;
+        }
+
+        var players = await db.Players.Where(p => p.TeamId == old.Id).ToListAsync();
+        foreach (var player in players)
+        {
+            player.TeamId = current.Id;
+        }
+
+        var links = await db.CoachTeams
+            .Where(ct => ct.TeamId == old.Id || ct.TeamId == current.Id)
+            .ToListAsync();
+
+        var onCurrent = links.Where(ct => ct.TeamId == current.Id).Select(ct => ct.CoachUserId).ToHashSet();
+
+        foreach (var link in links.Where(ct => ct.TeamId == old.Id))
+        {
+            // One row per coach and team: a coach already on the new team keeps that row.
+            if (onCurrent.Add(link.CoachUserId))
+            {
+                link.TeamId = current.Id;
+            }
+            else
+            {
+                db.CoachTeams.Remove(link);
+            }
+        }
+
+        // Saved before the team is removed: a team with players on it cannot be deleted.
+        await db.SaveChangesAsync();
+
+        db.Teams.Remove(old);
+        await db.SaveChangesAsync();
+
+        logger.LogInformation(
+            "Laget {Old} sto ved siden av {New} og er fjernet. {Players} spillere flyttet til {New}.",
+            oldName,
+            newName,
+            players.Count,
+            newName);
     }
 
     /// <summary>

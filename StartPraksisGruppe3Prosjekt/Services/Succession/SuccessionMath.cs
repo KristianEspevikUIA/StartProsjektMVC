@@ -359,6 +359,47 @@ public static class SuccessionMath
             .ToList();
     }
 
+    /// <summary>
+    /// The positions a player can be picked for: the ones the coaches named, and the ones those
+    /// stand in for (<see cref="SuccessionOption.AlsoPlays"/>) at the same rank. A player the
+    /// coaches have as a CF first is a 1st-position LST and RST too.
+    ///
+    /// The named positions come first and in their own order, so the first of the list is still
+    /// what the coaches wrote. A position that is both named and stood in for counts at the
+    /// better of the two ranks.
+    ///
+    /// This is what the pick and the pitch go by. What the coaches wrote -- the board's three
+    /// columns, the position on a substitute -- is <see cref="PositionsOf"/>, unchanged.
+    /// </summary>
+    public static IReadOnlyList<PositionPreference> PlayablePositions(
+        IReadOnlyList<PositionPreference> named,
+        SuccessionSettings settings)
+    {
+        var playable = named.ToList();
+
+        foreach (var position in named)
+        {
+            var option = settings.Positions.FirstOrDefault(p =>
+                string.Equals(p.Key, position.Key, StringComparison.OrdinalIgnoreCase));
+
+            foreach (var other in option?.AlsoPlays ?? Array.Empty<string>())
+            {
+                var at = playable.FindIndex(p => string.Equals(p.Key, other, StringComparison.OrdinalIgnoreCase));
+
+                if (at < 0)
+                {
+                    playable.Add(position with { Key = other });
+                }
+                else if (playable[at].BestRank > position.BestRank)
+                {
+                    playable[at] = playable[at] with { BestRank = position.BestRank };
+                }
+            }
+        }
+
+        return playable;
+    }
+
     private static SlotPick? PickFor(ElevenCandidate candidate, string position, SuccessionSettings settings)
     {
         var preference = candidate.Positions.FirstOrDefault(p =>

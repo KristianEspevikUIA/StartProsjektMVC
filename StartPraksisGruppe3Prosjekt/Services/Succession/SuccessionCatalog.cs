@@ -265,6 +265,16 @@ public sealed class SuccessionCatalog : ISuccessionCatalog
 
         var positionKeys = settings.Positions.Select(p => p.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        foreach (var position in settings.Positions)
+        {
+            foreach (var other in position.AlsoPlays.Where(o =>
+                         !positionKeys.Contains(o) || string.Equals(o, position.Key, StringComparison.OrdinalIgnoreCase)))
+            {
+                problems.Add(
+                    $"The position '{position.Key}' has '{other}' in 'alsoPlays', which is not another position in 'positions'.");
+            }
+        }
+
         foreach (var formation in settings.Formations)
         {
             var name = string.IsNullOrWhiteSpace(formation.Key) ? $"(no key, name '{formation.Name}')" : formation.Key;

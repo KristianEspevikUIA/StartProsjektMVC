@@ -4922,6 +4922,158 @@ a.sc-token:hover .sc-marker {
 }
 
 /*
+    The board's four tables (.sc-table--board): the player's photo, name and team in the first
+    cell, and the rest of the row for what the coaches said.
+
+    In the page's 1140px, twelve columns left a split position, a long category and "needs a
+    second cycle for a trend" broken over three lines each, and every row as tall as four. So
+    the team moved in under the name, the rows are tighter, the name no longer looks like a
+    link in a paragraph, and where the window has room to spare the table is let out past the
+    page (.sc-table-wrap--wide, below).
+*/
+.sc-table--board td {
+    padding-bottom: 10px;
+    padding-top: 10px;
+}
+
+.sc-table--board tbody tr:hover {
+    background: var(--sc-background);
+}
+
+/* A position's full name is its title. The dotted line under every key on every row was most
+   of what made the table look busy; the help cursor still says there is something to read. */
+.sc-table--board abbr[title] {
+    text-decoration: none;
+}
+
+.sc-player {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+}
+
+/* Squad photos are taller than they are wide, so the circle is anchored near the top, where
+   the face is -- the same crop as the substitutes on the best eleven. */
+.sc-player__photo {
+    background: var(--sc-muted);
+    border: 1px solid var(--sc-border);
+    border-radius: 50%;
+    flex: 0 0 auto;
+    height: 40px;
+    object-fit: cover;
+    object-position: 50% 15%;
+    width: 40px;
+}
+
+/* No photo entered: the player's initials in the same circle, so every row is the same height
+   and the names line up. */
+.sc-player__photo--none {
+    align-items: center;
+    color: var(--sc-muted-foreground);
+    display: flex;
+    font-family: var(--sc-display);
+    font-size: 15px;
+    font-weight: 700;
+    justify-content: center;
+    letter-spacing: 0.04em;
+}
+
+.sc-player__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sc-player__team {
+    color: var(--sc-muted-foreground);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+/* The name is the row's heading and the way in to the player. In the text colour, and underlined
+   when pointed at or focused: eighty-nine underlined blue names down the first column read as a
+   list of links, not a squad. :visited sets the colour and nothing else. */
+.sc-player .sc-code,
+.sc-player .sc-code:visited {
+    color: var(--sc-foreground);
+    text-decoration: none;
+}
+
+.sc-player .sc-code:hover,
+.sc-player .sc-code:focus-visible {
+    color: var(--sc-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/*
+    Out past the page, for the Readiness table -- the one with eleven columns. From 1260px the
+    page has stopped growing at its 1180px and there is window left over on either side; the
+    table takes up to 1600px of it, centred on the page.
+
+    Nothing is told to stay on one line. The table hands the width out itself, so everything
+    that broke -- the outlook, a split position, a long category, Apart under the coach count --
+    comes back onto one line as the window grows, and is all there from about 1640px. A window
+    in between gets a table in between rather than one that scrolls sideways. Below 1260px the
+    table is as wide as the page, as before.
+
+    1140px is .sc-page's 1180px less its padding. 100vw counts the scrollbar, and the 80px
+    leaves room for it with a margin on either side.
+*/
+@media (min-width: 1260px) {
+    .sc-table-wrap--wide {
+        margin-left: calc((1140px - min(100vw - 80px, 1600px)) / 2);
+        margin-right: calc((1140px - min(100vw - 80px, 1600px)) / 2);
+    }
+}
+
+/*
+    Two columns get a width of their own once the table has it to give. Together they make the
+    narrowest the table can be 1250px, which it is from a 1360px window; given any earlier,
+    the table would be wider than its wrap and scroll sideways.
+*/
+@media (min-width: 1360px) {
+    /* "1.0 off · needs a second cycle for a trend" under the light: never more than two lines
+       of it, where the column's heading alone left it three. */
+    .sc-table-wrap--wide .sc-cell--outlook {
+        min-width: 172px;
+    }
+
+    /*
+        Rated by: the coach count and Apart side by side, rather than one under the other.
+
+        And opening a row's list of coaches must not move the rest of the table. Side by side,
+        the count and Apart are as wide as a coach's line in the list, so the column is wide
+        enough for it already -- but an opened list asked for its own width on top of Apart's,
+        the table took that from the other columns, and every row on the page broke onto two
+        lines for as long as one list was open.
+
+        So the column gets that width whether or not anything is open, the opened list takes
+        the whole line and sends Apart under it, and the list's own width is left out of the
+        sum: zero wide as far as the table can tell, the full width of the cell when laid out.
+        In a narrower window the cell is as it was: Apart under the count, and a column that
+        widens for an opened list.
+    */
+    .sc-table-wrap--wide .sc-ratedby {
+        align-items: flex-start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        min-width: 150px;
+    }
+
+    .sc-table-wrap--wide .sc-ratedby .sc-raters[open] {
+        flex: 1 1 100%;
+    }
+
+    .sc-table-wrap--wide .sc-ratedby .sc-raters__body {
+        min-width: 100%;
+        width: 0;
+    }
+}
+
+/*
     Who is behind a row: the coach count opens into the list of coaches, in place. A native
     <details>, so it works with the keyboard and without JavaScript; the summary is styled as the
     link it behaves like, and keeps its disclosure triangle so it looks like something that opens.

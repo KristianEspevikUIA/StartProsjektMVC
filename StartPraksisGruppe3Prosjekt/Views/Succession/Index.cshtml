@@ -179,13 +179,16 @@
                 heading, the grouped layout the 5C player list uses. Each is its own vote; see
                 PlayerConsensus.PositionsByRank for why that is not the first three of the list
                 the best eleven picks from.
+
+                The team is under the player's name, in the first cell, on all four tables: see
+                _SuccessionPlayerCell. .sc-table-wrap--wide lets this table, the one with eleven
+                columns, out past the page's width where the window has the room.
             *@
-            <div class="sc-table-wrap">
-                <table class="sc-table sc-table--squad sc-table--grouped">
+            <div class="sc-table-wrap sc-table-wrap--wide">
+                <table class="sc-table sc-table--squad sc-table--board sc-table--grouped">
                     <thead>
                         <tr>
                             <th scope="col" rowspan="2">Player</th>
-                            <th scope="col" rowspan="2">Team</th>
                             <th scope="colgroup" colspan="3" class="sc-th-group">Positions</th>
                             <th scope="col" rowspan="2">Ability</th>
                             <th scope="col" rowspan="2">Rated as</th>
@@ -208,8 +211,7 @@
                             <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
                                 data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
-                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                <td><partial name="_SuccessionPlayerCell" model="Model.PlayerCell(row)" /></td>
                                 @if (c is null)
                                 {
                                     <td colspan="10" class="sc-muted sc-small">Not rated by any coach yet.</td>
@@ -247,7 +249,7 @@
                                     <td>
                                         <span class="@SuccessionFormat.RatingClass(c.PersonalReadiness)">@SuccessionFormat.Number(c.PersonalReadiness)</span>
                                     </td>
-                                    <td class="sc-small">
+                                    <td class="sc-small sc-cell--outlook">
                                         <span class="@SuccessionFormat.LevelClass(row.Level)">@SuccessionFormat.LevelName(row.Level)</span>
                                         <span class="sc-th-note">@SuccessionFormat.Outlook(row.Outlook)</span>
                                     </td>
@@ -262,17 +264,20 @@
                                         }
                                     </td>
                                     <td class="sc-small">
-                                        <partial name="_SuccessionRaters" model="Model.RatersOf(row)" />
-                                        @if (!row.IsFromEarlierCycle && c.CoachesDisagree)
-                                        {
-                                            <span class="sc-badge sc-badge--alert">Apart</span>
-                                        }
+                                        @* The count and the badge side by side; the list of coaches opens under both. *@
+                                        <div class="sc-ratedby">
+                                            <partial name="_SuccessionRaters" model="Model.RatersOf(row)" />
+                                            @if (!row.IsFromEarlierCycle && c.CoachesDisagree)
+                                            {
+                                                <span class="sc-badge sc-badge--alert">Apart</span>
+                                            }
+                                        </div>
                                     </td>
                                 }
                             </tr>
                         }
                         <tr data-player-filter-empty hidden>
-                            <td colspan="12" class="sc-muted sc-small">No player matches that. The search covers name, team and position.</td>
+                            <td colspan="11" class="sc-muted sc-small">No player matches that. The search covers name, team and position.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -289,11 +294,10 @@
             </p>
 
             <div class="sc-table-wrap">
-                <table class="sc-table sc-table--squad">
+                <table class="sc-table sc-table--squad sc-table--board">
                     <thead>
                         <tr>
                             <th scope="col">Player</th>
-                            <th scope="col">Team</th>
                             @foreach (var rating in settings.Ratings)
                             {
                                 <th scope="col">@rating.Name</th>
@@ -310,8 +314,7 @@
                             <tr class="@(row.IsFromEarlierCycle ? "sc-row--stale" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
                                 data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
-                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                <td><partial name="_SuccessionPlayerCell" model="Model.PlayerCell(row)" /></td>
                                 @foreach (var rating in settings.Ratings)
                                 {
                                     var summary = c?.Ratings.FirstOrDefault(r => r.Key == rating.Key);
@@ -346,11 +349,10 @@
             </p>
 
             <div class="sc-table-wrap">
-                <table class="sc-table sc-table--squad">
+                <table class="sc-table sc-table--squad sc-table--board">
                     <thead>
                         <tr>
                             <th scope="col">Player</th>
-                            <th scope="col">Team</th>
                             <th scope="col">Born</th>
                             <th scope="col">Contract</th>
                             <th scope="col">Ends</th>
@@ -367,8 +369,7 @@
                             <tr class="@(ending ? "sc-row--alert" : "")"
                                 data-player-row data-player-key="@row.Player.Id"
                                 data-player-search="@row.Player.Code @row.Player.Team?.Name @(c is null ? "" : SuccessionFormat.Positions(c.Positions))">
-                                <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
-                                <td class="sc-small">@row.Player.Team?.Name</td>
+                                <td><partial name="_SuccessionPlayerCell" model="Model.PlayerCell(row)" /></td>
                                 <td class="sc-small">@row.Player.BirthDate.Year</td>
                                 <td>
                                     @if (Catalog.ContractType(row.Profile?.ContractType) is { } contract)
@@ -422,11 +423,10 @@
             else
             {
                 <div class="sc-table-wrap">
-                    <table class="sc-table sc-table--squad">
+                    <table class="sc-table sc-table--squad sc-table--board">
                         <thead>
                             <tr>
                                 <th scope="col">Player</th>
-                                <th scope="col">Team</th>
                                 <th scope="col">Rated by</th>
                                 <th scope="col">Apart on</th>
                                 <th scope="col">Ability category</th>
@@ -437,8 +437,7 @@
                             {
                                 var c = row.Consensus!;
                                 <tr data-player-row data-player-key="@row.Player.Id" data-player-search="@row.Player.Code @row.Player.Team?.Name">
-                                    <td><a class="sc-code" asp-action="Player" asp-route-id="@row.Player.Id" asp-route-cycle="@filter.Cycle.Key">@row.Player.Code</a></td>
-                                    <td class="sc-small">@row.Player.Team?.Name</td>
+                                    <td><partial name="_SuccessionPlayerCell" model="Model.PlayerCell(row)" /></td>
                                     <td class="sc-small"><partial name="_SuccessionRaters" model="Model.RatersOf(row)" /></td>
                                     <td>
                                         <div class="sc-inline-list">
