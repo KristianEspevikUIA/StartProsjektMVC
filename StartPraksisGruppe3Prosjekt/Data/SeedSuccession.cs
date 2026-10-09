@@ -26,6 +26,9 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///
 /// Idempotent per (spiller, trener, syklus), og tilfeldigheten er sådd fra SeedData.SeedKey og
 /// syklusdato: samme base gir det samme bildet i morgen.
+///
+/// En spiller som har vurderinger fra trenernes egne ark (<see cref="SeedSuccessionImport"/>),
+/// hoppes over: ekte og oppdiktede tall skal ikke snittes sammen på tavla.
 /// </summary>
 internal static class SeedSuccession
 {
@@ -62,9 +65,18 @@ internal static class SeedSuccession
             raters.Add(await SeedData.EnsureUserAsync(userManager, email, password, Roles.Coach));
         }
 
+        // A player a real coach has rated -- the coaches' own workbooks, see SeedSuccessionImport --
+        // gets nothing made up next to it: no ratings and no contract.
+        var ratedForReal = await db.SuccessionAssessments
+            .Where(a => !raters.Contains(a.RaterUserId))
+            .Select(a => a.PlayerId)
+            .Distinct()
+            .ToListAsync();
+
         var players = await db.Players
             .AsNoTracking()
             .Include(p => p.Team)
+            .Where(p => !ratedForReal.Contains(p.Id))
             .OrderBy(p => p.Id)
             .ToListAsync();
 

@@ -140,12 +140,11 @@ halvveis vurdert.
    uten etterfølger.
 3. **Prognosene** (0–6, 6–18, 18–36 mnd) er fritekst. Skriver de alltid et nivå? Da kan feltene
    bli lister, og appen kan tegne en tidslinje.
-4. **Import av eksisterende ark:** arket har ekte navn, appen har oppdiktede demospillere. En
-   import krever at ekte spillere er lagt inn i appen først, og det venter på Sikt-meldingen.
+4. **Import av eksisterende ark:** bygget i oktober 2026. Se «Import av trenernes ark» i
+   `docs/succession-planning.md`.
 
 ## Mulige neste steg
 
-- Import fra Excel, når ekte spillere kan legges inn.
 - Tersklene (8, 3 poeng, trekket for 2. og 3. posisjon) ligger i JSON-fila. Endre dem der hvis
   trenerne vil, uten kodeendring.
 - Spillerbildene fra velkomsten (se under) vises i dag bare for spilleren selv. Hvis trenerne vil

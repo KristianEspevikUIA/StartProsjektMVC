@@ -76,6 +76,11 @@ public static class SeedData
         // De ekte troppene, når de er hentet. Null uten fila -- se SeedSquads.
         var squads = SeedSquads.Load(environment);
 
+        // Trenernes egne succession-ark, når de er importert. Lest før noe skrives, som troppene:
+        // en fil som ikke henger sammen, stopper oppstarten før den har endret noe.
+        var successionCatalog = services.GetRequiredService<Services.Succession.ISuccessionCatalog>();
+        var successionImport = SeedSuccessionImport.Load(environment, successionCatalog);
+
         // Before the squads are seeded: a player still under the old code would otherwise
         // not be found by name, and would get a second row next to it.
         await RenameCodedPlayersAsync(db, userManager, logger);
@@ -114,12 +119,19 @@ public static class SeedData
         // Oppdiktede fornavn til velkomsten når en spiller logger inn. Se SeedWelcome.
         await SeedWelcome.SeedAsync(db, userManager, logger);
 
+        // The coaches' own workbooks, before the made-up ratings: a player with real ones gets
+        // none of those. See SeedSuccessionImport.
+        if (successionImport is not null)
+        {
+            await SeedSuccessionImport.SeedAsync(db, userManager, successionCatalog, successionImport, logger);
+        }
+
         // Succession planning: three coaches' ratings over three cycles. Its own file, since
         // none of it touches anything above. See SeedSuccession.
         await SeedSuccession.SeedAsync(
             db,
             userManager,
-            services.GetRequiredService<Services.Succession.ISuccessionCatalog>(),
+            successionCatalog,
             password,
             logger);
     }

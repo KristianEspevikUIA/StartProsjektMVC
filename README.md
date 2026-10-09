@@ -227,9 +227,10 @@ og administrator har tilgang, men bare trenere vurderer.
 - **Off og uker til klar:** hvor langt unna 8 spilleren er, og hvor mange uker det tar med
   trenden så langt.
 - **Lister og terskler** ligger i `Data/Succession/succession-planning.json`, validert ved oppstart.
-- **Ingen navn fra arket.** Arket har ekte navn; appen har sine egne, oppdiktede demospillere.
-  Arket ligger ikke i repoet. «Best eleven» viser fornavnet klubben har lagt inn til
-  velkomsten, og ellers hele navnet.
+- **Import av trenernes ark:** `scripts/succession/import_workbooks.py` matcher radene mot de
+  ekte troppene og tar bare de strukturerte feltene, ingen fritekst. Appen leser resultatet inn i
+  Development. Arkene og resultatet ligger i den git-ignorerte `Data/Succession/Import/`, aldri i
+  repoet. «Best eleven» viser fornavnet klubben har lagt inn til velkomsten, og ellers hele navnet.
 
 **Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
 
