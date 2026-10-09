@@ -26,9 +26,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          # Must match <TargetFramework> in the csproj. .NET 8 is the current LTS;
+          # Must match <TargetFramework> in the csproj. .NET 10 is the current LTS;
           # read the note about framework versions in the README before changing it.
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
