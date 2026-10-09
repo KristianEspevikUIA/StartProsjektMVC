@@ -7,8 +7,9 @@ skiller seg. Trenerne har i tillegg Identity Benchmarking og succession planning
 **Systemet behandler personopplysninger om mindreårige.** Det er premisset bak alle
 valgene under, og det er grunnen til at autorisasjon ikke er noe som skrus på til slutt.
 
-> Bare oppdiktede data i dette repoet. Ekte spillerdata skal ikke inn før prosjektet
-> er meldt til Sikt.
+> Ingen ekte spillerdata i dette repoet: det er offentlig. Appen bruker bare ekte data --
+> klubbens tropper fra ikstart.no og trenernes egne succession-ark, med klubbens tillatelse --
+> og de ligger i git-ignorerte mapper og i databasen, aldri i git. Ingenting er oppdiktet.
 
 ---
 
@@ -58,8 +59,11 @@ fra til de andre først, en reset gjelder alle). Deretter, med hele strengen fra
 `appsettings.json` pluss `;Root Certificate=…` og `;Password=…` på slutten:
 
 ```bash
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=VerifyFull;Root Certificate=C:\Users\DITT_BRUKERNAVN\AppData\Roaming\Supabase\prod-ca-2021.crt;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=aws-1-eu-west-1.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.fwurrryuqktamabroagx;SSL Mode=VerifyFull;Root Certificate=%APPDATA%\Supabase\prod-ca-2021.crt;Password=DITT_PASSORD" --project StartPraksisGruppe3Prosjekt
 ```
+
+**`DITT_PASSORD` er en plassholder.** Bytt den ut med databasepassordet før du kjører kommandoen.
+Står plassholderen igjen, stopper appen med beskjed om nettopp det.
 
 Passordet havner i `%APPDATA%\Microsoft\UserSecrets\`, ikke i git. Uten dette steget stopper
 appen med en melding som forklarer akkurat dette — det er ikke en bug.
@@ -68,23 +72,27 @@ User-secrets erstatter hele strengen fra `appsettings.json`, den legges ikke opp
 hele strengen med, også `SSL Mode=VerifyFull`: en secret uten den kobler til uten å verifisere
 sertifikatet, uansett hva som står i repoet.
 
-**Stien må være full og bokstavelig.** Npgsql utvider ikke miljøvariabler, så
-`Root Certificate=%APPDATA%\Supabase\prod-ca-2021.crt` blir lest som en mappe som heter
-`%APPDATA%` — relativt til der appen kjører. Skriv `C:\Users\<du>\AppData\Roaming\...` i sin
-helhet.
+**Stien til sertifikatet.** Appen utvider `%APPDATA%` og `~` selv, så strengen over virker som
+den står. Ligger fila på standardplassen -- `%APPDATA%\Supabase\prod-ca-2021.crt` på Windows,
+`~/.config/Supabase/prod-ca-2021.crt` på Mac og Linux -- bruker appen den også når stien i
+strengen er feil, og sier fra i loggen. Se `Data/DatabaseConnection.cs`.
 
 Går det galt, sier feilen hvilken av de to tingene som er feil:
 
 | Feilmelding | Hva som er galt |
 | --- | --- |
-| `FileNotFoundException` / `DirectoryNotFoundException` | stien i `Root Certificate` peker ikke på en fil som finnes |
+| «Fant ikke CA-sertifikatet til Supabase …» | fila finnes verken der `Root Certificate` peker eller på standardplassen. Last den ned (steg 1) |
+| «Passordet … er plassholderen DITT_PASSORD» | bytt ut plassholderen med det ekte passordet (steg 2) |
 | «The remote certificate was rejected…» | fila finnes, men er ikke Supabase-CA-en |
 
 Merk: **anon-/publishable-nøkkelen (`sb_publishable_…`) er ikke databasepassordet.** Den
 gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgres`-rollen.
 
 Bruk port **5432** (session-pooleren). Port 6543 er transaction-pooleren, og den fungerer
-ikke med EF-migrasjoner.
+ikke med EF-migrasjoner. Session-pooleren tar bare **15 klienter for hele prosjektet**, delt
+mellom alle som kjører appen. Appen bruker derfor høyst 5 tilkoblinger mot den (sett
+`Maximum Pool Size` i strengen for noe annet). Får du «EMAXCONNSESSION max clients reached», er
+de andres apper eller gamle prosesser hos deg det som holder dem: stopp dem og prøv igjen.
 
 **Steg 3: kjør.**
 
@@ -92,7 +100,9 @@ ikke med EF-migrasjoner.
 dotnet run --project StartPraksisGruppe3Prosjekt
 ```
 
-Første kjøring kjører migrasjonene og legger inn oppdiktede demodata.
+Første kjøring kjører migrasjonene og legger inn klubbens egne data, når filene finnes: troppene
+(`python3 scripts/squads/fetch_squads.py`) og trenernes succession-ark (se
+`docs/succession-planning.md`). Uten dem starter appen uten spillere. Ingenting diktes opp.
 
 ### Demokontoer
 
@@ -107,7 +117,7 @@ Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.Ens
 oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
 først bestemmer passordet for alle.
 
-**Det er én trenerkonto for lagene.** (Succession planning har to ekstra, se under tabellen.)
+**Det er én trenerkonto for lagene.**
 Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
 den gjenværende: lagene ble flyttet over, og kontoen fjernet. Sammenslåingen ligger i
 `SeedData.ConsolidateCoachAsync` og kjører ved hver oppstart, ikke bare på en tom base —
@@ -119,36 +129,28 @@ som gjorde hva.
 | --- | --- |
 | `admin@ikstart.example` | Admin |
 | `trener.senior@ikstart.example` | Trener (alle lag) |
-| `trener.akademi@ikstart.example`, `trener.utvikling@ikstart.example` | Trener, for succession planning |
-| `spiller.brage.kristoffersen@ikstart.example` m.fl. | Spiller |
-| `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
-| `foresatt.isak.ronning@example.test` m.fl. | Foresatt |
+| `spiller.<fornavn>.<etternavn>@ikstart.example` | Spiller, én per spiller i troppene |
 
-De to siste trenerkontoene finnes fordi succession planning sammenligner trenere, og én konto
-kan ikke være uenig med seg selv. De har vurderinger i demodataene, og man kan logge inn som en
-av dem og se sin egen kolonne. Se `Data/SeedSuccession.cs`.
+Spillerkontoen utledes av navnet slik klubben skriver det: `Ola Nordmann` blir
+`spiller.ola.nordmann@ikstart.example`, med æ, ø og å skrevet ae, o og aa.
 
-Spillerne har tilfeldige, oppdiktede navn — bortsett fra prosjektgruppa (Brage Kristoffersen,
-Kristian Espevik, Victor Ziad og Taavi-Topias Henell), som spiller på G17 og kan logge
-inn som seg selv. Troppene står i `SeedData.Squads`.
+**Ingen foresatte og ingen samtykker.** Hver mindreårig hadde før en oppdiktet foresatt på
+example.test, og et samtykke den foresatte aldri ga. De er fjernet, og nye legges ikke inn:
+foresatte og samtykker registreres av klubben. Oppstarten sier i loggen hvor mange mindreårige
+som mangler foresatt.
 
-**Lagene er G14, G15 og G17**, de tre prosjektet gjelder, med fødselsdatoer etter årsklassene
-(G17 født 2009–2010, G15 2011, G14 2012). Alle spillerne er dermed mindreårige og har en
-foresatt. G19 finnes også, men har bare spillere når de ekte troppene er hentet (se
-`docs/player-welcome.md`). Lagene het U14, U15, U17 og U19 til 07.10.2026, og døpes om på
-stedet ved neste oppstart (`SeedData.SeedTeamsAsync`).
+**Succession planning** har ingen demodata: vurderingene er trenernes egne ark, importert med én
+låst konto per trener (`trener.<initialer>@ikstart.example`), som ingen kan logge inn med. Logg inn
+som `trener.senior@ikstart.example` for å se dem. Se `docs/succession-planning.md`.
 
-Spillerkontoen utledes av navnet: `Brage Kristoffersen` blir
-`spiller.brage.kristoffersen@ikstart.example`, med æ, ø og å skrevet ae, o og aa. Foresatte
-følger samme regel — `foresatt.isak.ronning@example.test` — bortsett fra de sju nummererte over,
-som er navngitt i troppen og beholdes som de er.
+**Lagene er G14, G15, G17 og G19**, med spillerne fra klubbens sider, pluss noen trenerne vurderer
+som ikke står der (se `docs/player-welcome.md`). Lagene het U14, U15, U17 og U19 til 07.10.2026,
+og døpes om på stedet ved neste oppstart (`SeedData.SeedTeamsAsync`).
 
-En base som ble seedet før lagene og spillerne fikk disse navnene, rettes på stedet ved neste
-oppstart (`SeedData.SeedTeamsAsync`, `SeedUsersAndPlayersAsync` og `RenameCodedPlayersAsync`).
-Svar og vurderinger blir der de var.
-
-To spillere har med vilje **ingen** konto (Tobias Moe og Kasper Solberg). Det er en egen
-tilstand fra «har ikke svart», og begge skal virke.
+**Oppdiktede data fra før** -- spillere, foresatte, samtykker, 5C-svar, demoperioder og
+succession-vurderinger -- slettes ved hver oppstart i Development, så den delte basen blir ryddet
+neste gang noen starter appen (`SeedData.RemoveMadeUpDataAsync`,
+`SeedSuccessionImport.RemoveMadeUpAsync`).
 
 Vil du begynne på nytt: tøm `public`-skjemaet i Supabase (inkludert `__EFMigrationsHistory`)
 og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen først.
@@ -217,7 +219,7 @@ over time. Bare trener og administrator har tilgang.
 Trenernes Excel-ark «IK Start Succession Planning» som sider i appen, på `/Succession`. Trener
 og administrator har tilgang, men bare trenere vurderer.
 
-- **Hver trener vurderer hver spiller hver åttende uke:** seks vurderinger fra 1 til 10,
+- **Hver trener vurderer hver spiller hver åttende uke:** seks vurderinger fra 0 til 10,
   posisjoner, kategori, prognoser og notater, altså de samme kolonnene som arket. Vurderingene
   lagres hver for seg, og å vurdere på nytt i samme syklus er en retting.
 - **Squad board** legger trenerne sammen: én rad per spiller, med arkets fargeskala, og en fane
@@ -227,9 +229,10 @@ og administrator har tilgang, men bare trenere vurderer.
 - **Off og uker til klar:** hvor langt unna 8 spilleren er, og hvor mange uker det tar med
   trenden så langt.
 - **Lister og terskler** ligger i `Data/Succession/succession-planning.json`, validert ved oppstart.
-- **Ingen navn fra arket.** Arket har ekte navn; appen har sine egne, oppdiktede demospillere.
-  Arket ligger ikke i repoet. «Best eleven» viser fornavnet klubben har lagt inn til
-  velkomsten, og ellers hele navnet.
+- **Import av trenernes ark:** `scripts/succession/import_workbooks.py` matcher radene mot de
+  ekte troppene og tar med alt trenerne skrev, også friteksten. Appen leser resultatet inn i
+  Development. Arkene og resultatet ligger i den git-ignorerte `Data/Succession/Import/`, aldri i
+  repoet. «Best eleven» viser fornavnet klubben har lagt inn til velkomsten, og ellers hele navnet.
 
 **Alt om dette: [`docs/succession-planning.md`](docs/succession-planning.md).**
 
@@ -245,8 +248,8 @@ Trenerne ba om det, og IK Start har gitt tillatelse til å bruke de offisielle s
   `/Player/Photo` har ingen ID, så den gir bare ditt eget bilde.
 - **Bildet kontrolleres og renses:** bare JPEG, PNG og WebP (lest av filens bytes), høyst 2 MB,
   og GPS, bildetekst og annen metadata tas ut før det lagres.
-- **Fornavn og bilde** ligger i egen tabell (`PlayerPersonalDetails`). Ingen bilder ligger i
-  repoet, og navnene i demodataene er oppdiktet — bortsett fra prosjektgruppas egne.
+- **Fornavn og bilde** ligger i egen tabell (`PlayerPersonalDetails`). Ingen bilder eller navn
+  ligger i repoet; de hentes fra klubbens sider til den git-ignorerte `Data/Squads/`.
 - **Må avklares:** Sikt-meldingen beskriver fortsatt spillerkoder i stedet for navn. Den må
   oppdateres og sendes før ekte navn og bilder legges inn.
 
@@ -278,9 +281,10 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ Questions/                five-c-questions.json (påstander og refleksjon)
 │  ├─ Identity/                 gold-standard.json (+ Matches/, git-ignorert)
 │  ├─ Succession/               succession-planning.json (lister, terskler, formasjoner)
-│  ├─ SeedData.cs               roller, lag, perioder og oppdiktede demodata
-│  ├─ SeedSuccession.cs         oppdiktede succession-vurderinger
-│  └─ SeedWelcome.cs            fornavn til velkomsten i demodataene
+│  ├─ DatabaseConnection.cs     tilkoblingsstrengen: sertifikatstien og plassholderne
+│  ├─ SeedData.cs               roller, lag, perioder, innlogging, og opprydding i det oppdiktede
+│  ├─ SeedSquads.cs             klubbens tropper, fra den git-ignorerte Squads/
+│  └─ SeedSuccessionImport.cs   trenernes succession-ark, fra den git-ignorerte Succession/Import/
 ├─ Services/
 │  ├─ IScoringService.cs + ScoringService.cs
 │  ├─ IConsentService.cs + ConsentService.cs

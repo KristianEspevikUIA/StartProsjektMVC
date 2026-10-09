@@ -553,9 +553,16 @@ public class SuccessionController : Controller
             ModelState.AddModelError(nameof(SuccessionRateViewModel.Ratings), $"'{key}' is not a rating.");
         }
 
-        if (form.PersonalReadiness is { } personal && (personal < settings.Scale.Min || personal > settings.Scale.Max))
+        // Halves, as the coaches write it in the workbook: 5.5 is an answer, 5.25 is a typo.
+        if (!string.IsNullOrWhiteSpace(form.PersonalReadiness)
+            && (form.PersonalReadinessValue is not { } personal
+                || personal < settings.Scale.Min
+                || personal > settings.Scale.Max
+                || personal * 2 != decimal.Truncate(personal * 2)))
         {
-            ModelState.AddModelError(nameof(form.PersonalReadiness), $"Has to be from {settings.Scale.Min} to {settings.Scale.Max}.");
+            ModelState.AddModelError(
+                nameof(form.PersonalReadiness),
+                $"A number from {settings.Scale.Min} to {settings.Scale.Max}, in steps of 0.5.");
         }
 
         CheckKey(form.RatedAs, _catalog.Level, nameof(form.RatedAs));
@@ -721,7 +728,8 @@ public class SuccessionController : Controller
             Cycles = await _planning.GetCyclesAsync(Today, cancellationToken),
             TeamId = team,
             Teams = teams,
-            RatedAs = _catalog.Level(ratedAs)?.Key
+            RatedAs = _catalog.Level(ratedAs)?.Key,
+            NothingImported = !await _db.SuccessionAssessments.AnyAsync(cancellationToken)
         };
     }
 

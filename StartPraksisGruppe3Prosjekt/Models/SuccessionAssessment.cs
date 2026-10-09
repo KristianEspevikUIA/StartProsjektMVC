@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Models.Succession;
 
 namespace StartPraksisGruppe3Prosjekt.Models;
@@ -76,13 +77,24 @@ public class SuccessionAssessment
     public string? ThirdPosition { get; set; }
 
     /// <summary>
-    /// "Coach's personal readiness for next step", 1-10. The coach's own call, next to the
-    /// average of the six ratings -- the two are allowed to disagree, and it is worth seeing
-    /// when they do.
+    /// "Coach's personal readiness for next step", 0-10 in steps of a half, as the coaches write
+    /// it in the workbook: 5.5 and 0 are real answers. The coach's own call, next to the average
+    /// of the six ratings -- the two are allowed to disagree, and it is worth seeing when they do.
     /// </summary>
-    [Range(1, 10)]
+    [Range(0, 10)]
+    [Precision(3, 1)]
     [Display(Name = "Personal readiness")]
-    public int? PersonalReadiness { get; set; }
+    public decimal? PersonalReadiness { get; set; }
+
+    /// <summary>
+    /// What the coach wrote in the readiness column instead of a number. This and the three other
+    /// ...Note columns hold what the workbook's number, list and yes/no columns were used for in
+    /// practice: a name, a reason, a sentence. The number or list value stays where it is; the
+    /// words are kept next to it, so nothing a coach wrote is lost.
+    /// </summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Personal readiness, in words")]
+    public string? PersonalReadinessNote { get; set; }
 
     [StringLength(SuccessionRules.ProjectionLimit)]
     [Display(Name = "0–6 month projection")]
@@ -100,6 +112,11 @@ public class SuccessionAssessment
     [Display(Name = "Pathway blocked")]
     public bool? PathwayBlocked { get; set; }
 
+    /// <summary>By whom or by what, as the coach wrote it in the "Pathway blocked?" column.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Pathway blocked, in words")]
+    public string? PathwayBlockedNote { get; set; }
+
     [StringLength(SuccessionRules.TextLimit)]
     [Display(Name = "What now")]
     public string? WhatNow { get; set; }
@@ -109,8 +126,18 @@ public class SuccessionAssessment
     [Display(Name = "Succession risk")]
     public string? SuccessionRisk { get; set; }
 
+    /// <summary>The risk in the coach's words, where the column has a reason rather than a colour.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Succession risk, in words")]
+    public string? SuccessionRiskNote { get; set; }
+
     [Display(Name = "External needed")]
     public bool? ExternalNeeded { get; set; }
+
+    /// <summary>Who or what is needed from outside, as the coach wrote it.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "External needed, in words")]
+    public string? ExternalNeededNote { get; set; }
 
     [StringLength(SuccessionRules.TextLimit)]
     [Display(Name = "Key development focus")]
@@ -147,8 +174,11 @@ public class SuccessionRating
     [StringLength(SuccessionRules.OptionKeyLength)]
     public string RatingKey { get; set; } = string.Empty;
 
-    /// <summary>1-10, as given. Never null: a rating that was not given has no row.</summary>
-    [Range(1, 10)]
+    /// <summary>
+    /// 0-10, as given -- the workbooks have a 0 for a player who is not available at all. Never
+    /// null: a rating that was not given has no row.
+    /// </summary>
+    [Range(0, 10)]
     public int Value { get; set; }
 }
 

@@ -505,3 +505,10 @@ StartPraksisGruppe3Prosjekt/Data/Identity/Matches/*
 # scripts/squads/fetch_squads.py. Se docs/player-welcome.md.
 StartPraksisGruppe3Prosjekt/Data/Squads/*
 !StartPraksisGruppe3Prosjekt/Data/Squads/README.md
+
+# Succession planning: trenernes utfylte ark og det som importeres fra dem. Arkene navngir
+# spillerne, nesten alle mindreårige, ved siden av trenernes vurdering av dem, og repoet er
+# offentlig. Bare README-en følger med. Fila lages av scripts/succession/import_workbooks.py.
+# Se docs/succession-planning.md.
+StartPraksisGruppe3Prosjekt/Data/Succession/Import/*
+!StartPraksisGruppe3Prosjekt/Data/Succession/Import/README.md

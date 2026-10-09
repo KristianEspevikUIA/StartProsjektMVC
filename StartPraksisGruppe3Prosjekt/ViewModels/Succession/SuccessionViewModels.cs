@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Text.Json;
 using StartPraksisGruppe3Prosjekt.Models;
 using StartPraksisGruppe3Prosjekt.Models.Succession;
@@ -22,6 +23,12 @@ public sealed class SuccessionFilterViewModel
     /// <summary>Only assessments made against this level. Null for all of them.</summary>
     public string? RatedAs { get; init; }
 
+    /// <summary>
+    /// Not one assessment in the database, in any cycle: the coaches' workbooks have not been
+    /// imported here. The pages say so, rather than showing an empty pitch with no reason.
+    /// </summary>
+    public bool NothingImported { get; init; }
+
     public bool IsCurrentCycle => Cycle.StartsOn == CurrentCycle.StartsOn;
 
     public string? TeamName => Teams.FirstOrDefault(t => t.Id == TeamId)?.Name;
@@ -34,10 +41,10 @@ public sealed class SuccessionFilterViewModel
 /// across, so a coach who has clicked into G15 on one page is still looking at G15 on the other.
 /// </summary>
 /// <param name="Active">"board" or "eleven".</param>
-public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey)
+public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey, bool NothingImported = false)
 {
     public static SuccessionNavViewModel For(string active, SuccessionFilterViewModel filter) =>
-        new(active, filter.TeamId, filter.IsCurrentCycle ? null : filter.Cycle.Key);
+        new(active, filter.TeamId, filter.IsCurrentCycle ? null : filter.Cycle.Key, filter.NothingImported);
 }
 
 /// <summary>/Succession: the workbook, pulled together.</summary>
@@ -344,9 +351,24 @@ public sealed class SuccessionRateViewModel
     /// <summary>Keyed by the rating key: name="Ratings[physical]".</summary>
     public Dictionary<string, int?> Ratings { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    [Range(1, 10)]
+    /// <summary>
+    /// 0-10 in steps of a half, as the workbook has it. Posted as text and read without the
+    /// server's culture: a number field sends "5.5" in any language, and a server running in
+    /// Norwegian would not read that as five and a half. See <see cref="PersonalReadinessValue"/>.
+    /// </summary>
+    [StringLength(8)]
     [Display(Name = "Your own call: ready for the next step")]
-    public int? PersonalReadiness { get; set; }
+    public string? PersonalReadiness { get; set; }
+
+    /// <summary>The posted readiness as a number. Null when it is blank or is not a number.</summary>
+    public decimal? PersonalReadinessValue =>
+        decimal.TryParse(
+            PersonalReadiness?.Trim().Replace(',', '.'),
+            NumberStyles.AllowDecimalPoint,
+            CultureInfo.InvariantCulture,
+            out var value)
+            ? value
+            : null;
 
     [StringLength(SuccessionRules.OptionKeyLength)]
     [Display(Name = "Rated as")]
@@ -406,11 +428,29 @@ public sealed class SuccessionRateViewModel
     [Display(Name = "Notes")]
     public string? Notes { get; set; }
 
+    // The words next to a number, a list or a yes/no -- see SuccessionAssessment.PersonalReadinessNote.
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Readiness, in words")]
+    public string? PersonalReadinessNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Blocked by whom or what")]
+    public string? PathwayBlockedNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "The risk, in words")]
+    public string? SuccessionRiskNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Who or what is needed")]
+    public string? ExternalNeededNote { get; set; }
+
     /// <summary>The form, filled in from an assessment already saved.</summary>
     public void CopyFrom(SuccessionAssessment assessment)
     {
         Ratings = assessment.Ratings.ToDictionary(r => r.RatingKey, r => (int?)r.Value, StringComparer.OrdinalIgnoreCase);
-        PersonalReadiness = assessment.PersonalReadiness;
+        PersonalReadiness = assessment.PersonalReadiness?.ToString("0.#", CultureInfo.InvariantCulture);
         RatedAs = assessment.RatedAs;
         AbilityCategory = assessment.AbilityCategory;
         FirstPosition = assessment.FirstPosition;
@@ -426,6 +466,10 @@ public sealed class SuccessionRateViewModel
         KeyDevelopmentFocus = assessment.KeyDevelopmentFocus;
         SuperStrengths = assessment.SuperStrengths;
         Notes = assessment.Notes;
+        PersonalReadinessNote = assessment.PersonalReadinessNote;
+        PathwayBlockedNote = assessment.PathwayBlockedNote;
+        SuccessionRiskNote = assessment.SuccessionRiskNote;
+        ExternalNeededNote = assessment.ExternalNeededNote;
     }
 
     /// <summary>What the form says, as an unsaved assessment. Blank text is stored as null, not "".</summary>
@@ -435,7 +479,7 @@ public sealed class SuccessionRateViewModel
             .Where(r => Ratings.TryGetValue(r.Key, out var value) && value.HasValue)
             .Select(r => new SuccessionRating { RatingKey = r.Key, Value = Ratings[r.Key]!.Value })
             .ToList(),
-        PersonalReadiness = PersonalReadiness,
+        PersonalReadiness = PersonalReadinessValue,
         RatedAs = Blank(RatedAs),
         AbilityCategory = Blank(AbilityCategory),
         FirstPosition = Blank(FirstPosition),
@@ -450,7 +494,11 @@ public sealed class SuccessionRateViewModel
         ExternalNeeded = ExternalNeeded,
         KeyDevelopmentFocus = Blank(KeyDevelopmentFocus),
         SuperStrengths = Blank(SuperStrengths),
-        Notes = Blank(Notes)
+        Notes = Blank(Notes),
+        PersonalReadinessNote = Blank(PersonalReadinessNote),
+        PathwayBlockedNote = Blank(PathwayBlockedNote),
+        SuccessionRiskNote = Blank(SuccessionRiskNote),
+        ExternalNeededNote = Blank(ExternalNeededNote)
     };
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

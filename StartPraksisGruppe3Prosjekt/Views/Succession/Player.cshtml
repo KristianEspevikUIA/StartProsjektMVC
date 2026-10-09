@@ -20,6 +20,10 @@
         ("What now?", a => a.WhatNow),
         ("Key development focus", a => a.KeyDevelopmentFocus),
         ("Super strengths", a => a.SuperStrengths),
+        ("Personal readiness, in words", a => a.PersonalReadinessNote),
+        ("Pathway blocked?", a => a.PathwayBlockedNote),
+        ("Succession risk", a => a.SuccessionRiskNote),
+        ("External needed?", a => a.ExternalNeededNote),
         ("Notes", a => a.Notes)
     };
 
@@ -250,7 +254,7 @@
                                 <th scope="row">Coach's own call</th>
                                 @foreach (var rater in Model.Raters)
                                 {
-                                    <td><span class="@SuccessionFormat.RatingClass(rater.Assessment.PersonalReadiness)">@(rater.Assessment.PersonalReadiness?.ToString() ?? "–")</span></td>
+                                    <td><span class="@SuccessionFormat.RatingClass((double?)rater.Assessment.PersonalReadiness)">@SuccessionFormat.Readiness(rater.Assessment.PersonalReadiness)</span></td>
                                 }
                                 <td class="sc-col-together"><span class="@SuccessionFormat.RatingClass(consensus.PersonalReadiness)">@SuccessionFormat.Number(consensus.PersonalReadiness)</span></td>
                                 <td>

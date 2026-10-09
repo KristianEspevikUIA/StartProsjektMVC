@@ -14,3 +14,17 @@
        asp-controller="Succession" asp-action="Formation"
        asp-route-team="@Model.TeamId" asp-route-cycle="@Model.CycleKey">Best eleven</a>
 </nav>
+
+@if (Model.NothingImported)
+{
+    @* Without this the pitch is simply empty, and nothing says why. The workbooks live outside
+       git (they name minors), so a fresh checkout has none until they are put in place. *@
+    <div class="sc-notice sc-notice--warn sc-mt" role="status">
+        <p>
+            <strong>No assessments in this database.</strong> The coaches' workbooks have not been
+            imported here. They are read at startup from
+            <code>Data/Succession/Import/assessments.json</code>, with the squads from
+            <code>Data/Squads/</code> -- both kept out of git. Put them in place and restart the app.
+        </p>
+    </div>
+}

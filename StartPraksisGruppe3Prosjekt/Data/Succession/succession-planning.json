@@ -23,7 +23,9 @@
 
   // The workbook's colour scale runs 1 (red) - 6 (yellow) - 10 (green), and its icon set
   // puts the lights at 6 and 8. Those two are the thresholds below.
-  "scale": { "min": 1, "max": 10 },
+  // The template says 1-10, but the coaches use 0 too: an availability of 0 is a player who is
+  // not available at all. The scale runs from 0 so that answer can be given and kept.
+  "scale": { "min": 0, "max": 10 },
   "readyAt": 8,
   "developingAt": 6,
 

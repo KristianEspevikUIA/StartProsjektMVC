@@ -370,13 +370,17 @@ public sealed class SuccessionPlanningService : ISuccessionPlanningService
         row.SecondPosition = source.SecondPosition;
         row.ThirdPosition = source.ThirdPosition;
         row.PersonalReadiness = source.PersonalReadiness;
+        row.PersonalReadinessNote = source.PersonalReadinessNote;
         row.Projection0To6Months = source.Projection0To6Months;
         row.Projection6To18Months = source.Projection6To18Months;
         row.Projection18To36Months = source.Projection18To36Months;
         row.PathwayBlocked = source.PathwayBlocked;
+        row.PathwayBlockedNote = source.PathwayBlockedNote;
         row.WhatNow = source.WhatNow;
         row.SuccessionRisk = source.SuccessionRisk;
+        row.SuccessionRiskNote = source.SuccessionRiskNote;
         row.ExternalNeeded = source.ExternalNeeded;
+        row.ExternalNeededNote = source.ExternalNeededNote;
         row.KeyDevelopmentFocus = source.KeyDevelopmentFocus;
         row.SuperStrengths = source.SuperStrengths;
         row.Notes = source.Notes;

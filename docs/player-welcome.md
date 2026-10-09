@@ -92,11 +92,16 @@ Forhåndsvisningen for admin sendes med `no-store`.
   bruk: i et system som også har svarene deres. Det bør stå i personvernerklæringen.
 - **De ekte troppene:** `scripts/squads/fetch_squads.py` henter navn, posisjon, fødselsdato og
   bilde for G14, G15, G17 og G19 fra klubbens spillersider til `Data/Squads/`, som er git-ignorert.
-  Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
+  Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.ola.nordmann@ikstart.example`),
   fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
   som en opplasting på admin-siden.
-- **Demodata:** uten den fila gir `Data/SeedWelcome.cs` de oppdiktede spillerkontoene fornavn,
-  og ingen bilder.
+- **Spillere som ikke står på troppsidene,** men som trenerne vurderer (utlånt, rykket opp til
+  A-laget, ikke lagt ut ennå), står i den git-ignorerte `Data/Squads/extra-players.json`, med lag
+  og profilside. Uten profilside brukes navnet og fødselsåret fra trenernes ark, fødselsdatoen
+  settes til 1. januar som for andre uten dato, og posisjonen står tom. Se «Players the coaches
+  rate who are not on the pages» øverst i `fetch_squads.py`.
+- **Ingen demodata:** uten fila har appen ingen spillere. De oppdiktede spillerne og fornavnene
+  deres er fjernet (`SeedData.RemoveMadeUpDataAsync`).
 
 ---
 

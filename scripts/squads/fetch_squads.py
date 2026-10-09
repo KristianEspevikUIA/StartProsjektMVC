@@ -29,6 +29,23 @@ uses them.
 A player on two pages -- a G17 who also plays for G19 -- is kept on the first, the youngest
 team, and skipped on the other. The app has one team per player.
 
+Players the coaches rate who are not on the pages
+-------------------------------------------------
+The coaches' succession workbooks name a few players the squad pages do not: one on loan, one
+who has moved up to the first team, one the club has not put on the page yet. They are listed by
+hand in Data/Squads/extra-players.json -- git-ignored like the rest -- with the team the
+application puts them on:
+
+    { "players": [
+        { "team": "G19", "profile": "https://www.ikstart.no/lag/<the player's page>" },
+        { "team": "G14", "name": "Ola Nordmann", "born": 2012, "position": "Goalkeeper" }
+    ] }
+
+With a profile page, the name, position, date of birth and photo come from it, as for the
+squads. Without one, the name is as the coaches write it, the date of birth is 1 January of
+the year they give, and the position is left out unless it is given -- the club's line cannot be
+told from the coaches' positions. A player who is on one of the pages after all is kept there.
+
 Why it refuses rather than guesses
 ----------------------------------
 A page that lists no players, a player without a name, a position the mapping does not know,
@@ -79,6 +96,8 @@ MONTHS = {
 
 PHOTO_WIDTH = 400
 
+EXTRAS = "extra-players.json"
+
 USER_AGENT = "StartCompass squad import (IS-302, UiA; with IK Start's permission)"
 
 REPO = Path(__file__).resolve().parents[2]
@@ -92,7 +111,8 @@ class Refused(Exception):
 class SquadPage(HTMLParser):
     """
     Collects the cards: <a class="players__player"> and what is inside it, with the section
-    heading it stands under ("Keepere", "Støtteapparat"). The coaches are cards too.
+    heading it stands under ("Keepere", "Støtteapparat"). The coaches are cards too. A player's
+    own page has one card, <div class="player player--full">, with the same fields in it.
     """
 
     def __init__(self) -> None:
@@ -113,7 +133,7 @@ class SquadPage(HTMLParser):
             self._in_heading = True
             self._section = ""
 
-        if tag == "a" and "players__player" in classes:
+        if (tag == "a" and "players__player" in classes) or "player--full" in classes:
             self._card = {"href": attrs.get("href"), "section": self._section, "text": {}, "details": {}}
             self._depth = 0
             self.players.append(self._card)
@@ -144,7 +164,7 @@ class SquadPage(HTMLParser):
         self._field = None
         self._depth -= 1
 
-        if tag == "a" and self._depth <= 0:
+        if self._depth <= 0:
             self._card = None
 
     def handle_data(self, data):
@@ -200,6 +220,23 @@ def photo_kind(data: bytes) -> str | None:
     return None
 
 
+def save_photo(card: dict, team: str, name: str, out: Path, where: str) -> str | None:
+    photo_url = card.get("image")
+    if not photo_url:
+        return None
+
+    photo_url = re.sub(r"/width-\d+/", f"/width-{PHOTO_WIDTH}/", photo_url)
+    data = fetch(photo_url)
+    kind = photo_kind(data)
+    if kind is None:
+        raise Refused(f"{where}: the photo is not a JPEG, PNG or WebP ({photo_url}).")
+
+    photo = f"photos/{team.lower()}-{slug(name)}.{kind}"
+    (out / photo).write_bytes(data)
+    time.sleep(0.2)
+    return photo
+
+
 def read_team(team: str, path: str, age: int, season: int, out: Path, seen: dict[str, str]) -> list[dict]:
     page_url = BASE + path
     parser = SquadPage()
@@ -232,18 +269,7 @@ def read_team(team: str, path: str, age: int, season: int, out: Path, seen: dict
         born = card["details"].get("Født")
         birth_date = parse_date(born, where) if born else dt.date(season - age, 1, 1).isoformat()
 
-        photo = None
-        photo_url = card.get("image")
-        if photo_url:
-            photo_url = re.sub(r"/width-\d+/", f"/width-{PHOTO_WIDTH}/", photo_url)
-            data = fetch(photo_url)
-            kind = photo_kind(data)
-            if kind is None:
-                raise Refused(f"{where}: the photo is not a JPEG, PNG or WebP ({photo_url}).")
-
-            photo = f"photos/{team.lower()}-{slug(name)}.{kind}"
-            (out / photo).write_bytes(data)
-            time.sleep(0.2)
+        photo = save_photo(card, team, name, out, where)
 
         players.append({
             "name": name,
@@ -255,6 +281,71 @@ def read_team(team: str, path: str, age: int, season: int, out: Path, seen: dict
         })
 
     return players
+
+
+def read_extras(out: Path, seen: dict[str, str]) -> dict[str, list[dict]]:
+    """The players in extra-players.json, by team. Empty when there is no such file."""
+    path = out / EXTRAS
+    if not path.exists():
+        return {}
+
+    teams = {team for team, _, _ in TEAMS}
+    found: dict[str, list[dict]] = {}
+
+    for index, entry in enumerate(json.loads(path.read_text(encoding="utf-8")).get("players", []), 1):
+        where = f"{EXTRAS}, entry {index}"
+        team = entry.get("team")
+        if team not in teams:
+            raise Refused(f"{where}: the team must be one of {', '.join(sorted(teams))}.")
+
+        profile = entry.get("profile")
+        if profile:
+            if not profile.startswith(BASE + "/"):
+                raise Refused(f"{where}: the profile is not a page on {BASE}.")
+
+            parser = SquadPage()
+            parser.feed(fetch(profile).decode("utf-8"))
+            card = next((c for c in parser.players if c["text"].get("name")), None)
+            if card is None:
+                raise Refused(f"{where}: no player on {profile}. Has the page changed?")
+
+            name = " ".join(card["text"]["name"].split())
+            position = POSITIONS.get(card["text"].get("position", ""))
+            if position is None:
+                raise Refused(f"{where}: unknown position '{card['text'].get('position')}'.")
+
+            born = card["details"].get("Født")
+            birth_date = parse_date(born, where) if born else None
+            if birth_date is None:
+                raise Refused(f"{where}: {profile} gives no date of birth. Use name and born instead.")
+            estimated = False
+        else:
+            name = " ".join(str(entry.get("name", "")).split())
+            born = entry.get("born")
+            position = entry.get("position")
+            if not name or not isinstance(born, int):
+                raise Refused(f"{where}: without a profile, both name and born are needed.")
+            if position is not None and position not in POSITIONS.values():
+                raise Refused(f"{where}: the position must be one of {', '.join(POSITIONS.values())}.")
+            birth_date = dt.date(born, 1, 1).isoformat()
+            estimated = True
+            card = {}
+
+        if name.lower() in seen:
+            print(f"  {EXTRAS}: {name} is already on {seen[name.lower()]}, and stays there.")
+            continue
+
+        seen[name.lower()] = team
+        found.setdefault(team, []).append({
+            "name": name,
+            "position": position,
+            "birthDate": birth_date,
+            "birthDateEstimated": estimated,
+            "photo": save_photo(card, team, name, out, where),
+            "profileUrl": profile,
+        })
+
+    return found
 
 
 def main() -> int:
@@ -278,6 +369,11 @@ def main() -> int:
             {"team": team, "page": BASE + path, "players": read_team(team, path, age, today.year, out, seen)}
             for team, path, age in TEAMS
         ]
+
+        # After the pages, so a player who is on one after all is kept there.
+        extras = read_extras(out, seen)
+        for team in teams:
+            team["players"].extend(extras.get(team["team"], []))
     except Refused as refusal:
         print(f"Refused: {refusal}", file=sys.stderr)
         return 1
@@ -298,7 +394,7 @@ def main() -> int:
         if args.table:
             for p in team["players"]:
                 estimated = " (estimated)" if p["birthDateEstimated"] else ""
-                print(f"  {p['name']:<28} {p['position']:<11} {p['birthDate']}{estimated}  {p['photo'] or '-'}")
+                print(f"  {p['name']:<28} {p['position'] or '-':<11} {p['birthDate']}{estimated}  {p['photo'] or '-'}")
 
     print(f"Wrote {out / 'squads.json'}")
     return 0

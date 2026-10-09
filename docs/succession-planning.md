@@ -46,7 +46,7 @@ ligger slik:
 
 | Kolonne i arket | I appen | Hvem fyller ut |
 | --- | --- | --- |
-| Last Name, First Name | **Ikke fra arket.** Appen har sine egne, oppdiktede demospillere | – |
+| Last Name, First Name | Bare for å finne spilleren ved import, og lagres ikke. Se «Import av trenernes ark» | – |
 | Coach/Coaches (Raters) | Den innloggede treneren, én vurdering hver | automatisk |
 | Rated as (List) | `RatedAs`, fra nivålista | trener |
 | Ability Cat. (List) | `AbilityCategory` | trener |
@@ -55,7 +55,7 @@ ligger slik:
 | Contract type (L), Contract End | `PlayerSuccessionProfile` | trener eller admin, én gang per spiller |
 | MESO Training Group (L) | `PlayerSuccessionProfile.TrainingGroup` | trener eller admin |
 | Current Team (L) | `Player.Team` | finnes fra før |
-| Physical … Availability (1-10) | `SuccessionRating`, én rad per vurdering | trener |
+| Physical … Availability (1-10) | `SuccessionRating`, én rad per vurdering. 0–10: trenerne bruker 0 også | trener |
 | Overall Readiness (1-10) | **Regnes ut** hver gang, lagres ikke | – |
 | Coaches Personal Readiness for next step | `PersonalReadiness` | trener |
 | 0–6m, 6–18m, 18–36m Projection | tre korte tekstfelt | trener |
@@ -240,8 +240,13 @@ Dette er en ny kategori opplysninger om spillerne, de fleste mindreårige: trene
 evner og modenhet, kontraktsforhold, og fritekst. Det følger de samme reglene som resten av
 systemet:
 
-- **Ingen navn fra arket.** Excel-arket trenerne leverte har fullt navn på alle spillerne. Det ligger ikke
-  i repoet og skal ikke dit. Appen har sine egne, oppdiktede demospillere.
+- **Ingen navn fra arket i repoet.** Excel-arkene trenerne leverte har fullt navn på alle spillerne.
+  De ligger ikke i repoet og skal ikke dit. Importen leser dem fra en git-ignorert mappe, se under.
+- **Friteksten fra arkene er med, etter klubbens ønske.** Den har skader, vekst, hjemmeforhold og
+  navn på andre spillere -- opplysninger skjemaet i appen ellers ber trenerne holde utenfor. Den
+  vises bare for stab, på spillersiden under «In their words», er med i innsynet
+  (`/Admin/Export/{id}`) og slettes med spilleren. Den står aldri i loggen eller i
+  importrapporten.
 - **Bare stab.** `[Authorize(Roles = Coach,Admin)]` på hele controlleren, og `CanViewPlayer` per
   spiller.
 - **Revisjonslogg.** Spillersiden og skjemaet skriver én rad hver (`Succession/Player`,
@@ -260,23 +265,86 @@ systemet:
 
 ---
 
-## Demodata
+## Ingen demodata
 
-`Data/SeedSuccession.cs`, bare i Development. Alt er oppdiktet.
+Succession planning viser bare trenernes egne ark (se under). De oppdiktede vurderingene og
+kontraktene appen hadde før arkene kom, og de to demotrenerne `trener.akademi` og
+`trener.utvikling`, fjernes ved hver oppstart i Development
+(`SeedSuccessionImport.RemoveMadeUpAsync`), så en delt base som ble seedet med dem, blir ryddet
+neste gang noen starter appen. Grensen er det demokontoene skrev før 10.10.2026; det
+`trener.senior` vurderer i appen etter det, blir stående.
 
-- Tre trenere: `trener.senior@ikstart.example` og to nye, `trener.akademi@ikstart.example` og
-  `trener.utvikling@ikstart.example`, med vanlig demopassord. Det trengs mer enn én trener for å
-  vise en sammenligning. Én er rausere enn de andre, én er strengere, og noen ganger står to av
-  dem tre poeng fra hverandre.
-- Tre sykluser: de to forrige er nesten ferdig vurdert, og den gjeldende omtrent halvveis.
-- Kontrakt og treningsgruppe for alle 33 spillerne. Noen kontrakter går ut innen seks måneder.
+---
+
+## Import av trenernes ark
+
+Trenerne fylte ut hvert sitt ark i september 2026. Importen gjør dem om til vurderinger i appen, én
+trener per ark, koblet til spillerne fra de ekte troppene (`docs/player-welcome.md`). Bare i
+Development, og ingenting av det står i repoet.
+
+```bash
+python3 scripts/squads/fetch_squads.py                       # troppene, som radene matches mot
+python3 scripts/succession/import_workbooks.py <mappe med arkene> --table
+dotnet run --project StartPraksisGruppe3Prosjekt              # leser inn ved oppstart
+```
+
+**Skriptet** (`scripts/succession/import_workbooks.py`) leser arkene uten noe annet enn Python, og
+skriver `Data/Succession/Import/assessments.json` og `report.md`. Mappa er git-ignorert.
+
+- **Én trener per ark.** Treneren leses av filnavnet, fordi trenerkolonnen er tom i halvparten av
+  arkene: `IK_Start_Succession_Planning_AB.xlsx` er «ab». Hver får kontoen
+  `trener.ab@ikstart.example`, uten passord og låst, til klubben bestemmer hvem som skal ha den.
+- **En rad er trenerens egen** når den har et tall, noe i en kolonne malen lot stå tom (trenerens
+  navn, readiness, risiko …), eller en listeverdi som er endret fra malen. Den blir en vurdering,
+  med eller uten de seks tallene. Malradene ingen har rørt, er ingens mening og blir ikke med. Et
+  ark uten egne rader gir ingen konto.
+- **Alt treneren skrev:** de seks vurderingene (0–10), «Rated as», kategori, tre posisjoner,
+  personal readiness (0–10 i halve, som 5,5), risiko når den er Green/Amber/Red, «Pathway blocked?»
+  og «External needed?» når de begynner med ja eller nei, kontrakt og treningsgruppe, og
+  friteksten: notes, de tre prognosene, What now, Key development focus og Super strengths.
+- **Ord i tall-, liste- og ja/nei-kolonnene** («Yes, by players in the first team», et navn, en
+  grunn i stedet for en farge) lagres i et eget felt ved siden av verdien:
+  `PersonalReadinessNote`, `PathwayBlockedNote`, `SuccessionRiskNote` og `ExternalNeededNote`.
+  Ja-et eller nei-et først i teksten leses fortsatt. Et tall utenfor skalaen utelates i stedet for
+  å rundes av, og står i rapporten. Tekst gjentas aldri i rapporten.
+- **Syklusen** er den arket sist ble lagret i. `--rated-on` overstyrer.
+- **Kontrakt og treningsgruppe** er fakta, lagret én gang. Der en trener har rettet malens verdi
+  (en kontrakt som er Youth, ikke Non), vinner rettingen. Har to trenere rettet ulikt, står malens
+  verdi, og rapporten sier fra.
+
+**Matchingen** er mot navnene i `Data/Squads/squads.json`, uten store og små bokstaver, aksenter,
+bindestrek og rekkefølge, og med ae/o/aa for æ/ø/å.
+
+| Treff | Importeres når |
+| --- | --- |
+| Samme ord | alltid, med mindre klubbens fødselsår sier noe annet enn arket |
+| Det ene navnet mangler et mellomnavn | klubbens side har samme fødselsår som arket |
+| En bokstav eller to fra hverandre | klubbens side har samme fødselsår som arket |
+
+To kandidater for én rad, eller to rader for én spiller, gir ingen import. Resten står i
+`report.md` med grunn og kandidater, og avgjøres for hånd i `Data/Succession/Import/decisions.json`
+(«Etternavn, Fornavn» → klubbens navn, eller `null` for å holde raden ute). Se README-en i mappa.
+
+**Spillere arkene har, men troppsidene ikke** (utlånt, rykket opp til A-laget, ikke lagt ut ennå)
+legges i `Data/Squads/extra-players.json` med laget appen skal ha dem på. `fetch_squads.py` henter
+navn, fødselsdato, posisjon og bilde fra profilsiden deres på ikstart.no der den finnes, og ellers
+tas navnet og fødselsåret fra arkene. Da står de i troppene og matches som alle andre. Se
+`docs/player-welcome.md`.
+
+**Appen** (`Data/SeedSuccessionImport.cs`) leser fila ved oppstart, etter troppene.
+
+- **Idempotent** per (spiller, trener, syklus), samme nøkkel som den unike indeksen. Samme fil to
+  ganger endrer ingenting.
+- **Fila er fasiten for kontoene den lager.** En vurdering som er endret i fila, rettes. En som er
+  tatt ut, slettes, men bare i syklusen fila gjelder, så neste syklus ikke visker ut historikken.
+- **Kontrakt og treningsgruppe** legges inn der de mangler. Det admin har lagt inn, røres ikke.
+- **Loggen sier hvor mange, aldri hvem.** En fil som ikke stemmer med listene i
+  `succession-planning.json`, stopper oppstarten med feilen nummerert, ikke navngitt.
 
 ---
 
 ## Ikke bygget, og spørsmål til trenerne
 
-- **Import fra Excel.** Arket har navn og ikke koder. En import krever en koblingstabell fra navn
-  til kode som ikke ligger i appen. Det må avklares før det bygges.
 - **«Rated as».** Vi har tolket det som nivået spilleren vurderes mot, og derfor kan man filtrere
   beste ellever på det. Stemmer ikke det, er det bare filteret som endres.
 - **«External Needed?»** står per spiller i arket. Handler det egentlig om posisjonen, altså om
@@ -301,4 +369,4 @@ systemet:
 | Views | `Views/Succession/` |
 | Flytte spillere på banen | `wwwroot/js/lineup.js`, stilene «Moving players about» i `startcompass.css` |
 | Migrasjon | `Data/Migrations/*_AddSuccessionPlanning.cs` |
-| Demodata | `Data/SeedSuccession.cs` |
+| Import av trenernes ark | `scripts/succession/import_workbooks.py`, `Data/SeedSuccessionImport.cs`, `Data/Succession/Import/` (git-ignorert) |

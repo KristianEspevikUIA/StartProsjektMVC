@@ -17,14 +17,12 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// scripts/squads/fetch_squads.py. Mangler fila, gjør denne klassen ingenting, og seedingen er
 /// som før.
 ///
-/// Når fila finnes, ERSTATTER troppene de oppdiktede:
+/// Når fila finnes, er troppene appens spillere:
 ///   * Hver spiller i fila får en spillerrad, en konto utledet av navnet
-///     (spiller.leon.enger@ikstart.example), og fornavn og bilde til velkomsten. Spillere under
-///     PlayerRules.GuardianRequiredBelowAge får en foresatt, oppdiktet som før; de eldste på
-///     G19 er over grensen og får ingen.
-///   * De oppdiktede spillerne i SeedData.Squads slettes, med alt som henger på dem, og
-///     kontoene deres. Det skjer etter at de ekte er lagt inn, så en oppstart som stopper
-///     halvveis aldri etterlater et lag uten spillere.
+///     (spiller.ola.nordmann@ikstart.example), og fornavn og bilde til velkomsten.
+///   * Ingen foresatt og intet samtykke: de fantes ikke på klubbens sider, og ble tidligere
+///     diktet opp. Foresatte og samtykker legges inn av klubben. De oppdiktede som ligger i en
+///     eldre base, fjernes av SeedData.RemoveMadeUpDataAsync.
 ///
 /// Idempotent per spiller, som resten av seedingen. En spiller som finnes, får lag, posisjon og
 /// fødselsdato fra fila -- en spiller som har rykket opp, flytter med. Fornavn og bilde legges
@@ -120,9 +118,11 @@ internal static class SeedSquads
                         problems.Add($"{where}: navnet står to ganger i fila");
                     }
 
-                    if (string.IsNullOrWhiteSpace(player.Position) || player.Position.Length > 50)
+                    // Ingen posisjon er lov: en spiller fra extra-players.json uten profilside på
+                    // ikstart.no har ingen linje klubben har ført hen under.
+                    if (player.Position is { } position && (string.IsNullOrWhiteSpace(position) || position.Length > 50))
                     {
-                        problems.Add($"{where}: posisjonen mangler eller er over 50 tegn");
+                        problems.Add($"{where}: posisjonen er tom eller over 50 tegn");
                     }
 
                     if (player.Photo is { } photo)
@@ -236,17 +236,11 @@ internal static class SeedSquads
                 photos);
         }
 
-        var keep = squads.Teams.SelectMany(t => t.Players).Select(p => p.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        await RemoveFictionalPlayersAsync(db, userManager, keep, logger);
     }
 
     /// <summary>
-    /// Spilleren, kontoen, den oppdiktede foresatte og samtykket -- det samme en oppdiktet spiller
-    /// fikk i SeedData. En foresatt bare under aldersgrensen, som regelen i
-    /// <see cref="PlayerRules.GuardianRequiredBelowAge"/>: en foresatt med innsyn i en voksen
-    /// spillers svar er like galt som en mindreårig uten. Uten foresatt setter spilleren samtykket selv.
+    /// Spilleren og kontoen. Ingen foresatt og intet samtykke: klubbens sider sier ingenting om
+    /// dem, og en foresatt eller et samtykke ingen har gitt, er oppdiktet. Klubben legger dem inn.
     /// </summary>
     private static async Task<Player> AddPlayerAsync(
         AppDbContext db,
@@ -269,28 +263,6 @@ internal static class SeedSquads
 
         db.Players.Add(player);
         await db.SaveChangesAsync();
-
-        string? guardianUserId = null;
-
-        if (player.AgeAt(DateOnly.FromDateTime(DateTime.UtcNow)) < PlayerRules.GuardianRequiredBelowAge)
-        {
-            guardianUserId = await SeedData.EnsureUserAsync(
-                userManager, SeedData.GuardianEmail(member.Name), password, Roles.Guardian);
-
-            db.Guardianships.Add(new Guardianship
-            {
-                PlayerId = player.Id,
-                GuardianUserId = guardianUserId
-            });
-        }
-
-        db.ConsentEvents.Add(new ConsentEvent
-        {
-            PlayerId = player.Id,
-            Level = ConsentLevel.Full,
-            ChangedByUserId = guardianUserId ?? userId,
-            OccurredAt = DateTimeOffset.UtcNow.AddDays(-30)
-        });
 
         return player;
     }
@@ -350,76 +322,7 @@ internal static class SeedSquads
 
         return true;
     }
-
-    /// <summary>
-    /// Sletter de oppdiktede spillerne og kontoene deres, nå som de ekte har tatt plassen.
-    ///
-    /// Spillerne går med cascade, som en sletting fra /Admin/Delete: svar, samtykkelogg,
-    /// foresattkoblinger, revisjonslogg, frigivelser og succession-vurderinger. Kontoene slås opp
-    /// på adressene troppene ga dem, ikke på spillerradene, slik at en oppstart som stoppet etter
-    /// spillerne men før kontoene, rydder resten neste gang. En konto som fortsatt hører til en
-    /// spiller eller en foresattkobling, blir stående.
-    ///
-    /// Ingen PlayerDeletionEvent: den er kvitteringen for at opplysninger om en virkelig person
-    /// er slettet, og disse personene har aldri fantes.
-    /// </summary>
-    private static async Task RemoveFictionalPlayersAsync(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        IReadOnlySet<string> keep,
-        ILogger logger)
-    {
-        var names = SeedData.FictionalNames.Where(name => !keep.Contains(name)).ToList();
-
-        var fictional = await db.Players
-            .Where(p => names.Contains(p.Code))
-            .ToListAsync();
-
-        if (fictional.Count > 0)
-        {
-            db.Players.RemoveRange(fictional);
-            await db.SaveChangesAsync();
-        }
-
-        var accounts = 0;
-
-        foreach (var email in SeedData.FictionalAccountEmails())
-        {
-            var user = await userManager.FindByEmailAsync(email);
-            if (user is null)
-            {
-                continue;
-            }
-
-            var inUse = await db.Players.AnyAsync(p => p.UserId == user.Id)
-                || await db.Guardianships.AnyAsync(g => g.GuardianUserId == user.Id);
-
-            if (inUse)
-            {
-                continue;
-            }
-
-            var result = await userManager.DeleteAsync(user);
-            if (!result.Succeeded)
-            {
-                throw new InvalidOperationException(
-                    $"Klarte ikke å slette demobrukeren {email}: " +
-                    string.Join("; ", result.Errors.Select(e => e.Description)));
-            }
-
-            accounts++;
-        }
-
-        if (fictional.Count + accounts > 0)
-        {
-            logger.LogInformation(
-                "De ekte troppene erstatter de oppdiktede: {Players} oppdiktede spillere og {Accounts} kontoer slettet.",
-                fictional.Count,
-                accounts);
-        }
-    }
 }
-
 /// <summary>Data/Squads/squads.json, slik scripts/squads/fetch_squads.py skriver den.</summary>
 internal sealed record SquadFile(
     int SchemaVersion,
@@ -435,12 +338,12 @@ internal sealed record SquadFileTeam(
     IReadOnlyList<SquadFilePlayer> Players);
 
 /// <param name="Name">Navnet slik klubben skriver det. Blir <see cref="Player.Code"/>.</param>
-/// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under.</param>
+/// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under. Null når klubben ikke har spilleren på nettsidene.</param>
 /// <param name="BirthDateEstimated">Klubben oppgir ingen dato, og 1. januar i årsklassen er brukt.</param>
 /// <param name="Photo">Bildet, relativt til Data/Squads. Null når klubben ikke har noe.</param>
 internal sealed record SquadFilePlayer(
     string Name,
-    string Position,
+    string? Position,
     DateOnly BirthDate,
     bool BirthDateEstimated,
     string? Photo,
