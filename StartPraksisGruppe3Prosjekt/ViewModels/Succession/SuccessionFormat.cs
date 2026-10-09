@@ -21,9 +21,12 @@ public static class SuccessionFormat
     /// <summary>"7.4", or a dash for nothing -- a dash, never 0, which would claim a rating of zero.</summary>
     public static string Number(double? value) => value is { } v ? v.ToString("0.0") : "–";
 
+    /// <summary>A coach's own readiness call: "7", "5.5", or a dash. Halves are what the workbook has.</summary>
+    public static string Readiness(decimal? value) => value is { } v ? v.ToString("0.#") : "–";
+
     /// <summary>
-    /// The workbook's 1-10 colour scale as a class: red at 1, yellow at 6, green at 10, one step
-    /// per whole point. A class from a fixed set rather than a colour per cell, because the CSP
+    /// The workbook's colour scale as a class: red at 1, yellow at 6, green at 10, one step per
+    /// whole point, and a deeper red for the 0 the coaches also use. A class from a fixed set rather than a colour per cell, because the CSP
     /// has no unsafe-inline; see .sc-rate in startcompass.css.
     /// </summary>
     public static string RatingClass(double? value)
@@ -33,7 +36,7 @@ public static class SuccessionFormat
             return "sc-rate sc-rate--none";
         }
 
-        var step = Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 1, 10);
+        var step = Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 0, 10);
 
         return $"sc-rate sc-rate--{step}";
     }

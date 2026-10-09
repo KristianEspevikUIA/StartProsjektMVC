@@ -27,16 +27,24 @@ in half of them. Where the file name has a surname after the initials, only the 
 kept: "ENordmann" is "en". The application gives each coach a locked account,
 trener.ab@ikstart.example.
 
-A row is an assessment when it has at least one of the six ratings. A row with a coach's name
-or a category but no rating is counted and left out: the application's own form will not save
-one without ratings either.
+Every workbook came with the same template rows filled in -- the players, their year, team,
+contract and some positions. A row is the coach's own when it has a rating, or anything in a
+column the template left empty (the coach's name, readiness, risk, ...), or a list value that
+differs from what the template has for that player. Those rows are assessments, with or without
+the six ratings. The untouched template rows are not anybody's opinion, and are left out.
 
 What is taken, and what is not
 ------------------------------
-Only the structured columns: the six ratings, "Rated as", the ability category, the three
-positions, the coach's personal readiness, the succession risk when it is Green, Amber or Red,
-"Pathway blocked?" and "External needed?" when they start with yes or no, and the contract
-type, contract end and MESO training group.
+The structured columns: the six ratings (0-10: the coaches use 0 too), "Rated as", the
+ability category, the three positions, the coach's personal readiness (0-10 in halves, as the
+coaches write it), the succession risk when it is Green, Amber or Red, "Pathway blocked?" and
+"External needed?" when they start with yes or no, and the contract type, contract end and
+MESO training group.
+
+Contract, contract end and training group are facts about the player, held once. Where a
+coach has corrected the template's value -- a contract that is Youth, not Non -- the correction
+wins. Where two coaches corrected it differently, the template's value stays, and the report
+says so.
 
 The free-text columns -- the notes, the three projections, "What now?", the development focus
 and the strengths -- are never read. In the workbooks the coaches handed in, they and the
@@ -45,8 +53,8 @@ which the application's own form asks coaches to leave out. A list column that h
 instead of a list value is skipped the same way, and the report says which column, never what
 it said.
 
-A value the application cannot hold -- a personal readiness of 5.5, an availability of 0 -- is
-left out rather than rounded, and listed in the report.
+A number outside the scale, or a readiness that is not a whole or a half, is left out rather
+than rounded, and listed in the report.
 
 How a row is matched
 --------------------
@@ -291,6 +299,7 @@ def load_catalog() -> dict:
     return {
         "version": catalog["version"],
         "ratings": [r["key"] for r in catalog["ratings"]],
+        "scale": (catalog["scale"]["min"], catalog["scale"]["max"]),
         "positions": table("positions"),
         "levels": table("levels"),
         "abilityCategories": table("abilityCategories"),
@@ -304,13 +313,17 @@ def load_catalog() -> dict:
 TEXT = "text"
 
 
-def as_rating(value) -> int | None | str:
-    """1-10, or None when empty, or the reason it cannot be used."""
+def as_number(value, scale: tuple[int, int], step: float):
+    """
+    A number on the scale in whole steps (step 1) or halves (step 0.5), or None when empty, or
+    the reason it cannot be used.
+    """
     if value is None:
         return None
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        if value == int(value) and 1 <= value <= 10:
-            return int(value)
+        low, high = scale
+        if low <= value <= high and (value / step) == int(value / step):
+            return int(value) if value == int(value) else float(value)
         return f"{value:g}"
     return TEXT
 
@@ -351,31 +364,39 @@ def problem(problems: list, workbook: dict, row: dict, column: str, value) -> No
     problems.append((workbook["rater"], row["_row"], player_key(row), column, shown))
 
 
-def assessment_of(workbook: dict, row: dict, catalog: dict, problems: list) -> dict | None:
+LISTS = (("ratedAs", "levels"), ("abilityCategory", "abilityCategories"), ("firstPosition", "positions"),
+         ("secondPosition", "positions"), ("thirdPosition", "positions"), ("successionRisk", "risks"))
+
+
+def is_coach_row(row: dict, template: dict, catalog: dict) -> bool:
+    """The coach's own row rather than the template's: see "One workbook is one coach"."""
+    if any(row.get(key) is not None for key in catalog["ratings"]):
+        return True
+    if any(row.get(field) is not None for field in TOUCHED):
+        return True
+    return any(row.get(field) is not None and row.get(field) != template.get(field) for field, _ in LISTS)
+
+
+def assessment_of(workbook: dict, row: dict, catalog: dict, problems: list) -> dict:
     ratings = {}
     for key in catalog["ratings"]:
-        value = as_rating(row.get(key))
+        value = as_number(row.get(key), catalog["scale"], 1)
         if isinstance(value, int):
             ratings[key] = value
         elif value is not None:
             problem(problems, workbook, row, key, value)
 
-    if not ratings:
-        return None
-
     found = {"rater": workbook["rater"], "ratings": ratings}
 
-    for field, table in (("ratedAs", "levels"), ("abilityCategory", "abilityCategories"),
-                         ("firstPosition", "positions"), ("secondPosition", "positions"),
-                         ("thirdPosition", "positions"), ("successionRisk", "risks")):
+    for field, table in LISTS:
         value = as_option(row.get(field), catalog[table])
         if value == TEXT:
             problem(problems, workbook, row, field, value)
             value = None
         found[field] = value
 
-    readiness = as_rating(row.get("personalReadiness"))
-    if readiness is not None and not isinstance(readiness, int):
+    readiness = as_number(row.get("personalReadiness"), catalog["scale"], 0.5)
+    if readiness is not None and not isinstance(readiness, (int, float)):
         problem(problems, workbook, row, "personalReadiness", readiness)
         readiness = None
     found["personalReadiness"] = readiness
@@ -467,6 +488,23 @@ def most_common(values: list):
         return None, False
     (value, count), *rest = counted.most_common()
     return (value, False) if count * 2 > sum(counted.values()) else (None, True)
+
+
+def template_of(values: list):
+    """What the template has: the value in most workbooks, empty ones counted too."""
+    return Counter(json.dumps(v) for v in values).most_common(1)[0][0]
+
+
+def corrected(values: list):
+    """
+    A fact, with the coaches' corrections over the template's value. Returns the value and
+    whether the coaches disagree among themselves -- then the template's value stays.
+    """
+    template = template_of(values)
+    edits = {json.dumps(v) for v in values if v is not None and json.dumps(v) != template}
+    if len(edits) == 1:
+        return json.loads(edits.pop()), False
+    return json.loads(template), len(edits) > 1
 
 
 def match(people: dict[str, dict], squads: dict, decisions: dict[str, str | None]) -> None:
@@ -583,21 +621,25 @@ def run(args) -> int:
     problems: list = []
     conflicts: list = []
     for key, person in people.items():
-        person["year"], _ = most_common(person["years"])
-        person["team"], _ = most_common(person["teams"])
+        person["year"], _ = corrected(person["years"])
+        person["team"], _ = corrected(person["teams"])
         for field, values in (("contractType", "contracts"), ("trainingGroup", "groups"), ("contractEndsOn", "ends")):
-            value, split = most_common([v for v in person[values] if v != TEXT])
+            value, split = corrected([None if v == TEXT else v for v in person[values]])
             person[field] = value
             if split:
                 conflicts.append((key, field))
 
+        rows = [row for _, row in person["rows"]]
+        template = {field: json.loads(template_of([r.get(field) for r in rows])) for field, _ in LISTS}
+
         person["assessments"] = []
         person["withoutRatings"] = 0
         for workbook, row in person["rows"]:
+            if not is_coach_row(row, template, catalog):
+                continue
             assessment = assessment_of(workbook, row, catalog, problems)
-            if assessment:
-                person["assessments"].append(assessment)
-            elif any(row.get(f) is not None for f in TOUCHED):
+            person["assessments"].append(assessment)
+            if not assessment["ratings"]:
                 person["withoutRatings"] += 1
 
     match(people, squads, decisions)
@@ -632,7 +674,9 @@ def run(args) -> int:
     assessments = sum(len(p["assessments"]) for p in people.values())
     carried = sum(len(p["assessments"]) for p in imported)
 
-    print(f"{len(workbooks)} workbooks, {rows} rows, {len(people)} players, {assessments} rows with ratings.")
+    without = sum(p["withoutRatings"] for p in people.values())
+    print(f"{len(workbooks)} workbooks, {rows} rows, {len(people)} players, "
+          f"{assessments} assessments ({without} of them without ratings).")
     print("Players: " + ", ".join(f"{n} {o}" for o, n in summary.most_common()))
     print(f"Assessments to import: {carried} of {assessments}. Values left out: {len(problems)}.")
 
@@ -656,12 +700,11 @@ def report(workbooks, people, problems, conflicts, squads) -> str:
         "",
         "## Workbooks",
         "",
-        "| Coach | Saved | Rows | With ratings |",
+        "| Coach | Saved | Rows | Assessments |",
         "| --- | --- | --- | --- |",
     ]
     for w in workbooks:
-        rated = sum(1 for r in w["rows"] if any(isinstance(as_rating(r.get(k)), int) for k in
-                                                ("physical", "technical", "tactical", "mental", "professionalism", "availability")))
+        rated = sum(1 for p in people.values() for a in p["assessments"] if a["rater"] == w["rater"])
         lines.append(f"| {w['rater']} | {w['ratedOn'].isoformat()} | {len(w['rows'])} | {rated} |")
 
     lines += ["", "## Players", ""]
@@ -699,12 +742,12 @@ def report(workbooks, people, problems, conflicts, squads) -> str:
         lines += [f"| {r} | {row} | {who} | {col} | {val} |" for r, row, who, col, val in problems]
 
     if conflicts:
-        lines += ["", "## Workbooks disagree on a fact", "",
-                  "No value is imported where there is no clear majority.", ""]
+        lines += ["", "## Coaches corrected a fact differently", "",
+                  "The template's value is kept for these.", ""]
         lines += [f"- {who}: {field}" for who, field in conflicts]
 
     without = sum(p["withoutRatings"] for p in people.values())
-    lines += ["", f"Rows a coach filled in without any rating, and so not imported: {without}.",
+    lines += ["", f"Assessments without any of the six ratings (positions and categories only): {without}.",
               f"Players with at least one assessment: {len(with_ratings)}.", ""]
     return "\n".join(lines)
 

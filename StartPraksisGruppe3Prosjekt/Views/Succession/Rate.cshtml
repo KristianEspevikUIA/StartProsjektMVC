@@ -6,6 +6,7 @@
 
     var settings = Catalog.Settings;
     var scale = Enumerable.Range(settings.Scale.Min, settings.Scale.Max - settings.Scale.Min + 1).ToList();
+    var scaleClass = scale.Count == 11 ? "sc-scale__options--eleven" : "sc-scale__options--ten";
     var positions = new[]
     {
         (Field: nameof(Model.FirstPosition), Label: "1st position", Value: Model.FirstPosition),
@@ -79,7 +80,7 @@
 
                 <div class="sc-question" role="radiogroup" aria-labelledby="rating-@rating.Key">
                     <p class="sc-question__text" id="rating-@rating.Key"><strong>@rating.Name</strong></p>
-                    <div class="sc-scale__options sc-scale__options--ten">
+                    <div class="sc-scale__options @scaleClass">
                         @foreach (var value in scale)
                         {
                             <div class="sc-scale__option">
@@ -93,31 +94,19 @@
                 </div>
             }
 
-            <div class="sc-question" role="radiogroup" aria-labelledby="rating-personal">
-                <p class="sc-question__text" id="rating-personal">
-                    <strong>Your own call: ready for the next step</strong>
+            <div class="sc-question">
+                <p class="sc-question__text">
+                    <label for="personal-readiness"><strong>Your own call: ready for the next step</strong></label>
                     <span class="sc-optional">Optional</span>
                 </p>
                 <p class="sc-footnote sc-footnote--top">
                     Your gut, next to the average above. They are allowed to disagree, and it is worth seeing when they do.
+                    @settings.Scale.Min–@settings.Scale.Max, in steps of 0.5; leave it empty if you have no view.
                 </p>
-                <div class="sc-scale__options sc-scale__options--ten">
-                    @foreach (var value in scale)
-                    {
-                        <div class="sc-scale__option">
-                            <input type="radio" id="personal-@value" name="@nameof(Model.PersonalReadiness)" value="@value"
-                                   checked="@(Model.PersonalReadiness == value)" />
-                            <label for="personal-@value"><span class="sc-scale__num">@value</span></label>
-                        </div>
-                    }
-                </div>
-                <div class="sc-choice sc-mt">
-                    <div class="sc-choice__option sc-choice__option--none">
-                        <input type="radio" id="personal-none" name="@nameof(Model.PersonalReadiness)" value=""
-                               checked="@(Model.PersonalReadiness is null)" />
-                        <label for="personal-none">Not answered</label>
-                    </div>
-                </div>
+                @* A number field, not a row of buttons: the coaches answer in halves (5.5), as in the workbook. *@
+                <input class="sc-input" id="personal-readiness" type="number" inputmode="decimal"
+                       name="@nameof(Model.PersonalReadiness)" value="@Model.PersonalReadiness"
+                       min="@settings.Scale.Min" max="@settings.Scale.Max" step="0.5" />
                 @Html.ValidationMessage(nameof(Model.PersonalReadiness), new { @class = "sc-field-error" })
             </div>
         </fieldset>

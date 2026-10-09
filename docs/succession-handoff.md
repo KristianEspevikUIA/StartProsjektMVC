@@ -80,7 +80,7 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
 | Views | `Views/Succession/` (Index, Formation, Player, Rate, `_SuccessionNav`, `_SuccessionPositionVote`, `_SuccessionRaters`) |
 | Formatering og CSS-klasser | `ViewModels/Succession/SuccessionFormat.cs`, seksjonen «succession planning» nederst i `wwwroot/css/startcompass.css` |
 | Migrasjon | `Data/Migrations/20260923075345_AddSuccessionPlanning.cs` |
-| Demodata | `Data/SeedSuccession.cs` (bare Development) |
+| Trenernes ark | `Data/SeedSuccessionImport.cs` (bare Development; demodataene er fjernet) |
 | Hjelp for trenere | `Views/Help/Index.cshtml`, `#succession` og `#succession-eleven`, vises bare for trener og admin |
 
 ---
@@ -125,10 +125,10 @@ kontraktsopplysningene. Spillere og foresatte får 403, også om seg selv.
 - **Bare Kristian lager migrasjoner** (`dotnet ef migrations add`).
 - **UI på engelsk, dokumentasjon på norsk.** Kommentarer forklarer hvorfor, ikke hva.
 
-**Demokontoer** (Development, passord `Dev!passord1`): `trener.senior@ikstart.example`,
-`trener.akademi@ikstart.example`, `trener.utvikling@ikstart.example`. Det er tre trenere, slik at
-det finnes noe å sammenligne. Demodataene dekker tre sykluser, og den gjeldende er omtrent
-halvveis vurdert.
+**Demokontoer** (Development, passord `Dev!passord1`): `trener.senior@ikstart.example`. De
+oppdiktede vurderingene og demotrenerne `trener.akademi` og `trener.utvikling` er fjernet
+(oktober 2026); vurderingene er nå trenernes egne ark. Se «Import av trenernes ark» i
+`docs/succession-planning.md`.
 
 ---
 

@@ -95,6 +95,11 @@ Forhåndsvisningen for admin sendes med `no-store`.
   Finnes fila, legger `Data/SeedSquads.cs` inn spillerne med konto (`spiller.leon.enger@ikstart.example`),
   fornavn og bilde i Development, og sletter de oppdiktede. Bildene går gjennom samme kontroll
   som en opplasting på admin-siden.
+- **Spillere som ikke står på troppsidene,** men som trenerne vurderer (utlånt, rykket opp til
+  A-laget, ikke lagt ut ennå), står i den git-ignorerte `Data/Squads/extra-players.json`, med lag
+  og profilside. Uten profilside brukes navnet og fødselsåret fra trenernes ark, fødselsdatoen
+  settes til 1. januar som for andre uten dato, og posisjonen står tom. Se «Players the coaches
+  rate who are not on the pages» øverst i `fetch_squads.py`.
 - **Demodata:** uten den fila gir `Data/SeedWelcome.cs` de oppdiktede spillerkontoene fornavn,
   og ingen bilder.
 

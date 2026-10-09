@@ -119,21 +119,15 @@ public static class SeedData
         // Oppdiktede fornavn til velkomsten når en spiller logger inn. Se SeedWelcome.
         await SeedWelcome.SeedAsync(db, userManager, logger);
 
-        // The coaches' own workbooks, before the made-up ratings: a player with real ones gets
-        // none of those. See SeedSuccessionImport.
+        // Succession planning: only the coaches' own workbooks. What was made up before they
+        // came is removed on every start, so a shared base seeded with it is cleaned up too.
+        // See SeedSuccessionImport.
+        await SeedSuccessionImport.RemoveMadeUpAsync(db, userManager, logger);
+
         if (successionImport is not null)
         {
             await SeedSuccessionImport.SeedAsync(db, userManager, successionCatalog, successionImport, logger);
         }
-
-        // Succession planning: three coaches' ratings over three cycles. Its own file, since
-        // none of it touches anything above. See SeedSuccession.
-        await SeedSuccession.SeedAsync(
-            db,
-            userManager,
-            successionCatalog,
-            password,
-            logger);
     }
 
     private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)

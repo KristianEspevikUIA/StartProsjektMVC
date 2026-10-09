@@ -119,14 +119,13 @@ som gjorde hva.
 | --- | --- |
 | `admin@ikstart.example` | Admin |
 | `trener.senior@ikstart.example` | Trener (alle lag) |
-| `trener.akademi@ikstart.example`, `trener.utvikling@ikstart.example` | Trener, for succession planning |
 | `spiller.brage.kristoffersen@ikstart.example` m.fl. | Spiller |
 | `foresatt1@example.test` … `foresatt7@example.test` | Foresatt |
 | `foresatt.isak.ronning@example.test` m.fl. | Foresatt |
 
-De to siste trenerkontoene finnes fordi succession planning sammenligner trenere, og én konto
-kan ikke være uenig med seg selv. De har vurderinger i demodataene, og man kan logge inn som en
-av dem og se sin egen kolonne. Se `Data/SeedSuccession.cs`.
+Succession planning har ingen demodata: vurderingene er trenernes egne ark, importert
+med én låst konto per trener (`trener.<initialer>@ikstart.example`), som ingen kan logge inn med.
+Logg inn som `trener.senior@ikstart.example` for å se dem. Se `docs/succession-planning.md`.
 
 Spillerne har tilfeldige, oppdiktede navn — bortsett fra prosjektgruppa (Brage Kristoffersen,
 Kristian Espevik, Victor Ziad og Taavi-Topias Henell), som spiller på G17 og kan logge
@@ -217,7 +216,7 @@ over time. Bare trener og administrator har tilgang.
 Trenernes Excel-ark «IK Start Succession Planning» som sider i appen, på `/Succession`. Trener
 og administrator har tilgang, men bare trenere vurderer.
 
-- **Hver trener vurderer hver spiller hver åttende uke:** seks vurderinger fra 1 til 10,
+- **Hver trener vurderer hver spiller hver åttende uke:** seks vurderinger fra 0 til 10,
   posisjoner, kategori, prognoser og notater, altså de samme kolonnene som arket. Vurderingene
   lagres hver for seg, og å vurdere på nytt i samme syklus er en retting.
 - **Squad board** legger trenerne sammen: én rad per spiller, med arkets fargeskala, og en fane
@@ -280,7 +279,7 @@ StartPraksisGruppe3Prosjekt/
 │  ├─ Identity/                 gold-standard.json (+ Matches/, git-ignorert)
 │  ├─ Succession/               succession-planning.json (lister, terskler, formasjoner)
 │  ├─ SeedData.cs               roller, lag, perioder og oppdiktede demodata
-│  ├─ SeedSuccession.cs         oppdiktede succession-vurderinger
+│  ├─ SeedSuccessionImport.cs   trenernes succession-ark, fra den git-ignorerte Succession/Import/
 │  └─ SeedWelcome.cs            fornavn til velkomsten i demodataene
 ├─ Services/
 │  ├─ IScoringService.cs + ScoringService.cs

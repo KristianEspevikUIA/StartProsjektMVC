@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Models.Succession;
 
 namespace StartPraksisGruppe3Prosjekt.Models;
@@ -76,13 +77,14 @@ public class SuccessionAssessment
     public string? ThirdPosition { get; set; }
 
     /// <summary>
-    /// "Coach's personal readiness for next step", 1-10. The coach's own call, next to the
-    /// average of the six ratings -- the two are allowed to disagree, and it is worth seeing
-    /// when they do.
+    /// "Coach's personal readiness for next step", 0-10 in steps of a half, as the coaches write
+    /// it in the workbook: 5.5 and 0 are real answers. The coach's own call, next to the average
+    /// of the six ratings -- the two are allowed to disagree, and it is worth seeing when they do.
     /// </summary>
-    [Range(1, 10)]
+    [Range(0, 10)]
+    [Precision(3, 1)]
     [Display(Name = "Personal readiness")]
-    public int? PersonalReadiness { get; set; }
+    public decimal? PersonalReadiness { get; set; }
 
     [StringLength(SuccessionRules.ProjectionLimit)]
     [Display(Name = "0–6 month projection")]
@@ -147,8 +149,11 @@ public class SuccessionRating
     [StringLength(SuccessionRules.OptionKeyLength)]
     public string RatingKey { get; set; } = string.Empty;
 
-    /// <summary>1-10, as given. Never null: a rating that was not given has no row.</summary>
-    [Range(1, 10)]
+    /// <summary>
+    /// 0-10, as given -- the workbooks have a 0 for a player who is not available at all. Never
+    /// null: a rating that was not given has no row.
+    /// </summary>
+    [Range(0, 10)]
     public int Value { get; set; }
 }
 

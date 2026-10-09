@@ -24,10 +24,12 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 ///     (trener.ab@ikstart.example), uten passord og låst. Ingen kan logge inn som dem før klubben
 ///     har bestemt hvem som skal ha kontoene; vurderingene deres vises likevel på tavla.
 ///   * Hver vurdering legges i syklusen arket ble lagret i, med datoen fra arket.
-///   * Kontrakt og treningsgruppe legges inn der de mangler, eller der det som står, er
-///     oppdiktet av <see cref="SeedSuccession"/>. Det admin har lagt inn, røres ikke.
-///   * En spiller med importerte vurderinger får ingen oppdiktede ved siden av: de som finnes,
-///     slettes her, og <see cref="SeedSuccession"/> hopper over spilleren etterpå.
+///   * Kontrakt og treningsgruppe legges inn der de mangler. Det admin har lagt inn, røres ikke.
+///   * En rad med innhold, men uten de seks tallene, blir også en vurdering: posisjonene og
+///     kategoriene treneren satte, er en mening om spilleren selv uten tall.
+///
+/// De oppdiktede succession-dataene appen hadde før arkene kom, fjernes av
+/// <see cref="RemoveMadeUpAsync"/>, som kjører ved hver oppstart i Development, med eller uten fil.
 ///
 /// Idempotent per (spiller, trener, syklus), samme nøkkel som den unike indeksen. Fila er
 /// fasiten for kontoene den lager: en vurdering som er endret i fila, rettes, og en som er tatt
@@ -41,6 +43,23 @@ internal static class SeedSuccessionImport
     private const int SchemaVersion = 1;
 
     private static readonly Regex RaterKey = new("^[a-z]{1,20}$");
+
+    /// <summary>
+    /// De to ekstra trenerkontoene som fantes bare for å gi de oppdiktede vurderingene noen å
+    /// være uenige med. Nå er det trenernes egne ark som sammenlignes.
+    /// </summary>
+    private static readonly string[] RetiredDemoRaterEmails =
+    {
+        "trener.akademi@ikstart.example",
+        "trener.utvikling@ikstart.example"
+    };
+
+    /// <summary>
+    /// Alt demokontoene skrev i succession før denne dagen, var oppdiktet av seedingen. Det som
+    /// skrives etterpå -- en trener som logger inn som trener.senior og vurderer -- er ikke det,
+    /// og blir stående.
+    /// </summary>
+    private static readonly DateTimeOffset MadeUpBefore = new(2026, 10, 10, 0, 0, 0, TimeSpan.Zero);
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -151,12 +170,8 @@ internal static class SeedSuccessionImport
                     problems.Add($"{where}: treneren «{assessment.Rater}» er ukjent, eller har vurdert to ganger");
                 }
 
+                // Ingen tall er lov: en rad med posisjoner og kategori, men uten de seks tallene.
                 var ratings = assessment.Ratings ?? new Dictionary<string, int>();
-
-                if (ratings.Count == 0)
-                {
-                    problems.Add($"{where}: en vurdering uten tall");
-                }
 
                 foreach (var (key, value) in ratings)
                 {
@@ -166,9 +181,10 @@ internal static class SeedSuccessionImport
                     }
                 }
 
-                if (assessment.PersonalReadiness is < 1 or > 10)
+                if (assessment.PersonalReadiness is { } personal
+                    && (personal < settings.Scale.Min || personal > settings.Scale.Max || personal * 2 != decimal.Truncate(personal * 2)))
                 {
-                    problems.Add($"{where}: personal readiness er utenfor 1–10");
+                    problems.Add($"{where}: personal readiness er ikke et halvt eller helt tall på skalaen");
                 }
 
                 Known(problems, where, "ratedAs", assessment.RatedAs, catalog.Level);
@@ -208,8 +224,6 @@ internal static class SeedSuccessionImport
 
         var players = (await db.Players.AsNoTracking().ToListAsync())
             .ToDictionary(p => p.Code, p => p.Id, StringComparer.OrdinalIgnoreCase);
-
-        var demoRaters = await DemoRaterIdsAsync(userManager);
 
         // Hver trener: kontoen, syklusen og datoen arket ble lagret. Kontoen lages bare når det
         // finnes noe å legge inn -- et ark ingen har fylt ut, gir ingen konto.
@@ -253,7 +267,6 @@ internal static class SeedSuccessionImport
         var corrected = 0;
         var profilesSet = 0;
         var missing = 0;
-        var removedDemo = 0;
 
         foreach (var item in file.Players)
         {
@@ -264,7 +277,7 @@ internal static class SeedSuccessionImport
                 continue;
             }
 
-            if (SetProfile(db, profiles, playerId, item, demoRaters, admin.Id))
+            if (SetProfile(db, profiles, playerId, item, admin.Id))
             {
                 profilesSet++;
             }
@@ -275,8 +288,6 @@ internal static class SeedSuccessionImport
             {
                 continue;
             }
-
-            removedDemo += await RemoveDemoAssessmentsAsync(db, playerId, demoRaters);
 
             foreach (var assessment in assessments)
             {
@@ -321,17 +332,15 @@ internal static class SeedSuccessionImport
 
         await db.SaveChangesAsync();
 
-        if (added + corrected + withdrawn.Count + profilesSet + removedDemo > 0 || missing > 0)
+        if (added + corrected + withdrawn.Count + profilesSet > 0 || missing > 0)
         {
             logger.LogInformation(
                 "Succession-arkene: {Added} vurderinger lagt inn, {Corrected} rettet, {Withdrawn} tatt ut, " +
-                "{Profiles} kontrakter og treningsgrupper satt, {Demo} oppdiktede vurderinger slettet. " +
-                "{Missing} spillere i fila finnes ikke i basen.",
+                "{Profiles} kontrakter og treningsgrupper satt. {Missing} spillere i fila finnes ikke i basen.",
                 added,
                 corrected,
                 withdrawn.Count,
                 profilesSet,
-                removedDemo,
                 missing);
         }
     }
@@ -368,42 +377,106 @@ internal static class SeedSuccessionImport
         return user;
     }
 
-    /// <summary>Kontoene <see cref="SeedSuccession"/> lager oppdiktede vurderinger med.</summary>
-    private static async Task<HashSet<string>> DemoRaterIdsAsync(UserManager<IdentityUser> userManager)
+    /// <summary>
+    /// Fjerner de oppdiktede succession-dataene: vurderingene og kontraktene seedingen la inn før
+    /// trenernes ark kom, og de to demotrenerne den trengte for å vise uenighet. Kjører ved hver
+    /// oppstart i Development, så en delt base som ble seedet med dem, blir ryddet neste gang
+    /// noen starter appen.
+    ///
+    /// En demotrener som står i en logg som ikke kan endres, låses i stedet for å slettes, som i
+    /// SeedData.ConsolidateCoachAsync: en logg som ikke kan si hvem, er ikke en logg.
+    /// </summary>
+    public static async Task RemoveMadeUpAsync(
+        AppDbContext db,
+        UserManager<IdentityUser> userManager,
+        ILogger logger)
     {
-        var ids = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var email in SeedSuccession.ExtraRaterEmails.Append(SeedData.CoachEmail))
+        var demo = new List<IdentityUser>();
+        foreach (var email in RetiredDemoRaterEmails.Append(SeedData.CoachEmail))
         {
             if (await userManager.FindByEmailAsync(email) is { } user)
             {
-                ids.Add(user.Id);
+                demo.Add(user);
             }
         }
 
-        return ids;
-    }
+        var ids = demo.Select(u => u.Id).ToList();
 
-    private static async Task<int> RemoveDemoAssessmentsAsync(AppDbContext db, int playerId, HashSet<string> demoRaters)
-    {
-        var demo = await db.SuccessionAssessments
-            .Where(a => a.PlayerId == playerId && demoRaters.Contains(a.RaterUserId))
+        var assessments = await db.SuccessionAssessments
+            .Where(a => ids.Contains(a.RaterUserId) && a.UpdatedAt < MadeUpBefore)
             .ToListAsync();
 
-        db.SuccessionAssessments.RemoveRange(demo);
-        return demo.Count;
+        var profiles = await db.PlayerSuccessionProfiles
+            .Where(p => ids.Contains(p.UpdatedByUserId) && p.UpdatedAt < MadeUpBefore)
+            .ToListAsync();
+
+        db.SuccessionAssessments.RemoveRange(assessments);
+        db.PlayerSuccessionProfiles.RemoveRange(profiles);
+        await db.SaveChangesAsync();
+
+        var accounts = 0;
+
+        foreach (var user in demo.Where(u => RetiredDemoRaterEmails.Contains(u.Email, StringComparer.OrdinalIgnoreCase)))
+        {
+            if (await db.SuccessionAssessments.AnyAsync(a => a.RaterUserId == user.Id))
+            {
+                // Vurdert etter at de oppdiktede ble fjernet: noen bruker kontoen. Den får stå.
+                continue;
+            }
+
+            var inAuditTrail =
+                await db.ConsentEvents.AnyAsync(c => c.ChangedByUserId == user.Id)
+                || await db.PlayerAccessEvents.AnyAsync(a => a.ViewedByUserId == user.Id)
+                || await db.FeedbackReleases.AnyAsync(f => f.CoachUserId == user.Id)
+                || await db.PlayerDeletionEvents.AnyAsync(d => d.DeletedByUserId == user.Id)
+                || await db.FiveCSubmissions.AnyAsync(f => f.RespondentUserId == user.Id)
+                || await db.Responses.AnyAsync(r => r.RespondentUserId == user.Id);
+
+            if (inAuditTrail)
+            {
+                if (await userManager.IsInRoleAsync(user, Roles.Coach))
+                {
+                    await userManager.RemoveFromRoleAsync(user, Roles.Coach);
+                    await userManager.SetLockoutEnabledAsync(user, true);
+                    await userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+                    accounts++;
+                }
+
+                continue;
+            }
+
+            var result = await userManager.DeleteAsync(user);
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"Klarte ikke å slette demotreneren {user.Email}: " +
+                    string.Join("; ", result.Errors.Select(e => e.Description)));
+            }
+
+            accounts++;
+        }
+
+        if (assessments.Count + profiles.Count + accounts > 0)
+        {
+            logger.LogInformation(
+                "Oppdiktet succession fjernet: {Assessments} vurderinger, {Profiles} kontrakter og treningsgrupper, " +
+                "{Accounts} demotrenere.",
+                assessments.Count,
+                profiles.Count,
+                accounts);
+        }
     }
 
     /// <summary>
-    /// Kontrakt og treningsgruppe fra arket, der det ikke står noe, eller der det som står, er
-    /// lagt inn av <see cref="SeedSuccession"/>. True når noe ble satt.
+    /// Kontrakt og treningsgruppe fra arket, der det ikke står noe. Det som står, er lagt inn av
+    /// admin eller av en tidligere import, og røres ikke: vil man ha nye fakta fra et nytt ark,
+    /// slettes de gamle først. True når noe ble satt.
     /// </summary>
     private static bool SetProfile(
         AppDbContext db,
         Dictionary<int, PlayerSuccessionProfile> profiles,
         int playerId,
         SuccessionImportPlayer item,
-        HashSet<string> demoRaters,
         string adminUserId)
     {
         if (item.ContractType is null && item.ContractEndsOn is null && item.TrainingGroup is null)
@@ -411,17 +484,14 @@ internal static class SeedSuccessionImport
             return false;
         }
 
-        if (profiles.TryGetValue(playerId, out var profile) && !demoRaters.Contains(profile.UpdatedByUserId))
+        if (profiles.ContainsKey(playerId))
         {
             return false;
         }
 
-        if (profile is null)
-        {
-            profile = new PlayerSuccessionProfile { PlayerId = playerId };
-            db.PlayerSuccessionProfiles.Add(profile);
-            profiles[playerId] = profile;
-        }
+        var profile = new PlayerSuccessionProfile { PlayerId = playerId };
+        db.PlayerSuccessionProfiles.Add(profile);
+        profiles[playerId] = profile;
 
         profile.ContractType = item.ContractType;
         profile.ContractEndsOn = item.ContractEndsOn;
@@ -508,7 +578,7 @@ internal sealed record SuccessionImportAssessment(
     string? FirstPosition,
     string? SecondPosition,
     string? ThirdPosition,
-    int? PersonalReadiness,
+    decimal? PersonalReadiness,
     bool? PathwayBlocked,
     bool? ExternalNeeded,
     string? SuccessionRisk);

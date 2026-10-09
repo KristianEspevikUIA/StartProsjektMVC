@@ -3935,6 +3935,7 @@ main .form-control:focus {
     text-align: right;
 }
 
+.sc-rate--0 { background: #e8938a; }
 .sc-rate--1 { background: #eea39b; }
 .sc-rate--2 { background: #f0af98; }
 .sc-rate--3 { background: #f1bb94; }
@@ -4825,7 +4826,14 @@ a.sc-token:hover .sc-marker {
     grid-template-columns: repeat(10, minmax(0, 1fr));
 }
 
-.sc-scale__options--ten .sc-scale__option label {
+/* 0-10: the coaches' workbooks use 0 too. */
+.sc-scale__options--eleven {
+    gap: 4px;
+    grid-template-columns: repeat(11, minmax(0, 1fr));
+}
+
+.sc-scale__options--ten .sc-scale__option label,
+.sc-scale__options--eleven .sc-scale__option label {
     min-height: 46px;
     padding: 6px 0;
 }
@@ -4833,6 +4841,10 @@ a.sc-token:hover .sc-marker {
 @media (max-width: 520px) {
     .sc-scale__options--ten {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .sc-scale__options--eleven {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 }
 

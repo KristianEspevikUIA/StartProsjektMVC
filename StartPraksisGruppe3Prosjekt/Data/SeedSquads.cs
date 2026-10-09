@@ -120,9 +120,11 @@ internal static class SeedSquads
                         problems.Add($"{where}: navnet står to ganger i fila");
                     }
 
-                    if (string.IsNullOrWhiteSpace(player.Position) || player.Position.Length > 50)
+                    // Ingen posisjon er lov: en spiller fra extra-players.json uten profilside på
+                    // ikstart.no har ingen linje klubben har ført hen under.
+                    if (player.Position is { } position && (string.IsNullOrWhiteSpace(position) || position.Length > 50))
                     {
-                        problems.Add($"{where}: posisjonen mangler eller er over 50 tegn");
+                        problems.Add($"{where}: posisjonen er tom eller over 50 tegn");
                     }
 
                     if (player.Photo is { } photo)
@@ -435,12 +437,12 @@ internal sealed record SquadFileTeam(
     IReadOnlyList<SquadFilePlayer> Players);
 
 /// <param name="Name">Navnet slik klubben skriver det. Blir <see cref="Player.Code"/>.</param>
-/// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under.</param>
+/// <param name="Position">Goalkeeper, Defender, Midfielder eller Forward -- linja klubben fører spilleren under. Null når klubben ikke har spilleren på nettsidene.</param>
 /// <param name="BirthDateEstimated">Klubben oppgir ingen dato, og 1. januar i årsklassen er brukt.</param>
 /// <param name="Photo">Bildet, relativt til Data/Squads. Null når klubben ikke har noe.</param>
 internal sealed record SquadFilePlayer(
     string Name,
-    string Position,
+    string? Position,
     DateOnly BirthDate,
     bool BirthDateEstimated,
     string? Photo,

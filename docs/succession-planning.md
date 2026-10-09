@@ -55,7 +55,7 @@ ligger slik:
 | Contract type (L), Contract End | `PlayerSuccessionProfile` | trener eller admin, én gang per spiller |
 | MESO Training Group (L) | `PlayerSuccessionProfile.TrainingGroup` | trener eller admin |
 | Current Team (L) | `Player.Team` | finnes fra før |
-| Physical … Availability (1-10) | `SuccessionRating`, én rad per vurdering | trener |
+| Physical … Availability (1-10) | `SuccessionRating`, én rad per vurdering. 0–10: trenerne bruker 0 også | trener |
 | Overall Readiness (1-10) | **Regnes ut** hver gang, lagres ikke | – |
 | Coaches Personal Readiness for next step | `PersonalReadiness` | trener |
 | 0–6m, 6–18m, 18–36m Projection | tre korte tekstfelt | trener |
@@ -263,18 +263,14 @@ systemet:
 
 ---
 
-## Demodata
+## Ingen demodata
 
-`Data/SeedSuccession.cs`, bare i Development. Alt er oppdiktet.
-
-- Tre trenere: `trener.senior@ikstart.example` og to nye, `trener.akademi@ikstart.example` og
-  `trener.utvikling@ikstart.example`, med vanlig demopassord. Det trengs mer enn én trener for å
-  vise en sammenligning. Én er rausere enn de andre, én er strengere, og noen ganger står to av
-  dem tre poeng fra hverandre.
-- Tre sykluser: de to forrige er nesten ferdig vurdert, og den gjeldende omtrent halvveis.
-- Kontrakt og treningsgruppe for alle 33 spillerne. Noen kontrakter går ut innen seks måneder.
-- En spiller som har vurderinger fra trenernes egne ark, hoppes over: ekte og oppdiktede tall skal
-  ikke snittes sammen på tavla.
+Succession planning viser bare trenernes egne ark (se under). De oppdiktede vurderingene og
+kontraktene appen hadde før arkene kom, og de to demotrenerne `trener.akademi` og
+`trener.utvikling`, fjernes ved hver oppstart i Development
+(`SeedSuccessionImport.RemoveMadeUpAsync`), så en delt base som ble seedet med dem, blir ryddet
+neste gang noen starter appen. Grensen er det demokontoene skrev før 10.10.2026; det
+`trener.senior` vurderer i appen etter det, blir stående.
 
 ---
 
@@ -296,16 +292,19 @@ skriver `Data/Succession/Import/assessments.json` og `report.md`. Mappa er git-i
 - **Én trener per ark.** Treneren leses av filnavnet, fordi trenerkolonnen er tom i halvparten av
   arkene: `IK_Start_Succession_Planning_AB.xlsx` er «ab». Hver får kontoen
   `trener.ab@ikstart.example`, uten passord og låst, til klubben bestemmer hvem som skal ha den.
-- **En rad er en vurdering** når den har minst én av de seks vurderingene. Et ark ingen har fylt ut,
-  gir ingen konto.
-- **Bare strukturerte felt:** de seks vurderingene, «Rated as», kategori, tre posisjoner, personal
-  readiness, risiko når den er Green/Amber/Red, «Pathway blocked?» og «External needed?» når de
-  begynner med ja eller nei, og kontrakt og treningsgruppe. En verdi appen ikke kan holde (personal
-  readiness 5,5, availability 0), utelates i stedet for å rundes av, og står i rapporten. Tekst
-  gjentas aldri i rapporten.
+- **En rad er trenerens egen** når den har et tall, noe i en kolonne malen lot stå tom (trenerens
+  navn, readiness, risiko …), eller en listeverdi som er endret fra malen. Den blir en vurdering,
+  med eller uten de seks tallene. Malradene ingen har rørt, er ingens mening og blir ikke med. Et
+  ark uten egne rader gir ingen konto.
+- **Strukturerte felt:** de seks vurderingene (0–10), «Rated as», kategori, tre posisjoner,
+  personal readiness (0–10 i halve, som 5,5), risiko når den er Green/Amber/Red, «Pathway blocked?»
+  og «External needed?» når de begynner med ja eller nei, og kontrakt og treningsgruppe. Et tall
+  utenfor skalaen utelates i stedet for å rundes av, og står i rapporten. Tekst gjentas aldri i
+  rapporten.
 - **Syklusen** er den arket sist ble lagret i. `--rated-on` overstyrer.
-- **Kontrakt og treningsgruppe** er det flest ark sier. Er arkene uenige uten klart flertall, står
-  feltet tomt.
+- **Kontrakt og treningsgruppe** er fakta, lagret én gang. Der en trener har rettet malens verdi
+  (en kontrakt som er Youth, ikke Non), vinner rettingen. Har to trenere rettet ulikt, står malens
+  verdi, og rapporten sier fra.
 
 **Matchingen** er mot navnene i `Data/Squads/squads.json`, uten store og små bokstaver, aksenter,
 bindestrek og rekkefølge, og med ae/o/aa for æ/ø/å.
@@ -320,16 +319,19 @@ To kandidater for én rad, eller to rader for én spiller, gir ingen import. Res
 `report.md` med grunn og kandidater, og avgjøres for hånd i `Data/Succession/Import/decisions.json`
 («Etternavn, Fornavn» → klubbens navn, eller `null` for å holde raden ute). Se README-en i mappa.
 
-**Appen** (`Data/SeedSuccessionImport.cs`) leser fila ved oppstart, etter troppene og før de
-oppdiktede vurderingene.
+**Spillere arkene har, men troppsidene ikke** (utlånt, rykket opp til A-laget, ikke lagt ut ennå)
+legges i `Data/Squads/extra-players.json` med laget appen skal ha dem på. `fetch_squads.py` henter
+navn, fødselsdato, posisjon og bilde fra profilsiden deres på ikstart.no der den finnes, og ellers
+tas navnet og fødselsåret fra arkene. Da står de i troppene og matches som alle andre. Se
+`docs/player-welcome.md`.
+
+**Appen** (`Data/SeedSuccessionImport.cs`) leser fila ved oppstart, etter troppene.
 
 - **Idempotent** per (spiller, trener, syklus), samme nøkkel som den unike indeksen. Samme fil to
   ganger endrer ingenting.
 - **Fila er fasiten for kontoene den lager.** En vurdering som er endret i fila, rettes. En som er
   tatt ut, slettes, men bare i syklusen fila gjelder, så neste syklus ikke visker ut historikken.
-- **Oppdiktet viker for ekte.** Spillere med importerte vurderinger mister de oppdiktede, også i
-  tidligere sykluser. Oppdiktet kontrakt og treningsgruppe erstattes. Det admin har lagt inn,
-  røres ikke.
+- **Kontrakt og treningsgruppe** legges inn der de mangler. Det admin har lagt inn, røres ikke.
 - **Loggen sier hvor mange, aldri hvem.** En fil som ikke stemmer med listene i
   `succession-planning.json`, stopper oppstarten med feilen nummerert, ikke navngitt.
 
@@ -361,5 +363,4 @@ oppdiktede vurderingene.
 | Views | `Views/Succession/` |
 | Flytte spillere på banen | `wwwroot/js/lineup.js`, stilene «Moving players about» i `startcompass.css` |
 | Migrasjon | `Data/Migrations/*_AddSuccessionPlanning.cs` |
-| Demodata | `Data/SeedSuccession.cs` |
 | Import av trenernes ark | `scripts/succession/import_workbooks.py`, `Data/SeedSuccessionImport.cs`, `Data/Succession/Import/` (git-ignorert) |

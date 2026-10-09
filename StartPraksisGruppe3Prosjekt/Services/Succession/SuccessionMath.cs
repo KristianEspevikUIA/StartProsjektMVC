@@ -90,7 +90,7 @@ public static class SuccessionMath
 
         var personal = assessments
             .Where(a => a.PersonalReadiness.HasValue)
-            .Select(a => a.PersonalReadiness!.Value)
+            .Select(a => (double)a.PersonalReadiness!.Value)
             .ToList();
 
         var risks = assessments
