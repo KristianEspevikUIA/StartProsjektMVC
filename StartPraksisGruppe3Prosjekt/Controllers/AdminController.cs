@@ -30,6 +30,7 @@ public class AdminController : Controller
     private readonly IPlayerAccessLog _accessLog;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IPlayerWelcomeService _welcome;
+    private readonly ILogger<AdminController> _logger;
 
     public AdminController(
         AppDbContext db,
@@ -37,7 +38,8 @@ public class AdminController : Controller
         IPeriodService periods,
         IPlayerAccessLog accessLog,
         UserManager<IdentityUser> userManager,
-        IPlayerWelcomeService welcome)
+        IPlayerWelcomeService welcome,
+        ILogger<AdminController> logger)
     {
         _db = db;
         _consent = consent;
@@ -45,6 +47,7 @@ public class AdminController : Controller
         _accessLog = accessLog;
         _userManager = userManager;
         _welcome = welcome;
+        _logger = logger;
     }
 
     public IActionResult Index()
@@ -266,13 +269,297 @@ public class AdminController : Controller
         };
     }
 
+    // -----------------------------------------------------------------------------------
+    // Kontoer: hvem som kan logge inn
+    // -----------------------------------------------------------------------------------
+
     /// <summary>
-    /// Brukere og rolletildeling.
-    /// TODO (Kristian): list brukere med roller, og la admin gi/fjerne roller.
+    /// Kontoene, og skjemaet for en ny stabskonto. Det er her en trener får tilgang: appen har
+    /// ingen e-post, så et passord gis ut av en administrator og byttes av eieren ved første
+    /// innlogging. Se <see cref="AccountRules"/>.
+    ///
+    /// Staben vises først. Spillerne og de foresatte er mange, og har hver sin fane.
+    /// Adressene navngir spillerne; det er admin, på siden der kontoene styres, og ikke logget
+    /// per spiller -- det er ingen svar, vurderinger eller bilder her.
+    ///
+    /// Ikke bygget ennå: å gi og fjerne roller, og å opprette spillere og foresatte her. Det
+    /// siste må kreve minst én foresatt for en spiller under 19 -- se PlayerRules.
     /// </summary>
-    public IActionResult Users()
+    [HttpGet]
+    public async Task<IActionResult> Users(string? show, CancellationToken cancellationToken) =>
+        View(await BuildAccountsViewAsync(show, new NewAccountForm(), cancellationToken));
+
+    /// <summary>
+    /// En ny trener- eller administratorkonto. Uten passord og låst: den kan ikke logge inn før
+    /// en administrator gir den tilgang på kontosiden, og det er et eget, bevisst trykk.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> CreateAccount(
+        [Bind(Prefix = nameof(AdminAccountsViewModel.New))] NewAccountForm form,
+        CancellationToken cancellationToken)
     {
-        return View();
+        const string emailField = nameof(AdminAccountsViewModel.New) + "." + nameof(NewAccountForm.Email);
+        const string roleField = nameof(AdminAccountsViewModel.New) + "." + nameof(NewAccountForm.Role);
+
+        var email = form.Email?.Trim() ?? string.Empty;
+
+        if (form.Role is not (Roles.Coach or Roles.Admin))
+        {
+            ModelState.AddModelError(roleField, "Choose Coach or Administrator.");
+        }
+
+        if (ModelState.IsValid && await _userManager.FindByEmailAsync(email) is not null)
+        {
+            ModelState.AddModelError(emailField, "There is already an account with that address.");
+        }
+
+        if (ModelState.IsValid)
+        {
+            var user = new IdentityUser
+            {
+                UserName = email,
+                Email = email,
+                EmailConfirmed = true,
+                LockoutEnabled = true,
+                LockoutEnd = DateTimeOffset.MaxValue
+            };
+
+            var result = await _userManager.CreateAsync(user);
+            if (result.Succeeded)
+            {
+                result = await _userManager.AddToRoleAsync(user, form.Role);
+            }
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation(
+                    "An administrator created the {Role} account {AccountId}.", form.Role, user.Id);
+
+                TempData["AdminMessage"] = $"The account {email} is created. It cannot sign in until you give it access.";
+
+                return RedirectToAction(nameof(Account), new { id = user.Id });
+            }
+
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(emailField, error.Description);
+            }
+        }
+
+        return View(nameof(Users), await BuildAccountsViewAsync(AdminAccountsViewModel.Staff, form, cancellationToken));
+    }
+
+    /// <summary>
+    /// Én konto, og om den kan logge inn. Ingen lag her: en trener er trener for hele klubben,
+    /// ikke for et bestemt lag -- se CanViewTeamHandler.
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> Account(string id, CancellationToken cancellationToken)
+    {
+        var rows = await LoadAccountsAsync(cancellationToken);
+        var account = rows.FirstOrDefault(r => r.Id == id);
+
+        if (account is null)
+        {
+            return NotFound();
+        }
+
+        return View(new AdminAccountViewModel
+        {
+            Account = account,
+            IsSelf = id == CurrentUserId
+        });
+    }
+
+    /// <summary>
+    /// Gir kontoen et midlertidig passord og åpner den. Passordet vises på siden som kommer
+    /// tilbake, og bare der: det lagres ikke lesbart noe sted, logges ikke, og siden ber
+    /// nettleseren om ikke å ta vare på den. Kontoen merkes slik at eieren må velge sitt eget
+    /// ved første innlogging (<see cref="AccountRules.MustChangePasswordClaim"/>).
+    ///
+    /// Å sette passordet bytter også sikkerhetsstempelet, så en økt som alt er åpen på kontoen,
+    /// faller ut. Svaret er siden selv og ikke en omdirigering -- ellers måtte passordet lagt
+    /// seg i en cookie på veien.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> AccountPassword(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (user.Id == CurrentUserId)
+        {
+            TempData["AdminMessage"] = "This is your own account. Change your password from the account menu.";
+            return RedirectToAction(nameof(Account), new { id });
+        }
+
+        var temporary = AccountRules.NewTemporaryPassword();
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var result = await _userManager.ResetPasswordAsync(user, token, temporary);
+
+        if (!result.Succeeded)
+        {
+            TempData["AdminMessage"] = "The password could not be set: " +
+                                       string.Join(" ", result.Errors.Select(e => e.Description));
+            return RedirectToAction(nameof(Account), new { id });
+        }
+
+        await _userManager.SetLockoutEndDateAsync(user, null);
+        await _userManager.ResetAccessFailedCountAsync(user);
+
+        if ((await _userManager.GetClaimsAsync(user)).All(c => c.Type != AccountRules.MustChangePasswordClaim))
+        {
+            await _userManager.AddClaimAsync(user, new Claim(AccountRules.MustChangePasswordClaim, bool.TrueString));
+        }
+
+        _logger.LogInformation("An administrator gave account {AccountId} a temporary password.", user.Id);
+
+        Response.Headers.CacheControl = "no-store";
+
+        return View(new AdminAccountPasswordViewModel(user.Id, user.Email ?? string.Empty, temporary));
+    }
+
+    /// <summary>
+    /// Låser kontoen. Sikkerhetsstempelet byttes, så en åpen økt faller ut innen noen minutter
+    /// (ValidationInterval i Program.cs), ikke først når cookien går ut.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> AccountLock(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (user.Id == CurrentUserId)
+        {
+            TempData["AdminMessage"] = "You cannot lock the account you are signed in with.";
+            return RedirectToAction(nameof(Account), new { id });
+        }
+
+        await _userManager.SetLockoutEnabledAsync(user, true);
+        await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+        await _userManager.UpdateSecurityStampAsync(user);
+
+        _logger.LogInformation("An administrator locked account {AccountId}.", user.Id);
+
+        TempData["AdminMessage"] = $"{user.Email} is locked and cannot sign in.";
+
+        return RedirectToAction(nameof(Account), new { id });
+    }
+
+    /// <summary>Åpner en låst konto som alt har et passord. En uten får tilgang med AccountPassword.</summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [EnableRateLimiting(RateLimitPolicies.Sensitive)]
+    public async Task<IActionResult> AccountUnlock(string id)
+    {
+        var user = await _userManager.FindByIdAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        if (!await _userManager.HasPasswordAsync(user))
+        {
+            TempData["AdminMessage"] = "This account has no password. Give it access with a temporary password instead.";
+            return RedirectToAction(nameof(Account), new { id });
+        }
+
+        await _userManager.SetLockoutEndDateAsync(user, null);
+        await _userManager.ResetAccessFailedCountAsync(user);
+
+        _logger.LogInformation("An administrator unlocked account {AccountId}.", user.Id);
+
+        TempData["AdminMessage"] = $"{user.Email} can sign in again.";
+
+        return RedirectToAction(nameof(Account), new { id });
+    }
+
+    private string CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+    private async Task<AdminAccountsViewModel> BuildAccountsViewAsync(
+        string? show,
+        NewAccountForm form,
+        CancellationToken cancellationToken)
+    {
+        var rows = await LoadAccountsAsync(cancellationToken);
+
+        var staff = rows.Where(r => r.Roles.Contains(Roles.Admin) || r.Roles.Contains(Roles.Coach)).ToList();
+        var players = rows.Where(r => r.Roles.Contains(Roles.Player)).ToList();
+        var guardians = rows.Where(r => r.Roles.Contains(Roles.Guardian)).ToList();
+
+        var chosen = show?.Trim().ToLowerInvariant() switch
+        {
+            AdminAccountsViewModel.Players => AdminAccountsViewModel.Players,
+            AdminAccountsViewModel.Guardians => AdminAccountsViewModel.Guardians,
+            _ => AdminAccountsViewModel.Staff
+        };
+
+        return new AdminAccountsViewModel
+        {
+            Show = chosen,
+            Accounts = chosen switch
+            {
+                AdminAccountsViewModel.Players => players,
+                AdminAccountsViewModel.Guardians => guardians,
+                _ => staff
+            },
+            StaffCount = staff.Count,
+            PlayerCount = players.Count,
+            GuardianCount = guardians.Count,
+            New = form
+        };
+    }
+
+    /// <summary>
+    /// Hver konto med roller og om den kan logge inn. Tre spørringer for hele lista, og
+    /// aldri passordhashen ut av basen -- bare om den finnes.
+    /// </summary>
+    private async Task<List<AdminAccountRow>> LoadAccountsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var users = await _db.Users
+            .AsNoTracking()
+            .Select(u => new { u.Id, u.Email, u.UserName, u.LockoutEnd, HasPassword = u.PasswordHash != null })
+            .ToListAsync(cancellationToken);
+
+        var roles = (await (
+                from userRole in _db.UserRoles
+                join role in _db.Roles on userRole.RoleId equals role.Id
+                select new { userRole.UserId, role.Name })
+            .ToListAsync(cancellationToken))
+            .ToLookup(r => r.UserId, r => r.Name ?? string.Empty);
+
+        var mustChange = (await _db.UserClaims
+                .Where(c => c.ClaimType == AccountRules.MustChangePasswordClaim)
+                .Select(c => c.UserId)
+                .ToListAsync(cancellationToken))
+            .ToHashSet();
+
+        return users
+            .Select(u => new AdminAccountRow
+            {
+                Id = u.Id,
+                Email = u.Email ?? u.UserName ?? u.Id,
+                Roles = roles[u.Id].OrderBy(r => r, StringComparer.Ordinal).ToList(),
+                HasPassword = u.HasPassword,
+                IsLocked = u.LockoutEnd is { } end && end > now,
+                MustChangePassword = mustChange.Contains(u.Id)
+            })
+            .OrderBy(r => r.Email, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>

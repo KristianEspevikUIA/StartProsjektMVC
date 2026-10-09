@@ -5194,3 +5194,31 @@ a.sc-token:hover .sc-marker {
     margin: 0 0 6px;
     text-transform: uppercase;
 }
+
+/* ----------------------------------------------------------------- accounts ---- */
+
+/*
+    The temporary password an administrator gives out, on the one page that shows it
+    (Admin/AccountPassword). It is read off the screen or copied by hand, so it is large, in a
+    typeface where every letter is as wide as the next, and it can be selected with one click.
+    The alphabet has no I, O, l, 0 or 1 in it -- see AccountRules.NewTemporaryPassword.
+*/
+.sc-secret {
+    background: var(--sc-muted);
+    border: 2px solid var(--sc-ink);
+    display: inline-block;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin: 0;
+    padding: 14px 20px;
+    user-select: all;
+}
+
+@media (max-width: 640px) {
+    .sc-secret {
+        font-size: 19px;
+        padding: 12px 14px;
+    }
+}

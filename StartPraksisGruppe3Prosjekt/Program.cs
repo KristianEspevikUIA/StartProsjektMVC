@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -47,7 +48,9 @@ builder.Services
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>();
+    .AddEntityFrameworkStores<AppDbContext>()
+    // Utviklingspassordet står i et offentlig repo. Utenfor Development kan ingen velge det.
+    .AddPasswordValidator<PublishedPasswordValidator>();
 
 // Rolleendringer ligger i cookien til den valideres på nytt. Standard er 30 minutter;
 // her skal en trener som mister et lag, eller en konto som låses, miste tilgangen fort.
@@ -124,7 +127,40 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
             options.KnownProxies.Add(ipAddress);
         }
     }
+
+    // Et helt nett, som «10.0.0.0/8», for en proxy som ikke har én fast adresse.
+    var configuredNetworks = builder.Configuration
+        .GetSection("ForwardedHeaders:KnownNetworks")
+        .Get<string[]>() ?? Array.Empty<string>();
+
+    foreach (var network in configuredNetworks)
+    {
+        if (System.Net.IPNetwork.TryParse(network, out var ipNetwork))
+        {
+            options.KnownIPNetworks.Add(ipNetwork);
+        }
+    }
 });
+
+// ---------------------------------------------------------------------------
+// Nøklene bak innloggingscookien og antiforgery-tokenene (Data Protection).
+//
+// Uten et fast sted ligger de der plattformen legger dem. På en egen maskin og på Azure App
+// Service er det en mappe som overlever en omstart. I en container uten disk er det ikke det:
+// da lages nye nøkler ved hver oppstart, og alle som var logget inn, er det ikke lenger -- og
+// et skjema som sto åpent, blir avvist når det sendes.
+//
+// DataProtection:KeysPath (DataProtection__KeysPath i miljøet) er en mappe som overlever, f.eks.
+// en påmontert disk. Nøklene ligger ukryptert i den: mappa skal bare appen kunne lese.
+// ---------------------------------------------------------------------------
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    builder.Services.AddDataProtection()
+        .SetApplicationName("StartCompass")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 // ---------------------------------------------------------------------------
 // Ressursbasert autorisasjon.
@@ -325,6 +361,9 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// En konto med midlertidig passord kommer bare til siden der det byttes. Se Security/.
+app.UseMustChangePassword();
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
@@ -389,8 +428,38 @@ if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
         allowedHosts ?? "(ikke satt)");
 }
 
-// Migrering, innlogging og klubbens egne data. Kjører bare i utvikling — se SeedData.
-if (app.Environment.IsDevelopment())
+// ---------------------------------------------------------------------------
+// Migrering, innhold og kontoer ved oppstart. Se SeedData.
+//
+// I utvikling alltid: migrasjonene, rollene og lagene, demokontoene, troppene og trenernes ark.
+//
+// Utenfor utvikling bare når Startup:InitializeDatabase er satt (Startup__InitializeDatabase=true
+// i miljøet), og da bare det en tom base trenger for å kunne brukes: migrasjonene, rollene,
+// påstandene, lagene, én periode og den første administratoren (Bootstrap:AdminEmail og
+// Bootstrap:AdminPassword). Ingen demokontoer, og ikke troppene eller arkene -- de navngir
+// spillerne og ligger ikke på serveren. Av som standard, fordi en migrasjon mot en base i drift
+// skal være noe noen har bestemt, ikke noe som skjer fordi appen startet på nytt.
+// Alternativet er `dotnet ef database update` for hånd.
+// ---------------------------------------------------------------------------
+var initializeDatabase = app.Environment.IsDevelopment()
+                         || app.Configuration.GetValue<bool>("Startup:InitializeDatabase");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.Logger.LogInformation(
+        initializeDatabase
+            ? "Startup:InitializeDatabase er satt: migrasjoner og grunninnhold kjøres ved oppstart."
+            : "Ingen migrering ved oppstart (Startup:InitializeDatabase er ikke satt). Basen må være oppdatert fra før.");
+
+    if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+    {
+        app.Logger.LogWarning(
+            "DataProtection:KeysPath er ikke satt. Nøklene bak innloggingen ligger der plattformen " +
+            "legger dem; overlever ikke den mappa en omstart, logges alle ut ved hver oppstart.");
+    }
+}
+
+if (initializeDatabase)
 {
     using var scope = app.Services.CreateScope();
 

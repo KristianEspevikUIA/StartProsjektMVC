@@ -47,9 +47,15 @@
 
                 @* No "register as a new user" link: self-registration is closed, and the
                    packaged page's version of this link leads to a 404. Accounts are created
-                   by the club. *@
+                   by the club.
+
+                   And no "forgotten your password?" link either. The packaged page behind it
+                   promises an email, and this app sends none; an administrator gives out a
+                   temporary password instead (Admin/Users). The page is closed with the
+                   others -- see Security/ClosedRegistrationExtensions.cs. *@
                 <p class="sc-card__meta sc-mt">
-                    <a asp-page="./ForgotPassword">Forgotten your password?</a>
+                    Forgotten your password? Ask the club for a new one. You choose your own
+                    again the first time you sign in.
                 </p>
             </form>
         </div>

@@ -117,6 +117,11 @@ Overstyringen virker bare på kontoer som ikke finnes fra før — `SeedData.Ens
 oppretter, den endrer ikke passord. Nå som databasen er delt, betyr det at den som seedet
 først bestemmer passordet for alle.
 
+**Standardpassordet virker bare i `Development`.** Det står i dette offentlige repoet og er
+derfor ikke en hemmelighet. Utenfor `Development` avvises det ved innlogging og som nytt
+passord (`Security/AccountRules.cs`), så en konto som har det fordi basen ble kopiert fra
+utvikling, ikke kan åpnes med det. Se «Drift».
+
 **Det er én trenerkonto for lagene.**
 Den andre (`trener.ungdom@ikstart.example`) er slått sammen inn i
 den gjenværende: lagene ble flyttet over, og kontoen fjernet. Sammenslåingen ligger i
@@ -549,6 +554,30 @@ Sidene stenges i middleware og ikke med en policy, fordi Identity UI-sidene har
 utenfra. Ingenting i appen lenker dit: innloggingssiden er vår egen og har ingen
 registreringslenke (se over).
 
+### Passord gis ut av en administrator
+
+Appen sender ikke e-post, så et passord kan ikke tilbakestilles med en lenke. Sidene for glemt
+passord er stengt sammen med registreringen, og innloggingssiden sier i stedet at klubben gir
+et nytt.
+
+- **Admin → Accounts** (`AdminController.Users`, `Account`) viser kontoene, oppretter trener-
+  og administratorkontoer, og låser og åpner kontoer. En trener får ingen lag her: trenerrollen
+  gjelder hele klubben (`CanViewTeamHandler`).
+- **«Give access» / «New temporary password»** lager et midlertidig passord, åpner kontoen og
+  viser passordet én gang. Det lagres ikke lesbart, logges ikke, og siden sendes med
+  `no-store`. Administratoren gir det videre selv.
+- **Eieren må bytte det ved første innlogging.** Kontoen merkes med et claim
+  (`AccountRules.MustChangePasswordClaim`), og `Security/MustChangePasswordExtensions.cs`
+  sender hver forespørsel til `Account/ChangePassword` til det er gjort. Uten det ville to
+  personer kunne logge inn som treneren, og revisjonsloggen kunne ikke si hvem av dem som
+  åpnet en spiller.
+- En ny konto opprettes uten passord og låst. Trenerkontoene fra arkimporten
+  (`trener.ab@ikstart.example`) er det samme: de får tilgang her når klubben har bestemt hvem
+  som skal ha dem.
+
+Ikke bygget: å gi og fjerne roller, å opprette spillere og foresatte, og å bytte adressen på
+en konto.
+
 ### Cookies og hoder ellers
 
 Sesjons- og antiforgery-cookies er `HttpOnly`, `SameSite=Strict` og https-only utenfor
@@ -590,13 +619,53 @@ forskjell på Supabase og en som står i veien.
 
 ---
 
+## Drift
+
+Appen kjører i dag bare på utviklernes maskiner. Dette er det koden trenger for å kjøre på en
+server. Ingenting av det er satt opp eller prøvd mot en leverandør ennå.
+
+Alt settes i miljøet på serveren, aldri i `appsettings.json`:
+
+| Miljøvariabel | Hva |
+| --- | --- |
+| `ASPNETCORE_ENVIRONMENT=Production` | Slår av demokontoene, troppene og arkimporten, og krever https for cookiene |
+| `ConnectionStrings__DefaultConnection` | Hele strengen med passord og `Root Certificate=<sti til CA-fila på serveren>` |
+| `AllowedHosts` | Vertsnavnet appen svarer på, f.eks. `startcompass.example.no` |
+| `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` | Der appen bare kan nås gjennom plattformens egen proxy (Azure App Service, Render). Ellers `ForwardedHeaders__KnownProxies__0` eller `ForwardedHeaders__KnownNetworks__0` |
+| `DataProtection__KeysPath` | En mappe som overlever en omstart, der plattformen ikke har en fra før |
+| `Startup__InitializeDatabase=true` | Kjør migrasjonene og legg inn roller, lag og én periode ved oppstart. Av som standard |
+| `Bootstrap__AdminEmail`, `Bootstrap__AdminPassword` | Den første administratoren. Leses bare sammen med `Startup__InitializeDatabase` |
+
+**Bak plattformens https.** Leverandøren tar imot https og sender forespørselen videre som
+http. Uten forwarded headers tror appen at alle kommer fra proxyens adresse: rate-begrensningen
+(ti innloggingsforsøk per fem minutter per adresse) rammer da alle brukerne samlet, og appen
+vet ikke at forbindelsen er kryptert.
+
+**Egen base for drift.** Utvikling og drift skal ikke dele database. I `Development` kjører
+seedingen ved hver oppstart og retter, flytter og sletter i basen den står mot.
+
+**Første oppstart.** Sett `Startup__InitializeDatabase=true` og de to `Bootstrap__`-variablene,
+start appen, logg inn og velg et eget passord når appen ber om det, og fjern
+`Bootstrap__AdminPassword` fra miljøet. En konto som finnes fra før, røres ikke av bootstrap.
+
+**Kontoene.** Er basen kopiert fra utvikling, har admin, demotreneren og spillerne
+utviklingspassordet, og det avvises utenfor `Development`. Gi hver konto som skal brukes, et
+midlertidig passord fra Admin → Accounts.
+
+**Ikke løst:** spillertroppene og trenernes ark leses bare inn i `Development`
+(`SeedSquads`, `SeedSuccessionImport`). En base i drift må i dag få dem ved å kopiere en base
+der de er lest inn.
+
+---
+
 ## Ting som må avklares før ekte data
 
 - [~] Melding til Sikt — utkast i [`docs/sikt-melding.md`](docs/sikt-melding.md). Sju punkter
       gjenstår, og fire av dem er klubbens å svare på
 - [ ] Personvernerklæring (`Views/Home/Privacy.cshtml`)
-- [x] Selvregistrering stengt — kontoer opprettes av klubben. Admin-siden som faktisk
-      oppretter dem er fortsatt TODO i `AdminController.Users`
+- [x] Selvregistrering stengt — kontoer opprettes av klubben. Admin → Accounts oppretter
+      trener- og administratorkontoer og gir dem tilgang; spillere og foresatte kommer
+      fortsatt bare fra seedingen
 - [x] `AllowedHosts` er ikke lenger `*`. `appsettings.json` slipper bare gjennom lokale navn,
       `appsettings.Development.json` beholder `*` for utvikling, og produksjon setter det
       faktiske vertsnavnet i miljøet (`AllowedHosts=…`). Står den likevel på `*` utenfor
@@ -616,11 +685,14 @@ forskjell på Supabase og en som står i veien.
       det burde følge `PlayerRules.GuardianRequiredBelowAge`
 - [ ] Regelen om foresatt for spillere under 19 håndheves i seed-data, men ikke ennå
       ved registrering i `AdminController`
-- [ ] Appen sender ikke e-post: ingen `IEmailSender` er registrert, så Identity bruker en
-      avsender som ikke sender noe. «Forgotten your password?» på innloggingssiden og
-      e-postbytte under «My account» ser derfor ut til å virke, men gjør det ikke, og
-      siden der admin kunne satt nytt passord, er ikke bygget. Koble på e-post, eller fjern
-      lenken og bygg admin-siden
+- [~] Appen sender ikke e-post: ingen `IEmailSender` er registrert, så Identity bruker en
+      avsender som ikke sender noe. Lenken «Forgotten your password?» er fjernet, sidene bak
+      den er stengt, og en administrator gir ut et midlertidig passord i stedet (se «Passord
+      gis ut av en administrator»). Gjenstår: e-postbytte under «My account» ser fortsatt ut
+      til å virke, men gjør det ikke
+- [ ] Kontoene i basen har utviklingspassordet fra dette repoet. Det avvises utenfor
+      `Development`, men før appen legges ut må hver konto som skal brukes, få et nytt
+      passord fra Admin → Accounts. Se «Drift»
 - [ ] `TempData` legger en fjerde cookie, `.AspNetCore.Mvc.CookieTempDataProvider`, med
       kvitteringsmeldinger som navngir spilleren. Den er kryptert, men har ikke fått navn
       og herding som de to andre, og mangler i cookie-oversikten i Sikt-meldingen

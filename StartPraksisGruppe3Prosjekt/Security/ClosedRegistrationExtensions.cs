@@ -10,6 +10,11 @@ namespace StartPraksisGruppe3Prosjekt.Security;
 /// [AllowAnonymous] i selve pakken — og AllowAnonymous slår enhver policy vi legger
 /// på utenfra. 404 er med vilje: en side som er stengt trenger ikke å bekrefte at
 /// den finnes.
+///
+/// Sidene for glemt passord er stengt av en annen grunn: de lover en e-post, og appen
+/// sender ingen. Et passord gis ut av en administrator (AdminController.AccountPassword)
+/// og byttes av eieren ved første innlogging. Åpnes disse igjen, må det være sammen med en
+/// e-posttjeneste.
 /// </summary>
 public static class ClosedRegistrationExtensions
 {
@@ -18,7 +23,11 @@ public static class ClosedRegistrationExtensions
         "/Identity/Account/Register",
         "/Identity/Account/RegisterConfirmation",
         "/Identity/Account/ResendEmailConfirmation",
-        "/Identity/Account/ExternalLogin"
+        "/Identity/Account/ExternalLogin",
+        "/Identity/Account/ForgotPassword",
+        "/Identity/Account/ForgotPasswordConfirmation",
+        "/Identity/Account/ResetPassword",
+        "/Identity/Account/ResetPasswordConfirmation"
     };
 
     public static IApplicationBuilder UseClosedSelfRegistration(this IApplicationBuilder app)

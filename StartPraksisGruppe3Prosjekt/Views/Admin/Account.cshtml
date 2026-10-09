@@ -1,0 +1,119 @@
+@model AdminAccountViewModel
+@{
+    ViewData["Title"] = $"Account – {Model.Account.Email}";
+    ViewData["FullWidth"] = true;
+
+    var account = Model.Account;
+    var message = TempData["AdminMessage"] as string;
+
+    var back = account.Roles.Contains(Roles.Admin) || account.IsCoach
+        ? AdminAccountsViewModel.Staff
+        : account.Roles.Contains(Roles.Player) ? AdminAccountsViewModel.Players : AdminAccountsViewModel.Guardians;
+}
+
+@*
+    One account, and whether it can sign in. No teams: a coach is a coach for the whole club,
+    not for one team -- see Authorization/CanViewTeamHandler.cs.
+
+    Every button here is its own small form and its own POST. Giving access is the one that
+    matters: it sets a temporary password, opens the account, and answers with the page that
+    shows the password -- once. There is no "show it again"; a lost one is replaced by a new one.
+*@
+
+<section class="sc-hero">
+    <div class="sc-page">
+        <a class="sc-hero__back" asp-action="Users" asp-route-show="@(back == AdminAccountsViewModel.Staff ? null : back)">← Accounts</a>
+
+        <div class="sc-rule"></div>
+        <p class="sc-hero__eyebrow">@string.Join(", ", account.Roles.Select(Roles.DisplayName))</p>
+        <h1>@account.Email</h1>
+        <div class="sc-hero__meta">
+            <span>@account.StatusText</span>
+            @if (Model.IsSelf)
+            {
+                <span>This is you</span>
+            }
+        </div>
+    </div>
+</section>
+
+<div class="sc-page">
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <section class="sc-section">
+            <div class="sc-notice" role="status"><p>@message</p></div>
+        </section>
+    }
+
+    <section class="sc-section sc-section--last">
+        <div class="sc-rule"></div>
+        <h2>Sign-in</h2>
+
+        <div class="sc-card sc-card--left">
+            <p>
+                <span class="@account.StatusClass">@account.StatusText</span>
+            </p>
+            <p class="sc-card__meta">
+                @if (Model.IsSelf)
+                {
+                    <text>Your own account. Change your password from the account menu, top right.</text>
+                }
+                else if (account.IsLocked && !account.HasPassword)
+                {
+                    <text>
+                        Nobody can sign in with this account yet. Giving access makes a temporary
+                        password for you to pass on; the owner has to choose their own the first
+                        time they sign in.
+                    </text>
+                }
+                else if (account.IsLocked)
+                {
+                    <text>The account is locked and cannot sign in.</text>
+                }
+                else if (!account.HasPassword)
+                {
+                    <text>The account has no password, so nobody can sign in with it.</text>
+                }
+                else if (account.MustChangePassword)
+                {
+                    <text>
+                        The account has a temporary password. The owner has not signed in and
+                        chosen their own yet.
+                    </text>
+                }
+                else
+                {
+                    <text>
+                        The owner has their own password. A new temporary password replaces it
+                        and signs them out everywhere.
+                    </text>
+                }
+            </p>
+
+            @if (!Model.IsSelf)
+            {
+                <div class="sc-actions">
+                    <form method="post" asp-action="AccountPassword" asp-route-id="@account.Id">
+                        <button type="submit" class="sc-btn">
+                            @(account.HasPassword ? "New temporary password" : "Give access")
+                        </button>
+                    </form>
+
+                    @if (account.IsLocked && account.HasPassword)
+                    {
+                        <form method="post" asp-action="AccountUnlock" asp-route-id="@account.Id">
+                            <button type="submit" class="sc-btn sc-btn--secondary">Unlock</button>
+                        </form>
+                    }
+                    else if (!account.IsLocked)
+                    {
+                        <form method="post" asp-action="AccountLock" asp-route-id="@account.Id">
+                            <button type="submit" class="sc-btn sc-btn--secondary">Lock the account</button>
+                        </form>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+
+</div>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StartPraksisGruppe3Prosjekt.Authorization;
 using StartPraksisGruppe3Prosjekt.Models;
+using StartPraksisGruppe3Prosjekt.Security;
 
 namespace StartPraksisGruppe3Prosjekt.Data;
 
@@ -22,8 +23,12 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// </summary>
 public static class SeedData
 {
-    /// <summary>Passord for demokontoene. Overstyres med Seed:DevPassword i user-secrets.</summary>
-    private const string DefaultDevPassword = "Dev!passord1";
+    /// <summary>
+    /// Passord for demokontoene i Development. Overstyres med Seed:DevPassword i user-secrets.
+    /// Det står i et offentlig repo, og virker derfor ikke utenfor Development -- se
+    /// <see cref="AccountRules.PublishedDevPassword"/>.
+    /// </summary>
+    private const string DefaultDevPassword = AccountRules.PublishedDevPassword;
 
     /// <summary>The one coach account. Kept as-is so nobody has to relearn a login.</summary>
     internal const string CoachEmail = "trener.senior@ikstart.example";
@@ -70,14 +75,19 @@ public static class SeedData
         var teams = await SeedTeamsAsync(db, logger);
         await SeedRoundsAsync(db, logger);
 
+        var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
+
         if (!environment.IsDevelopment())
         {
+            // Ingen demokontoer her. Den første administratoren kommer fra miljøet, og resten
+            // oppretter hen selv på Admin/Users.
+            await BootstrapAdminAsync(userManager, configuration, logger);
+
             logger.LogInformation(
                 "Hopper over demokontoer, troppene og importen: miljøet er ikke Development.");
             return;
         }
 
-        var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
         var password = configuration["Seed:DevPassword"] ?? DefaultDevPassword;
 
         // De ekte troppene, når de er hentet. Null uten fila -- se SeedSquads.
@@ -922,6 +932,80 @@ public static class SeedData
                 guardianships,
                 accounts);
         }
+    }
+
+    /// <summary>
+    /// Den første administratoren utenfor Development, fra Bootstrap:AdminEmail og
+    /// Bootstrap:AdminPassword i miljøet (Bootstrap__AdminEmail, Bootstrap__AdminPassword).
+    ///
+    /// Uten den er det ingen vei inn: demokontoene finnes ikke i en ny base, og i en base som er
+    /// kopiert fra utvikling har de et passord som er avvist utenfor Development
+    /// (<see cref="AccountRules.PublishedDevPassword"/>). Kontoen opprettes bare hvis adressen
+    /// ikke finnes fra før. En konto som finnes, røres ikke -- ellers ville et passord som ble
+    /// liggende igjen i miljøet, skrevet over det administratoren selv har valgt, ved hver
+    /// oppstart. Passordet fra miljøet er midlertidig på samme måte som ett en administrator
+    /// gir ut: det må byttes ved første innlogging, og skal fjernes fra miljøet etterpå.
+    /// </summary>
+    private static async Task BootstrapAdminAsync(
+        UserManager<IdentityUser> userManager,
+        IConfiguration configuration,
+        ILogger logger)
+    {
+        var email = configuration["Bootstrap:AdminEmail"]?.Trim();
+        var password = configuration["Bootstrap:AdminPassword"];
+
+        if (string.IsNullOrEmpty(email) && string.IsNullOrEmpty(password))
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+        {
+            logger.LogWarning(
+                "Bootstrap:AdminEmail og Bootstrap:AdminPassword må settes sammen. Ingen administrator er opprettet.");
+            return;
+        }
+
+        if (await userManager.FindByEmailAsync(email) is { } existing)
+        {
+            logger.LogWarning(
+                await userManager.IsInRoleAsync(existing, Roles.Admin)
+                    ? "Bootstrap-administratoren finnes fra før og er ikke rørt. Fjern Bootstrap:AdminPassword fra miljøet."
+                    : "Kontoen i Bootstrap:AdminEmail finnes fra før, men er ikke administrator. Ingenting er endret; bruk en annen adresse.");
+            return;
+        }
+
+        var user = new IdentityUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true
+        };
+
+        var result = await userManager.CreateAsync(user, password);
+
+        if (result.Succeeded)
+        {
+            result = await userManager.AddToRoleAsync(user, Roles.Admin);
+        }
+
+        if (result.Succeeded)
+        {
+            result = await userManager.AddClaimAsync(
+                user,
+                new System.Security.Claims.Claim(AccountRules.MustChangePasswordClaim, bool.TrueString));
+        }
+
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                "Klarte ikke å opprette bootstrap-administratoren: " +
+                string.Join("; ", result.Errors.Select(e => e.Description)));
+        }
+
+        logger.LogWarning(
+            "Bootstrap-administratoren er opprettet. Passordet må byttes ved første innlogging. " +
+            "Fjern Bootstrap:AdminPassword fra miljøet nå.");
     }
 
     internal static async Task<string> EnsureUserAsync(

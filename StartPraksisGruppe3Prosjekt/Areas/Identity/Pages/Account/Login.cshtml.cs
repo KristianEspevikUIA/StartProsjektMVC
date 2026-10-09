@@ -26,11 +26,16 @@ namespace StartPraksisGruppe3Prosjekt.Areas.Identity.Pages.Account;
 public class LoginModel : PageModel
 {
     private readonly SignInManager<IdentityUser> _signInManager;
+    private readonly IHostEnvironment _environment;
     private readonly ILogger<LoginModel> _logger;
 
-    public LoginModel(SignInManager<IdentityUser> signInManager, ILogger<LoginModel> logger)
+    public LoginModel(
+        SignInManager<IdentityUser> signInManager,
+        IHostEnvironment environment,
+        ILogger<LoginModel> logger)
     {
         _signInManager = signInManager;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -78,6 +83,19 @@ public class LoginModel : PageModel
 
         if (!ModelState.IsValid)
         {
+            return Page();
+        }
+
+        // The development password is in a public repository, so outside Development it opens
+        // nothing -- whichever account still has it, because the database was copied from a
+        // development one. Refused before the account is looked up, with the same answer as
+        // any wrong password: it must not say which accounts have it.
+        // See AccountRules.PublishedDevPassword.
+        if (!_environment.IsDevelopment()
+            && string.Equals(Input.Password, Security.AccountRules.PublishedDevPassword, StringComparison.Ordinal))
+        {
+            _logger.LogWarning("Sign-in refused: the published development password was tried.");
+            ModelState.AddModelError(string.Empty, "That email address and password do not match an account.");
             return Page();
         }
 
