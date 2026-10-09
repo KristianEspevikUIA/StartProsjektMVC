@@ -157,14 +157,14 @@ og kjør appen igjen. Det rammer alle på prosjektet, så si fra i kanalen førs
 
 ## Stack
 
-- ASP.NET Core MVC, **.NET 8 (LTS)**
-- EF Core 8, code-first, **Postgres i Supabase** (Npgsql)
+- ASP.NET Core MVC, **.NET 10 (LTS)**
+- EF Core 10, code-first, **Postgres i Supabase** (Npgsql)
 - ASP.NET Core Identity med roller
 
-Om rammeverkversjonen: prosjektet står på `net8.0` fordi .NET 8 er en LTS-utgave. Skal dere
-opp på .NET 10 LTS, er det `<TargetFramework>` i csproj-filen, pakkeversjonene og
-`dotnet-version` i `.github/workflows/ci.yml`. Gjør det som en egen, samlet endring, ikke
-midt i en feature.
+Om rammeverkversjonen: prosjektet står på `net10.0` fordi .NET 10 er en LTS-utgave (støttet til
+november 2028). Rammeverket står tre steder: `<TargetFramework>` i csproj-filen, pakkeversjonene
+og `dotnet-version` i `.github/workflows/ci.yml`. Bytt alle tre i én samlet endring, ikke midt i
+en feature. Verktøyet `dotnet-ef` bør ha samme hovedversjon som EF-pakkene.
 
 **Kode og identifikatorer på engelsk. Brukergrensesnittet er også på engelsk**, i tråd med
 StartCompass-nettstedet og wireframene. README og dokumentasjonen i `docs/` skrives på norsk.
@@ -572,7 +572,7 @@ er i samme slengen merket obsolete med «no longer needed and does nothing» —
 stående gjorde altså ingenting, og å fjerne det endret heller ingenting. Det som faktisk
 verifiserer, er `VerifyCA` (signatur) og `VerifyFull` (signatur + vertsnavn).
 
-Målt mot pooleren med Npgsql 8.0.6, som er versjonen prosjektet drar inn:
+Målt mot pooleren med Npgsql 8.0.6, før oppgraderingen til .NET 10:
 
 | `SSL Mode` | Resultat |
 | --- | --- |
@@ -620,5 +620,3 @@ forskjell på Supabase og en som står i veien.
 - [ ] `TempData` legger en fjerde cookie, `.AspNetCore.Mvc.CookieTempDataProvider`, med
       kvitteringsmeldinger som navngir spilleren. Den er kryptert, men har ikke fått navn
       og herding som de to andre, og mangler i cookie-oversikten i Sikt-meldingen
-- [ ] .NET 8 går ut av støtte 10. november 2026, og pakkene står på 8.0.11 (nyeste er
-      8.0.31). Se «Stack» for hva en oppgradering til .NET 10 innebærer
