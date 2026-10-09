@@ -58,6 +58,10 @@
   ],
 
   // The nineteen positions in the workbook's list, in its order.
+  //
+  // "alsoPlays" is for a position whose players can be picked for other positions too, at the
+  // same rank: a centre-forward plays either side of a front two, so a CF is a candidate for
+  // LST and RST as well. One way only -- a left striker is not thereby a centre-forward.
   "positions": [
     { "key": "RB", "name": "Right-back" },
     { "key": "RCB", "name": "Right centre-back" },
@@ -75,7 +79,7 @@
     { "key": "ACM", "name": "Attacking midfielder (10)" },
     { "key": "LW", "name": "Left winger" },
     { "key": "RST", "name": "Right striker" },
-    { "key": "CF", "name": "Centre-forward" },
+    { "key": "CF", "name": "Centre-forward", "alsoPlays": [ "LST", "RST" ] },
     { "key": "LST", "name": "Left striker" },
     { "key": "GK", "name": "Goalkeeper" }
   ],
@@ -143,14 +147,18 @@
 
   // The workbook's team list. Used for "Rated as" (the level a player is judged against)
   // and for the MESO training group.
+  //
+  // The age groups are shown as the club names its teams, G for gutter: G19, not U19s. The
+  // workbook's own word for each is in "workbook", so the import still finds the key for what
+  // a coach picked there. U21s has no G team and keeps the workbook's name.
   "levels": [
     { "key": "first-team", "name": "1st team" },
     { "key": "u21", "name": "U21s" },
-    { "key": "u19", "name": "U19s" },
-    { "key": "u17", "name": "U17s" },
-    { "key": "u15", "name": "U15s" },
-    { "key": "u14", "name": "U14s" },
-    { "key": "u13", "name": "U13s" },
+    { "key": "u19", "name": "G19", "workbook": "U19s" },
+    { "key": "u17", "name": "G17", "workbook": "U17s" },
+    { "key": "u15", "name": "G15", "workbook": "U15s" },
+    { "key": "u14", "name": "G14", "workbook": "U14s" },
+    { "key": "u13", "name": "G13", "workbook": "U13s" },
     { "key": "loan-es", "name": "Loan ES" },
     { "key": "loan-1div", "name": "Loan 1.Div" },
     { "key": "loan-2div", "name": "Loan 2.Div" },

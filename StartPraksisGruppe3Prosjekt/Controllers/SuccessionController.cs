@@ -109,11 +109,18 @@ public class SuccessionController : Controller
             _ => rows.OrderBy(r => r.Player.Code, StringComparer.Ordinal).ToList()
         };
 
-        // A row with nothing but a code on it says nothing about the player; a row with ratings
-        // or a contract does, and those are the ones logged.
+        // The club's photo of each player, for the first cell of the row. The same photos,
+        // through the same action, as the best eleven.
+        var photos = await PhotoUrlsAsync(ordered.Select(r => r.Player.Id).ToList(), cancellationToken);
+
+        // A row with nothing but a code on it says nothing about the player; a row with ratings,
+        // a contract or the player's photo does, and those are the ones logged.
         await _accessLog.RecordManyAsync(
             User,
-            ordered.Where(r => r.Consensus is not null || r.Profile is not null).Select(r => r.Player.Id).ToList(),
+            ordered
+                .Where(r => r.Consensus is not null || r.Profile is not null || photos.ContainsKey(r.Player.Id))
+                .Select(r => r.Player.Id)
+                .ToList(),
             "Succession/Overview",
             cancellationToken);
 
@@ -137,6 +144,7 @@ public class SuccessionController : Controller
             Today = today,
             CanRate = IsCoach && filter.IsCurrentCycle,
             RaterNames = raterNames,
+            Photos = photos,
             RatedThisCycle = ordered.Count(r => r.RatersThisCycle.Count > 0),
             RatedByYou = ordered.Count(r => r.RatersThisCycle.Contains(UserId)),
             ReadyNow = ordered.Count(r => r.Level == ReadinessLevel.Ready),
@@ -190,8 +198,14 @@ public class SuccessionController : Controller
 
         var names = await DisplayNamesAsync(rows.Values, cancellationToken);
 
+        // Picked on the positions each player can play, not only the ones written down: a
+        // centre-forward is a candidate either side of a front two. See PlayablePositions.
         var candidates = rows.Values
-            .Select(r => new ElevenCandidate(r.Player.Id, r.Player.Code, r.Consensus!.Overall!.Value, r.Consensus.Positions))
+            .Select(r => new ElevenCandidate(
+                r.Player.Id,
+                r.Player.Code,
+                r.Consensus!.Overall!.Value,
+                SuccessionMath.PlayablePositions(r.Consensus.Positions, _catalog.Settings)))
             .ToList();
 
         var slots = SuccessionMath.PickEleven(chosen, candidates, _catalog.Settings);
@@ -303,8 +317,10 @@ public class SuccessionController : Controller
                         p.Overall,
                         SuccessionFormat.LevelName(p.Level),
                         // The file's own spelling of each key, so the script can match a slot
-                        // by plain equality.
-                        p.Positions.ToDictionary(pos => _catalog.Position(pos.Key)?.Key ?? pos.Key, pos => pos.BestRank),
+                        // by plain equality. The positions the player can play, as the pick
+                        // has them: a centre-forward moved to RST is not out of position.
+                        SuccessionMath.PlayablePositions(p.Positions, _catalog.Settings)
+                            .ToDictionary(pos => _catalog.Position(pos.Key)?.Key ?? pos.Key, pos => pos.BestRank),
                         p.FromEarlierCycle,
                         Url.Action(nameof(Player), new { id = p.PlayerId, cycle = filter.Cycle.Key }) ?? string.Empty))
                     .ToList(),
@@ -323,11 +339,12 @@ public class SuccessionController : Controller
     }
 
     /// <summary>
-    /// A player's photo, for the best eleven. The club's squad photo, entered for the welcome --
-    /// see docs/player-welcome.md.
+    /// A player's photo, for the board and the best eleven. The club's squad photo, entered for
+    /// the welcome -- see docs/player-welcome.md.
     ///
     /// Only for a player CanViewPlayer lets this user see, like every other page here. Not logged
-    /// on its own: the best eleven logs every player it shows, and the photo is on that page.
+    /// on its own: the board and the best eleven log every player they show a photo of, and the
+    /// photo is on those pages.
     /// The version in the URL changes with the photo, so "private" caching never shows an old one.
     /// </summary>
     [HttpGet]
@@ -622,10 +639,9 @@ public class SuccessionController : Controller
         var players = rows.Select(r => r.Player).ToList();
         var ids = players.Select(p => p.Id).ToList();
         var firstNames = await _welcome.FirstNamesAsync(ids, cancellationToken);
-        var photos = await _welcome.PhotoVersionsAsync(ids, cancellationToken);
+        var photos = await PhotoUrlsAsync(ids, cancellationToken);
 
-        string? PhotoOf(int id) =>
-            photos.TryGetValue(id, out var version) ? Url.Action(nameof(Photo), new { id, v = version }) : null;
+        string? PhotoOf(int id) => photos.GetValueOrDefault(id);
 
         var shared = firstNames.Values
             .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
@@ -638,6 +654,21 @@ public class SuccessionController : Controller
             p => firstNames.TryGetValue(p.Id, out var name)
                 ? new ShirtName(name, shared.Contains(name) ? p.Code : null, PhotoOf(p.Id))
                 : new ShirtName(p.Code, null, PhotoOf(p.Id)));
+    }
+
+    /// <summary>
+    /// The URL of the club's photo of each of these players, by player id. A player without a
+    /// photo is left out. The photo's version is in the URL -- see <see cref="Photo"/>.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, string>> PhotoUrlsAsync(
+        IReadOnlyCollection<int> playerIds,
+        CancellationToken cancellationToken)
+    {
+        var versions = await _welcome.PhotoVersionsAsync(playerIds, cancellationToken);
+
+        return versions.ToDictionary(
+            photo => photo.Key,
+            photo => Url.Action(nameof(Photo), new { id = photo.Key, v = photo.Value })!);
     }
 
     /// <summary>

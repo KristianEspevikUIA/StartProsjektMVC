@@ -88,6 +88,41 @@ public sealed class SuccessionOverviewViewModel
 
     /// <summary>The model for one row's list of coaches.</summary>
     public SuccessionRatersViewModel RatersOf(BoardPlayer row) => new(row, RaterNames);
+
+    /// <summary>
+    /// The URL of the club's photo of each player on the board, by player id. A player the club
+    /// has entered no photo for is not in it. See SuccessionController.Photo.
+    /// </summary>
+    public IReadOnlyDictionary<int, string> Photos { get; init; } = new Dictionary<int, string>();
+
+    /// <summary>The model for the first cell of a row: the photo, the name and the team.</summary>
+    public SuccessionPlayerCellViewModel PlayerCell(BoardPlayer row) =>
+        new(row.Player, Photos.GetValueOrDefault(row.Player.Id), Filter.Cycle.Key);
+}
+
+/// <summary>Who a row of the board is about. See _SuccessionPlayerCell.cshtml.</summary>
+/// <param name="PhotoUrl">The URL of the club's photo of the player, or null when there is none.</param>
+/// <param name="CycleKey">The cycle the board shows, so the player page opens on the same one.</param>
+public sealed record SuccessionPlayerCellViewModel(Player Player, string? PhotoUrl, string CycleKey)
+{
+    /// <summary>
+    /// "AK" in the circle of a player without a photo: the first letter of the first name and of
+    /// the last. One letter for a name of one word.
+    /// </summary>
+    public string Initials
+    {
+        get
+        {
+            var words = Player.Code.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            return words.Length switch
+            {
+                0 => string.Empty,
+                1 => words[0][..1].ToUpperInvariant(),
+                _ => (words[0][..1] + words[^1][..1]).ToUpperInvariant()
+            };
+        }
+    }
 }
 
 /// <summary>The coaches behind one row of the board. See _SuccessionRaters.cshtml.</summary>

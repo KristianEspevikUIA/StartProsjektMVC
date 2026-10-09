@@ -1,0 +1,30 @@
+@model SuccessionPlayerCellViewModel
+@*
+    Who a row of the board is about: the club's photo of the player, the name, and the team
+    under it. One cell rather than a Player and a Team column -- eighty-nine rows read as
+    eighty-nine people, and the table has a column more for what the coaches said.
+
+    The photo is decoration next to the name, so its alt is empty; a player the club has entered
+    no photo for gets their initials in the same circle, and every row stays the same height.
+    loading="lazy" because the board is every player in the club and each photo is its own
+    request to the database: the ones on screen are fetched, the rest as the coach scrolls, and
+    the three tables behind the other tabs fetch nothing until they are opened.
+*@
+<div class="sc-player">
+    @if (Model.PhotoUrl is { } photo)
+    {
+        <img class="sc-player__photo" src="@photo" alt="" width="40" height="40" loading="lazy" decoding="async" />
+    }
+    else
+    {
+        <span class="sc-player__photo sc-player__photo--none" aria-hidden="true">@Model.Initials</span>
+    }
+    <div class="sc-player__text">
+        <a class="sc-code" asp-controller="Succession" asp-action="Player"
+           asp-route-id="@Model.Player.Id" asp-route-cycle="@Model.CycleKey">@Model.Player.Code</a>
+        @if (Model.Player.Team?.Name is { } team)
+        {
+            <span class="sc-player__team">@team</span>
+        }
+    </div>
+</div>

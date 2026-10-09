@@ -48,7 +48,7 @@ ligger slik:
 | --- | --- | --- |
 | Last Name, First Name | Bare for å finne spilleren ved import, og lagres ikke. Se «Import av trenernes ark» | – |
 | Coach/Coaches (Raters) | Den innloggede treneren, én vurdering hver | automatisk |
-| Rated as (List) | `RatedAs`, fra nivålista | trener |
+| Rated as (List) | `RatedAs`, fra nivålista. Aldersgruppene vises med klubbens lagnavn (G19, ikke U19s); arkets ord står i `workbook` i JSON-fila, så importen finner dem | trener |
 | Ability Cat. (List) | `AbilityCategory` | trener |
 | 1st/2nd/3rd Position (L) | `FirstPosition`, `SecondPosition`, `ThirdPosition` | trener |
 | Year Born | `Player.BirthDate` (bare året vises) | finnes fra før |
@@ -120,6 +120,16 @@ sin egen overall og datoen de vurderte, og en lenke til spillersiden med alle tr
 side. For en grå rad er det trenerne fra den tidligere syklusen tallene kommer fra. Trenerne
 vises med delen av e-postadressen før @, og den innloggede treneren som «You».
 
+**Spillercellen og bredden.** Første celle i hver rad på tavla er spilleren: klubbens bilde i en
+sirkel, navnet, og laget under navnet (`_SuccessionPlayerCell.cshtml`). Det er ingen egen
+lagkolonne. En spiller uten bilde får forbokstavene i sirkelen. Bildene er de samme som på banen
+og hentes fra `/Succession/Photo/{id}`, ett om gangen etter hvert som radene kommer til syne
+(`loading="lazy"`). Readiness-tabellen har elleve kolonner, og fra 1260 px vindusbredde går den
+ut forbi sidens 1180 px, opptil 1600 px (`.sc-table-wrap--wide`). Ingenting tvinges til én linje:
+tabellen fordeler bredden selv, så kategorier, delte posisjoner og «Off and weeks to ready» står
+på én linje fra omtrent 1640 px, og brytes gradvis i smalere vinduer i stedet for å rulle
+sidelengs. De tre andre tabellene er like brede som siden.
+
 **Uenighet.** To trenere som står `disagreementAt` (3) poeng eller mer fra hverandre på én
 vurdering, eller er uenige om kategorien. Slike spillere vises i fanen «Where coaches disagree».
 
@@ -139,7 +149,10 @@ Det er et anslag ut fra farten så langt, ikke et løfte, og siden sier det.
 ### Beste ellever
 
 1. En spiller kan stå i en posisjon hvis en trener har ført den opp blant sine tre. Den teller
-   med beste rangering noen trener ga.
+   med beste rangering noen trener ga. En posisjon kan også stå inne for andre: i JSON-fila har CF
+   `"alsoPlays": ["LST", "RST"]`, så en spiller trenerne har som CF, kan velges som venstre eller
+   høyre spiss med samme rangering (`SuccessionMath.PlayablePositions`). Det går bare den ene
+   veien. En venstre spiss blir ikke CF i 4-3-3. Tavla viser fortsatt bare det trenerne skrev.
 2. Fit for posisjonen er overall minus `positionRankPenalty`: 0 for 1. posisjon, 0,5 for 2. og 1,0
    for 3. En naturlig høyreback på 7,0 går foran en midtstopper på 7,2 som bare dekker opp der.
 3. Alle par (spiller, posisjon) sorteres etter fit. Det sterkeste paret plasseres først. En
@@ -252,7 +265,8 @@ systemet:
 - **Revisjonslogg.** Spillersiden og skjemaet skriver én rad hver (`Succession/Player`,
   `Succession/Rate`). Tavla og banen skriver én rad per spiller som vises med tall
   (`Succession/Overview`, `Succession/Formation`), med én lagring for hele siden
-  (`IPlayerAccessLog.RecordManyAsync`). På banen er det alle vurderte spillere, også de på
+  (`IPlayerAccessLog.RecordManyAsync`). På tavla gjelder det også en spiller som bare vises med
+  bilde, uten tall eller kontrakt. På banen er det alle vurderte spillere, også de på
   benken, fordi lista viser tall for dem.
 - **Innsyn og sletting.** `/Admin/Export/{id}` tar med `SuccessionAssessments` med vurderinger og
   fritekst, og `SuccessionProfile`. Trenerne står som «Coach 1», «Coach 2». Sletting av spilleren

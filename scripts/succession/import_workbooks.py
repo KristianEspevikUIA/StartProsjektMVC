@@ -310,6 +310,9 @@ def load_catalog() -> dict:
         for option in catalog[name]:
             found[option_key(option["key"])] = option["key"]
             found[option_key(option["name"])] = option["key"]
+            # The workbook's own word, where the application shows another: "U17s" for "G17".
+            if option.get("workbook"):
+                found[option_key(option["workbook"])] = option["key"]
         return found
 
     return {

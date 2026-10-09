@@ -76,6 +76,22 @@ public sealed class SuccessionOption
 
     /// <summary>A name from <see cref="SuccessionTones"/>, or null for a list that is not coloured.</summary>
     public string? Tone { get; init; }
+
+    /// <summary>
+    /// For a position: the other positions a player named for this one can be picked for too, at
+    /// the same rank. A centre-forward plays either side of a front two, so "CF" lists "LST" and
+    /// "RST" -- without it the 3-5-2 had no striker among the players the coaches wrote down as
+    /// CF. One way only: a left striker is not thereby a centre-forward. Empty for every other
+    /// position and every other list. See SuccessionMath.PlayablePositions.
+    /// </summary>
+    public IReadOnlyList<string> AlsoPlays { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// What the coaches' workbook calls this entry, where that is not <see cref="Name"/>: the
+    /// workbook says "U17s" for the level the pages show as "G17". Only the import reads it
+    /// (scripts/succession/import_workbooks.py), to find the key for what a coach picked.
+    /// </summary>
+    public string? Workbook { get; init; }
 }
 
 /// <summary>
