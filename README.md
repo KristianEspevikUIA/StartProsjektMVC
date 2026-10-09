@@ -89,7 +89,10 @@ Merk: **anon-/publishable-nøkkelen (`sb_publishable_…`) er ikke databasepasso
 gjelder REST-API-et. En direkte Postgres-tilkobling krever passordet til `postgres`-rollen.
 
 Bruk port **5432** (session-pooleren). Port 6543 er transaction-pooleren, og den fungerer
-ikke med EF-migrasjoner.
+ikke med EF-migrasjoner. Session-pooleren tar bare **15 klienter for hele prosjektet**, delt
+mellom alle som kjører appen. Appen bruker derfor høyst 5 tilkoblinger mot den (sett
+`Maximum Pool Size` i strengen for noe annet). Får du «EMAXCONNSESSION max clients reached», er
+de andres apper eller gamle prosesser hos deg det som holder dem: stopp dem og prøv igjen.
 
 **Steg 3: kjør.**
 
