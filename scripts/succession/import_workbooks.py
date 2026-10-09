@@ -33,25 +33,26 @@ column the template left empty (the coach's name, readiness, risk, ...), or a li
 differs from what the template has for that player. Those rows are assessments, with or without
 the six ratings. The untouched template rows are not anybody's opinion, and are left out.
 
-What is taken, and what is not
-------------------------------
-The structured columns: the six ratings (0-10: the coaches use 0 too), "Rated as", the
+What is taken
+-------------
+Everything the coach wrote. The six ratings (0-10: the coaches use 0 too), "Rated as", the
 ability category, the three positions, the coach's personal readiness (0-10 in halves, as the
 coaches write it), the succession risk when it is Green, Amber or Red, "Pathway blocked?" and
-"External needed?" when they start with yes or no, and the contract type, contract end and
-MESO training group.
+"External needed?" when they start with yes or no, the contract type, contract end and MESO
+training group -- and the free text: the notes, the three projections, "What now?", the
+development focus and the strengths.
+
+The readiness, risk, "Pathway blocked?" and "External needed?" columns were used for words as
+often as for a number or a list value: a name, a reason, "Yes, by players in the first team".
+Those words are kept in a field of their own next to the value (pathwayBlockedNote and so on),
+and the yes or no at the start of them is still read. Nothing a coach wrote is dropped. The
+words are personal data about the players, most of them minors, some of it about health and
+home: the folder is git-ignored for that reason, and the report never repeats them.
 
 Contract, contract end and training group are facts about the player, held once. Where a
 coach has corrected the template's value -- a contract that is Youth, not Non -- the correction
 wins. Where two coaches corrected it differently, the template's value stays, and the report
 says so.
-
-The free-text columns -- the notes, the three projections, "What now?", the development focus
-and the strengths -- are never read. In the workbooks the coaches handed in, they and the
-columns meant for lists hold injuries, growth, family circumstances and other players' names,
-which the application's own form asks coaches to leave out. A list column that holds text
-instead of a list value is skipped the same way, and the report says which column, never what
-it said.
 
 A number outside the scale, or a readiness that is not a whole or a half, is left out rather
 than rounded, and listed in the report.
@@ -109,8 +110,8 @@ FILE_MARKER = "ik_start_succession_planning"
 MAIN = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 DOC_REL = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 
-# The template's headings, lower-case, and what each column is. The free-text columns are not
-# here, so they are never read. "Availabilty" is the template's own spelling.
+# The template's headings -- lower-case, dashes as hyphens -- and what each column is.
+# "Availabilty" is the template's own spelling.
 COLUMNS = {
     "last name": "last",
     "first name": "first",
@@ -136,7 +137,18 @@ COLUMNS = {
     "pathway blocked?": "pathwayBlocked",
     "succession risk (green/amber/red)": "successionRisk",
     "external needed? (y/n)": "externalNeeded",
+    "notes": "notes",
+    "0-6m projection": "projection0To6Months",
+    "6-18m projection": "projection6To18Months",
+    "18-36m projection": "projection18To36Months",
+    "what now?": "whatNow",
+    "key development focus": "keyDevelopmentFocus",
+    "super strengths": "superStrengths",
 }
+
+# Free text, taken as written.
+TEXTS = ("notes", "projection0To6Months", "projection6To18Months", "projection18To36Months",
+         "whatNow", "keyDevelopmentFocus", "superStrengths")
 
 REQUIRED = {"last", "first", "physical", "technical", "tactical", "mental", "professionalism", "availability"}
 
@@ -146,7 +158,7 @@ TEAMS = {"u14s": "G14", "u15s": "G15", "u17s": "G17", "u19s": "G19"}
 
 # Columns the template came with empty: a row with one of these filled in, but no rating, is a
 # coach's row that is left out, not an untouched one.
-TOUCHED = ("coach", "personalReadiness", "successionRisk", "pathwayBlocked", "externalNeeded")
+TOUCHED = ("coach", "personalReadiness", "successionRisk", "pathwayBlocked", "externalNeeded") + TEXTS
 
 YES = {"y", "yes", "ja", "j"}
 NO = {"n", "no", "nei"}
@@ -249,13 +261,17 @@ def rater_of(path: Path) -> str:
     return (capitals if len(capitals) >= 2 else tag).lower()
 
 
+def heading(text) -> str:
+    """A column heading as COLUMNS writes it: '0–6m Projection ' is '0-6m projection'."""
+    return " ".join(str(text).replace("\u2013", "-").replace("\u2014", "-").lower().split())
+
+
 def read_workbook(path: Path, rated_on: dt.date | None) -> dict:
     rows = read_sheet(path)
     if not rows or rows[0]["_row"] != 1:
         raise Refused(f"{path.name}: the first row has no headings.")
 
-    header = {column: COLUMNS.get(str(text).strip().lower())
-              for column, text in rows[0].items() if column != "_row"}
+    header = {column: COLUMNS.get(heading(text)) for column, text in rows[0].items() if column != "_row"}
     missing = REQUIRED - set(header.values())
     if missing:
         raise Refused(f"{path.name}: the sheet has no column for {', '.join(sorted(missing))}.")
@@ -390,25 +406,47 @@ def assessment_of(workbook: dict, row: dict, catalog: dict, problems: list) -> d
 
     for field, table in LISTS:
         value = as_option(row.get(field), catalog[table])
-        if value == TEXT:
+        if value == TEXT and field == "successionRisk":
+            # A reason rather than a colour: kept as words, next to an empty risk.
+            value = None
+        elif value == TEXT:
             problem(problems, workbook, row, field, value)
             value = None
         found[field] = value
+    found["successionRiskNote"] = words_beside(row.get("successionRisk"), found["successionRisk"] is not None)
 
-    readiness = as_number(row.get("personalReadiness"), catalog["scale"], 0.5)
-    if readiness is not None and not isinstance(readiness, (int, float)):
+    raw = row.get("personalReadiness")
+    readiness = as_number(raw, catalog["scale"], 0.5)
+    if readiness == TEXT:
+        readiness = None
+    elif readiness is not None and not isinstance(readiness, (int, float)):
         problem(problems, workbook, row, "personalReadiness", readiness)
         readiness = None
     found["personalReadiness"] = readiness
+    found["personalReadinessNote"] = str(raw) if isinstance(raw, str) else None
 
     for field in ("pathwayBlocked", "externalNeeded"):
         value = as_yes_no(row.get(field))
-        if value == TEXT:
-            problem(problems, workbook, row, field, value)
-            value = None
-        found[field] = value
+        found[field] = None if value == TEXT else value
+        found[f"{field}Note"] = words_beside(row.get(field), value != TEXT)
+
+    for field in TEXTS:
+        value = row.get(field)
+        found[field] = None if value is None else " ".join(str(value).split()) or None
 
     return found
+
+
+def words_beside(value, understood: bool) -> str | None:
+    """
+    The words in a list or yes/no cell, unless they were only the value itself: "No." and
+    "Green" say nothing more; "Yes, by players in the first team" and "lazyness" do.
+    """
+    if not isinstance(value, str):
+        return None
+    if understood and len(re.findall(r"[a-zæøå]+", value.lower())) <= 1:
+        return None
+    return value
 
 
 # --- Matching --------------------------------------------------------------------------------

@@ -242,9 +242,11 @@ systemet:
 
 - **Ingen navn fra arket i repoet.** Excel-arkene trenerne leverte har fullt navn på alle spillerne.
   De ligger ikke i repoet og skal ikke dit. Importen leser dem fra en git-ignorert mappe, se under.
-- **Ingen fritekst fra arkene.** Arkene har skader, vekst, hjemmeforhold og navn på andre spillere
-  i fritekst, og i kolonner som skulle vært lister. Importen leser aldri fritekstkolonnene, og en
-  listekolonne med tekst i hoppes over.
+- **Friteksten fra arkene er med, etter klubbens ønske.** Den har skader, vekst, hjemmeforhold og
+  navn på andre spillere -- opplysninger skjemaet i appen ellers ber trenerne holde utenfor. Den
+  vises bare for stab, på spillersiden under «In their words», er med i innsynet
+  (`/Admin/Export/{id}`) og slettes med spilleren. Den står aldri i loggen eller i
+  importrapporten.
 - **Bare stab.** `[Authorize(Roles = Coach,Admin)]` på hele controlleren, og `CanViewPlayer` per
   spiller.
 - **Revisjonslogg.** Spillersiden og skjemaet skriver én rad hver (`Succession/Player`,
@@ -296,11 +298,15 @@ skriver `Data/Succession/Import/assessments.json` og `report.md`. Mappa er git-i
   navn, readiness, risiko …), eller en listeverdi som er endret fra malen. Den blir en vurdering,
   med eller uten de seks tallene. Malradene ingen har rørt, er ingens mening og blir ikke med. Et
   ark uten egne rader gir ingen konto.
-- **Strukturerte felt:** de seks vurderingene (0–10), «Rated as», kategori, tre posisjoner,
+- **Alt treneren skrev:** de seks vurderingene (0–10), «Rated as», kategori, tre posisjoner,
   personal readiness (0–10 i halve, som 5,5), risiko når den er Green/Amber/Red, «Pathway blocked?»
-  og «External needed?» når de begynner med ja eller nei, og kontrakt og treningsgruppe. Et tall
-  utenfor skalaen utelates i stedet for å rundes av, og står i rapporten. Tekst gjentas aldri i
-  rapporten.
+  og «External needed?» når de begynner med ja eller nei, kontrakt og treningsgruppe, og
+  friteksten: notes, de tre prognosene, What now, Key development focus og Super strengths.
+- **Ord i tall-, liste- og ja/nei-kolonnene** («Yes, by players in the first team», et navn, en
+  grunn i stedet for en farge) lagres i et eget felt ved siden av verdien:
+  `PersonalReadinessNote`, `PathwayBlockedNote`, `SuccessionRiskNote` og `ExternalNeededNote`.
+  Ja-et eller nei-et først i teksten leses fortsatt. Et tall utenfor skalaen utelates i stedet for
+  å rundes av, og står i rapporten. Tekst gjentas aldri i rapporten.
 - **Syklusen** er den arket sist ble lagret i. `--rated-on` overstyrer.
 - **Kontrakt og treningsgruppe** er fakta, lagret én gang. Der en trener har rettet malens verdi
   (en kontrakt som er Youth, ikke Non), vinner rettingen. Har to trenere rettet ulikt, står malens

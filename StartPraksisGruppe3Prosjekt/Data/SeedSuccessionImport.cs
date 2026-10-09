@@ -16,8 +16,8 @@ namespace StartPraksisGruppe3Prosjekt.Data;
 /// INGENTING AV DET STÅR I REPOET. Fila ligger i Data/Succession/Import/, som er git-ignorert:
 /// repoet er offentlig, og nesten alle spillerne er mindreårige. Den lages av
 /// scripts/succession/import_workbooks.py, som også matcher radene mot troppene og bare tar med
-/// de den kunne matche trygt, og bare de strukturerte feltene -- ingen fritekst. Mangler fila,
-/// gjør denne klassen ingenting.
+/// de den kunne matche trygt. Alt treneren skrev, blir med: tallene, listene og friteksten. Mangler
+/// fila, gjør denne klassen ingenting.
 ///
 /// Når fila finnes:
 ///   * Hvert ark er én trener, og hver trener får en konto med bare initialene
@@ -193,11 +193,34 @@ internal static class SeedSuccessionImport
                 Known(problems, where, "secondPosition", assessment.SecondPosition, catalog.Position);
                 Known(problems, where, "thirdPosition", assessment.ThirdPosition, catalog.Position);
                 Known(problems, where, "successionRisk", assessment.SuccessionRisk, catalog.Risk);
+
+                foreach (var (field, text, limit) in TextsOf(assessment))
+                {
+                    if (text is not null && (string.IsNullOrWhiteSpace(text) || text.Length > limit))
+                    {
+                        problems.Add($"{where}: {field} er tom eller over {limit} tegn");
+                    }
+                }
             }
         }
 
         return problems;
     }
+
+    private static IEnumerable<(string Field, string? Text, int Limit)> TextsOf(SuccessionImportAssessment a) => new[]
+    {
+        ("projection0To6Months", a.Projection0To6Months, SuccessionRules.ProjectionLimit),
+        ("projection6To18Months", a.Projection6To18Months, SuccessionRules.ProjectionLimit),
+        ("projection18To36Months", a.Projection18To36Months, SuccessionRules.ProjectionLimit),
+        ("whatNow", a.WhatNow, SuccessionRules.TextLimit),
+        ("keyDevelopmentFocus", a.KeyDevelopmentFocus, SuccessionRules.TextLimit),
+        ("superStrengths", a.SuperStrengths, SuccessionRules.TextLimit),
+        ("notes", a.Notes, SuccessionRules.NotesLimit),
+        ("personalReadinessNote", a.PersonalReadinessNote, SuccessionRules.TextLimit),
+        ("pathwayBlockedNote", a.PathwayBlockedNote, SuccessionRules.TextLimit),
+        ("successionRiskNote", a.SuccessionRiskNote, SuccessionRules.TextLimit),
+        ("externalNeededNote", a.ExternalNeededNote, SuccessionRules.TextLimit)
+    };
 
     private static void Known(
         List<string> problems,
@@ -512,13 +535,21 @@ internal static class SeedSuccessionImport
         && row.PathwayBlocked == item.PathwayBlocked
         && row.ExternalNeeded == item.ExternalNeeded
         && row.SuccessionRisk == item.SuccessionRisk
+        && row.Projection0To6Months == item.Projection0To6Months
+        && row.Projection6To18Months == item.Projection6To18Months
+        && row.Projection18To36Months == item.Projection18To36Months
+        && row.WhatNow == item.WhatNow
+        && row.KeyDevelopmentFocus == item.KeyDevelopmentFocus
+        && row.SuperStrengths == item.SuperStrengths
+        && row.Notes == item.Notes
+        && row.PersonalReadinessNote == item.PersonalReadinessNote
+        && row.PathwayBlockedNote == item.PathwayBlockedNote
+        && row.SuccessionRiskNote == item.SuccessionRiskNote
+        && row.ExternalNeededNote == item.ExternalNeededNote
         && row.Ratings.Count == item.Ratings.Count
         && row.Ratings.All(r => item.Ratings.TryGetValue(r.RatingKey, out var value) && value == r.Value);
 
-    /// <summary>
-    /// Feltene fra arket. Fritekstfeltene står tomme: skriptet leser dem aldri, se
-    /// scripts/succession/import_workbooks.py.
-    /// </summary>
+    /// <summary>Feltene fra arket, alle sammen.</summary>
     private static void Apply(
         AppDbContext db,
         SuccessionImportAssessment item,
@@ -545,6 +576,17 @@ internal static class SeedSuccessionImport
         row.PathwayBlocked = item.PathwayBlocked;
         row.ExternalNeeded = item.ExternalNeeded;
         row.SuccessionRisk = item.SuccessionRisk;
+        row.Projection0To6Months = item.Projection0To6Months;
+        row.Projection6To18Months = item.Projection6To18Months;
+        row.Projection18To36Months = item.Projection18To36Months;
+        row.WhatNow = item.WhatNow;
+        row.KeyDevelopmentFocus = item.KeyDevelopmentFocus;
+        row.SuperStrengths = item.SuperStrengths;
+        row.Notes = item.Notes;
+        row.PersonalReadinessNote = item.PersonalReadinessNote;
+        row.PathwayBlockedNote = item.PathwayBlockedNote;
+        row.SuccessionRiskNote = item.SuccessionRiskNote;
+        row.ExternalNeededNote = item.ExternalNeededNote;
     }
 }
 
@@ -581,4 +623,15 @@ internal sealed record SuccessionImportAssessment(
     decimal? PersonalReadiness,
     bool? PathwayBlocked,
     bool? ExternalNeeded,
-    string? SuccessionRisk);
+    string? SuccessionRisk,
+    string? Projection0To6Months,
+    string? Projection6To18Months,
+    string? Projection18To36Months,
+    string? WhatNow,
+    string? KeyDevelopmentFocus,
+    string? SuperStrengths,
+    string? Notes,
+    string? PersonalReadinessNote,
+    string? PathwayBlockedNote,
+    string? SuccessionRiskNote,
+    string? ExternalNeededNote);

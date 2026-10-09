@@ -215,10 +215,10 @@ ingen annen periode er åpen**. Har klubben laget sine egne perioder, er plassho
 med jobben sin, og en periode som er stengt fra `Admin/Periods`, er stengt med vilje. Vinduet
 er 90 dager, som er lenger enn en beslutning om virkelige perioder pleier å ta.
 
-**I Development kommer to til:** `Spring <år>` og `Summer <år>`, begge avsluttet, begge med
-oppdiktede svar i seg. De ligger i `SeedData.SeedDemoPeriodsAsync` og ikke i `SeedRoundsAsync`
-nettopp fordi de er demodata — uten dem er «over time» en tom side, både for spiller og lag.
-At de overlever oppryddingen over, er fordi de har svar i seg.
+**Ingen demoperioder og ingen oppdiktede svar.** `Spring <år>` og `Summer <år>` med oppdiktede svar
+i fantes i Development til oktober 2026. Svarene slettes ved oppstart
+(`SeedData.RemoveMadeUpDataAsync`), og periodene går med oppryddingen over når de er tomme. «Over
+time» er tom til spillerne har svart i mer enn én periode.
 
 En periode kan stenges fra admin-siden. Svar som allerede er gitt, beholdes; perioden slutter
 bare å ta imot nye.
@@ -380,8 +380,8 @@ at et nytt svar er en retting og ikke en ny mening. Refleksjonen ligger i sin eg
   klientbibliotek.
 - **`InMemorySurveySubmissionStore`** — bare når `FiveC:Store` er satt til `"InMemory"`.
   Svarene ligger i minnet og er borte når prosessen stopper, og det er det som gjør den
-  nyttig til en demo og ubrukelig til alt annet. I Development seeder den seg selv med
-  oppdiktede innsendinger, så treneroversikten har noe å tegne.
+  nyttig til en demo og ubrukelig til alt annet. Den starter tom: spillerne er ekte, og et svar
+  ingen har gitt, skal ikke vises om dem.
 
 En tom `Url` eller `ApiKey` betyr derfor databasen, ikke minnet.
 
@@ -724,8 +724,7 @@ Navn og posisjon, fordi det er det som står i tabellen.
   `IPlayerAccessLog.RecordAsync`.
 - **`CoachTeam` er fortsatt i modellen, men gir eller begrenser ingenting lenger.** Tabellen,
   entiteten og de seedede radene er urørt — å fjerne dem er en skjemamigrasjon på en delt
-  database, og ingen har bedt om det. Den eneste som fortsatt leser den, er seedingen av
-  demodata i utvikling, som bruker den til å velge en plausibel trener. Skal den ikke
+  database, og ingen har bedt om det. Ingenting leser den lenger. Skal den ikke
   tilbake, bør den fjernes bevisst, i en egen endring.
 - **`/Survey` lister hver spiller i klubben for en trener**, og derfor har den siden filtre:
   periode, lag, rolle, status og navn. Blir den ubrukelig igjen ved noen hundre spillere, er

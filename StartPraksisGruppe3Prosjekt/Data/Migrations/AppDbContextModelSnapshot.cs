@@ -747,6 +747,10 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Property<bool?>("ExternalNeeded")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("ExternalNeededNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("FirstPosition")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -762,9 +766,17 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Property<bool?>("PathwayBlocked")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PathwayBlockedNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<decimal?>("PersonalReadiness")
                         .HasPrecision(3, 1)
                         .HasColumnType("numeric(3,1)");
+
+                    b.Property<string>("PersonalReadinessNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("PlayerId")
                         .HasColumnType("integer");
@@ -797,6 +809,10 @@ namespace StartPraksisGruppe3Prosjekt.Data.Migrations
                     b.Property<string>("SuccessionRisk")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("SuccessionRiskNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("SuperStrengths")
                         .HasMaxLength(500)

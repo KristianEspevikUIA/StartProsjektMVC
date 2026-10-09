@@ -108,6 +108,11 @@
                        name="@nameof(Model.PersonalReadiness)" value="@Model.PersonalReadiness"
                        min="@settings.Scale.Min" max="@settings.Scale.Max" step="0.5" />
                 @Html.ValidationMessage(nameof(Model.PersonalReadiness), new { @class = "sc-field-error" })
+                <div class="sc-form-field sc-mt">
+                    <label class="sc-label" asp-for="PersonalReadinessNote"></label>
+                    <input class="sc-input" asp-for="PersonalReadinessNote" maxlength="@SuccessionRules.TextLimit" />
+                    <span class="sc-field-error" asp-validation-for="PersonalReadinessNote"></span>
+                </div>
             </div>
         </fieldset>
 
@@ -206,6 +211,11 @@
                         </div>
                     }
                 </div>
+                <div class="sc-form-field sc-mt">
+                    <label class="sc-label" asp-for="PathwayBlockedNote"></label>
+                    <input class="sc-input" asp-for="PathwayBlockedNote" maxlength="@SuccessionRules.TextLimit" />
+                    <span class="sc-field-error" asp-validation-for="PathwayBlockedNote"></span>
+                </div>
             </div>
 
             <div class="sc-form-field sc-mt">
@@ -232,6 +242,11 @@
                     </div>
                 </div>
                 @Html.ValidationMessage(nameof(Model.SuccessionRisk), new { @class = "sc-field-error" })
+                <div class="sc-form-field sc-mt">
+                    <label class="sc-label" asp-for="SuccessionRiskNote"></label>
+                    <input class="sc-input" asp-for="SuccessionRiskNote" maxlength="@SuccessionRules.TextLimit" />
+                    <span class="sc-field-error" asp-validation-for="SuccessionRiskNote"></span>
+                </div>
             </div>
 
             <div class="sc-question" role="radiogroup" aria-labelledby="external-label">
@@ -246,6 +261,11 @@
                             <label for="@id">@label</label>
                         </div>
                     }
+                </div>
+                <div class="sc-form-field sc-mt">
+                    <label class="sc-label" asp-for="ExternalNeededNote"></label>
+                    <input class="sc-input" asp-for="ExternalNeededNote" maxlength="@SuccessionRules.TextLimit" />
+                    <span class="sc-field-error" asp-validation-for="ExternalNeededNote"></span>
                 </div>
             </div>
         </fieldset>

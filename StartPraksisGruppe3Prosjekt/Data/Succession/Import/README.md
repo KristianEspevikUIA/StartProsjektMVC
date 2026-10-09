@@ -21,9 +21,9 @@ python3 scripts/succession/import_workbooks.py --table
 dotnet run --project StartPraksisGruppe3Prosjekt
 ```
 
-Skriptet tar bare de strukturerte feltene, ikke fritekst. Rader det ikke kan matche trygt, blir
-ikke med, men står i `report.md` med grunn og kandidater. Avgjør dem i `decisions.json` og kjør
-skriptet på nytt:
+Skriptet tar med alt trenerne skrev, også friteksten, som blant annet har helseopplysninger om
+mindreårige; rapporten gjentar aldri tekst. Rader det ikke kan matche trygt, blir ikke med, men
+står i `report.md` med grunn og kandidater. Avgjør dem i `decisions.json` og kjør skriptet på nytt:
 
 ```json
 { "matches": { "Etternavn, Fornavn": "Navnet slik klubben skriver det", "Etternavn, Annen": null } }

@@ -22,8 +22,10 @@ builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
 // Database: Postgres i Supabase. Strengen står i appsettings.json uten passord; passordet
 // ligger i user-secrets. Mangler det, stopper appen med en forklaring lenger ned.
 // ---------------------------------------------------------------------------
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? string.Empty;
+var connectionString = DatabaseConnection.Resolve(
+    builder.Configuration.GetConnectionString("DefaultConnection") ?? string.Empty,
+    out var connectionProblem,
+    out var connectionNotice);
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -60,7 +62,8 @@ builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 // Utenfor utvikling er kravet https, uten unntak. I utvikling følger cookiene
 // forespørselen: antiforgery-systemet kaster en exception hvis det er satt til
 // Always og forespørselen kommer over http, og launchSettings har fortsatt en
-// http-profil. Dev-databasen inneholder bare oppdiktede data.
+// http-profil. NB: dev-databasen har hatt ekte spillerdata siden oktober 2026 -- tro ikke at
+// http i utvikling bare viser oppdiktede data lenger. Bruk https-profilen.
 // ---------------------------------------------------------------------------
 var cookieSecurePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
@@ -338,6 +341,21 @@ app.MapRazorPages();
 // Sjekken ligger etter builder.Build() med vilje: `dotnet ef` stopper appen der,
 // så migrasjoner kan fortsatt genereres på en maskin uten passordet.
 // ---------------------------------------------------------------------------
+// Sertifikatet og plassholderne fra README-en: en sti som ikke finnes, gir ellers bare
+// «Exception while performing SSL handshake» med DirectoryNotFoundException langt nede.
+if (connectionNotice is not null)
+{
+    app.Logger.LogWarning("{Notice}", connectionNotice);
+}
+
+if (connectionProblem is not null)
+{
+    app.Logger.LogCritical("{Problem}", connectionProblem);
+
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection kan ikke brukes som den står. Se meldingen over.");
+}
+
 if (string.IsNullOrEmpty(new NpgsqlConnectionStringBuilder(connectionString).Password))
 {
     app.Logger.LogCritical(
@@ -371,7 +389,7 @@ if (!app.Environment.IsDevelopment() && allowedHosts is null or "" or "*")
         allowedHosts ?? "(ikke satt)");
 }
 
-// Migrering og oppdiktede demodata. Kjører bare i utvikling — se SeedData.
+// Migrering, innlogging og klubbens egne data. Kjører bare i utvikling — se SeedData.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();

@@ -86,6 +86,16 @@ public class SuccessionAssessment
     [Display(Name = "Personal readiness")]
     public decimal? PersonalReadiness { get; set; }
 
+    /// <summary>
+    /// What the coach wrote in the readiness column instead of a number. This and the three other
+    /// ...Note columns hold what the workbook's number, list and yes/no columns were used for in
+    /// practice: a name, a reason, a sentence. The number or list value stays where it is; the
+    /// words are kept next to it, so nothing a coach wrote is lost.
+    /// </summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Personal readiness, in words")]
+    public string? PersonalReadinessNote { get; set; }
+
     [StringLength(SuccessionRules.ProjectionLimit)]
     [Display(Name = "0–6 month projection")]
     public string? Projection0To6Months { get; set; }
@@ -102,6 +112,11 @@ public class SuccessionAssessment
     [Display(Name = "Pathway blocked")]
     public bool? PathwayBlocked { get; set; }
 
+    /// <summary>By whom or by what, as the coach wrote it in the "Pathway blocked?" column.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Pathway blocked, in words")]
+    public string? PathwayBlockedNote { get; set; }
+
     [StringLength(SuccessionRules.TextLimit)]
     [Display(Name = "What now")]
     public string? WhatNow { get; set; }
@@ -111,8 +126,18 @@ public class SuccessionAssessment
     [Display(Name = "Succession risk")]
     public string? SuccessionRisk { get; set; }
 
+    /// <summary>The risk in the coach's words, where the column has a reason rather than a colour.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Succession risk, in words")]
+    public string? SuccessionRiskNote { get; set; }
+
     [Display(Name = "External needed")]
     public bool? ExternalNeeded { get; set; }
+
+    /// <summary>Who or what is needed from outside, as the coach wrote it.</summary>
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "External needed, in words")]
+    public string? ExternalNeededNote { get; set; }
 
     [StringLength(SuccessionRules.TextLimit)]
     [Display(Name = "Key development focus")]

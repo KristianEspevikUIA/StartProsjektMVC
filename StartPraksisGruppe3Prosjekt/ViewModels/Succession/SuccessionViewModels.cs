@@ -422,6 +422,24 @@ public sealed class SuccessionRateViewModel
     [Display(Name = "Notes")]
     public string? Notes { get; set; }
 
+    // The words next to a number, a list or a yes/no -- see SuccessionAssessment.PersonalReadinessNote.
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Readiness, in words")]
+    public string? PersonalReadinessNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Blocked by whom or what")]
+    public string? PathwayBlockedNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "The risk, in words")]
+    public string? SuccessionRiskNote { get; set; }
+
+    [StringLength(SuccessionRules.TextLimit)]
+    [Display(Name = "Who or what is needed")]
+    public string? ExternalNeededNote { get; set; }
+
     /// <summary>The form, filled in from an assessment already saved.</summary>
     public void CopyFrom(SuccessionAssessment assessment)
     {
@@ -442,6 +460,10 @@ public sealed class SuccessionRateViewModel
         KeyDevelopmentFocus = assessment.KeyDevelopmentFocus;
         SuperStrengths = assessment.SuperStrengths;
         Notes = assessment.Notes;
+        PersonalReadinessNote = assessment.PersonalReadinessNote;
+        PathwayBlockedNote = assessment.PathwayBlockedNote;
+        SuccessionRiskNote = assessment.SuccessionRiskNote;
+        ExternalNeededNote = assessment.ExternalNeededNote;
     }
 
     /// <summary>What the form says, as an unsaved assessment. Blank text is stored as null, not "".</summary>
@@ -466,7 +488,11 @@ public sealed class SuccessionRateViewModel
         ExternalNeeded = ExternalNeeded,
         KeyDevelopmentFocus = Blank(KeyDevelopmentFocus),
         SuperStrengths = Blank(SuperStrengths),
-        Notes = Blank(Notes)
+        Notes = Blank(Notes),
+        PersonalReadinessNote = Blank(PersonalReadinessNote),
+        PathwayBlockedNote = Blank(PathwayBlockedNote),
+        SuccessionRiskNote = Blank(SuccessionRiskNote),
+        ExternalNeededNote = Blank(ExternalNeededNote)
     };
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
