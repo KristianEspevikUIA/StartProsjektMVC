@@ -23,6 +23,12 @@ public sealed class SuccessionFilterViewModel
     /// <summary>Only assessments made against this level. Null for all of them.</summary>
     public string? RatedAs { get; init; }
 
+    /// <summary>
+    /// Not one assessment in the database, in any cycle: the coaches' workbooks have not been
+    /// imported here. The pages say so, rather than showing an empty pitch with no reason.
+    /// </summary>
+    public bool NothingImported { get; init; }
+
     public bool IsCurrentCycle => Cycle.StartsOn == CurrentCycle.StartsOn;
 
     public string? TeamName => Teams.FirstOrDefault(t => t.Id == TeamId)?.Name;
@@ -35,10 +41,10 @@ public sealed class SuccessionFilterViewModel
 /// across, so a coach who has clicked into G15 on one page is still looking at G15 on the other.
 /// </summary>
 /// <param name="Active">"board" or "eleven".</param>
-public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey)
+public sealed record SuccessionNavViewModel(string Active, int? TeamId, string? CycleKey, bool NothingImported = false)
 {
     public static SuccessionNavViewModel For(string active, SuccessionFilterViewModel filter) =>
-        new(active, filter.TeamId, filter.IsCurrentCycle ? null : filter.Cycle.Key);
+        new(active, filter.TeamId, filter.IsCurrentCycle ? null : filter.Cycle.Key, filter.NothingImported);
 }
 
 /// <summary>/Succession: the workbook, pulled together.</summary>

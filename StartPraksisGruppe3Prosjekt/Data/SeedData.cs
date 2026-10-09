@@ -120,6 +120,13 @@ public static class SeedData
         {
             await SeedSuccessionImport.SeedAsync(db, userManager, successionCatalog, successionImport, logger);
         }
+        else if (!await db.SuccessionAssessments.AnyAsync())
+        {
+            logger.LogWarning(
+                "Succession er tom: {Path} finnes ikke, og basen har ingen vurderinger. Legg trenernes " +
+                "importfil der og start appen på nytt. Se docs/succession-planning.md.",
+                SeedSuccessionImport.PathIn(environment));
+        }
     }
 
     private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)

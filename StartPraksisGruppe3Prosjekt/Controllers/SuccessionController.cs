@@ -728,7 +728,8 @@ public class SuccessionController : Controller
             Cycles = await _planning.GetCyclesAsync(Today, cancellationToken),
             TeamId = team,
             Teams = teams,
-            RatedAs = _catalog.Level(ratedAs)?.Key
+            RatedAs = _catalog.Level(ratedAs)?.Key,
+            NothingImported = !await _db.SuccessionAssessments.AnyAsync(cancellationToken)
         };
     }
 
